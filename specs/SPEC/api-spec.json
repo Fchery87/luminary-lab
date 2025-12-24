@@ -1,0 +1,1679 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Luminary Lab API",
+    "version": "1.0.0",
+    "description": "API for Luminary Lab - AI-powered professional photo retouching",
+    "contact": {
+      "name": "Luminary Lab Engineering",
+      "email": "engineering@luminarylabs.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "API v1"
+    },
+    {
+      "url": "https://api.luminarylabs.com/api/v1",
+      "description": "Production API"
+    }
+  ],
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Authentication and user management"
+    },
+    {
+      "name": "users",
+      "description": "User profile and account management"
+    },
+    {
+      "name": "projects",
+      "description": "Project management and organization"
+    },
+    {
+      "name": "images",
+      "description": "Image upload, processing, and export"
+    },
+    {
+      "name": "presets",
+      "description": "Style preset management"
+    },
+    {
+      "name": "jobs",
+      "description": "AI processing job management"
+    },
+    {
+      "name": "subscriptions",
+      "description": "Subscription and billing management"
+    },
+    {
+      "name": "admin",
+      "description": "Administrative endpoints (internal use)"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Register a new user",
+        "operationId": "registerUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "example": {
+                "email": "user@example.com",
+                "password": "SecurePassword123!",
+                "displayName": "John Photographer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "USER_ALREADY_EXISTS",
+                  "message": "Email is already registered"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Authenticate user",
+        "operationId": "loginUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "user@example.com",
+                "password": "SecurePassword123!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "INVALID_CREDENTIALS",
+                  "message": "Invalid email or password"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Logout user",
+        "operationId": "logoutUser",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Logout successful"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Refresh access token",
+        "operationId": "refreshToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": {
+                  "refreshToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid refresh token"
+          }
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "tags": ["users"],
+        "summary": "Get current user profile",
+        "operationId": "getCurrentUser",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["users"],
+        "summary": "Update user profile",
+        "operationId": "updateUserProfile",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              },
+              "example": {
+                "displayName": "Updated Name"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/users/me/usage": {
+      "get": {
+        "tags": ["users"],
+        "summary": "Get current usage statistics",
+        "operationId": "getUserUsage",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Usage statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageStats"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "List user projects",
+        "operationId": "listProjects",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort field",
+            "schema": {
+              "type": "string",
+              "enum": ["created_at", "updated_at", "name"],
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort order",
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedProjects"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["projects"],
+        "summary": "Create a new project",
+        "operationId": "createProject",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              },
+              "example": {
+                "name": "Client Wedding Shoot"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/projects/{projectId}": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "Get project details",
+        "operationId": "getProject",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectWithImages"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["projects"],
+        "summary": "Update project",
+        "operationId": "updateProject",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRequest"
+              },
+              "example": {
+                "name": "Updated Project Name"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["projects"],
+        "summary": "Delete project",
+        "operationId": "deleteProject",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Project deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/images/upload": {
+      "post": {
+        "tags": ["images"],
+        "summary": "Upload RAW image",
+        "operationId": "uploadImage",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file", "projectId"],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "RAW image file"
+                  },
+                  "projectId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Project ID to attach image to"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "description": "File too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "FILE_TOO_LARGE",
+                  "message": "File exceeds 100MB limit"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/images/{imageId}/thumbnail": {
+      "get": {
+        "tags": ["images"],
+        "summary": "Get image thumbnail",
+        "operationId": "getImageThumbnail",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Thumbnail size",
+            "schema": {
+              "type": "string",
+              "enum": ["small", "medium", "large"],
+              "default": "medium"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thumbnail image",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/presets": {
+      "get": {
+        "tags": ["presets"],
+        "summary": "List available presets",
+        "operationId": "listPresets",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of presets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Preset"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/jobs": {
+      "post": {
+        "tags": ["jobs"],
+        "summary": "Create processing job",
+        "operationId": "createJob",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJobRequest"
+              },
+              "example": {
+                "projectId": "550e8400-e29b-41d4-a716-446655440000",
+                "presetId": "123e4567-e89b-12d3-a456-426614174000",
+                "intensity": 0.75
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Job created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "CONCURRENT_JOBS_LIMIT",
+                  "message": "Maximum 3 concurrent jobs allowed"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/jobs/{jobId}": {
+      "get": {
+        "tags": ["jobs"],
+        "summary": "Get job status",
+        "operationId": "getJob",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/jobs/{jobId}/cancel": {
+      "post": {
+        "tags": ["jobs"],
+        "summary": "Cancel processing job",
+        "operationId": "cancelJob",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Job cannot be cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/images/{imageId}/export": {
+      "post": {
+        "tags": ["images"],
+        "summary": "Export processed image",
+        "operationId": "exportImage",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              },
+              "example": {
+                "format": "jpg",
+                "colorSpace": "srgb",
+                "quality": 95
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Export successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/subscriptions/plans": {
+      "get": {
+        "tags": ["subscriptions"],
+        "summary": "List available subscription plans",
+        "operationId": "listSubscriptionPlans",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of plans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SubscriptionPlan"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/subscriptions/checkout": {
+      "post": {
+        "tags": ["subscriptions"],
+        "summary": "Create checkout session",
+        "operationId": "createCheckoutSession",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              },
+              "example": {
+                "planId": "550e8400-e29b-41d4-a716-446655440000",
+                "billingCycle": "monthly"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/admin/presets": {
+      "post": {
+        "tags": ["admin"],
+        "summary": "Create new preset (admin only)",
+        "operationId": "createPreset",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePresetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Preset created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preset"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/admin/presets/{presetId}": {
+      "put": {
+        "tags": ["admin"],
+        "summary": "Update preset (admin only)",
+        "operationId": "updatePreset",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "presetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePresetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preset updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preset"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["admin"],
+        "summary": "Delete preset (admin only)",
+        "operationId": "deletePreset",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "presetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Preset deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 255
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserProfile"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "Token expiry in seconds"
+          }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "subscriptionPlan": {
+            "$ref": "#/components/schemas/SubscriptionPlan"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      },
+      "UsageStats": {
+        "type": "object",
+        "properties": {
+          "currentMonth": {
+            "type": "integer",
+            "description": "Images processed this month"
+          },
+          "monthlyLimit": {
+            "type": "integer",
+            "description": "Monthly limit based on plan"
+          },
+          "concurrentJobs": {
+            "type": "integer",
+            "description": "Current active jobs"
+          },
+          "concurrentLimit": {
+            "type": "integer",
+            "description": "Concurrent jobs limit"
+          },
+          "resetDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Date when usage resets"
+          }
+        }
+      },
+      "CreateProjectRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "UpdateProjectRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProjectWithImages": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Project"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "originalImage": {
+                "$ref": "#/components/schemas/Image"
+              },
+              "processedImages": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProcessedImage"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PaginatedProjects": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "pages": {
+            "type": "integer"
+          }
+        }
+      },
+      "UploadResponse": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "Image": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "fileFormat": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProcessedImage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "format": {
+            "type": "string"
+          },
+          "colorSpace": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "description": "Temporary download URL"
+          }
+        }
+      },
+      "Preset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": "string",
+            "description": "Before/after preview URL"
+          }
+        }
+      },
+      "CreateJobRequest": {
+        "type": "object",
+        "required": ["projectId", "presetId", "intensity"],
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "presetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "intensity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "preset": {
+            "$ref": "#/components/schemas/Preset"
+          },
+          "intensity": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "processing", "completed", "failed", "cancelled"]
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if failed"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estimatedCompletionTime": {
+            "type": "integer",
+            "description": "Estimated seconds remaining"
+          }
+        }
+      },
+      "ExportRequest": {
+        "type": "object",
+        "required": ["format"],
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": ["jpg", "tiff"]
+          },
+          "colorSpace": {
+            "type": "string",
+            "enum": ["srgb", "adobe_rgb"],
+            "default": "srgb"
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 95
+          },
+          "watermark": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ExportResponse": {
+        "type": "object",
+        "properties": {
+          "downloadUrl": {
+            "type": "string",
+            "description": "Temporary download URL (expires in 1 hour)"
+          },
+          "fileSize": {
+            "type": "integer",
+            "description": "Estimated file size in bytes"
+          },
+          "format": {
+            "type": "string"
+          },
+          "colorSpace": {
+            "type": "string"
+          }
+        }
+      },
+      "SubscriptionPlan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "monthlyImageLimit": {
+            "type": "integer"
+          },
+          "concurrentJobsLimit": {
+            "type": "integer"
+          },
+          "watermarkEnforced": {
+            "type": "boolean"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priceMonthly": {
+            "type": "number",
+            "nullable": true
+          },
+          "priceYearly": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "CheckoutRequest": {
+        "type": "object",
+        "required": ["planId", "billingCycle"],
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": ["monthly", "yearly"]
+          },
+          "successUrl": {
+            "type": "string"
+          },
+          "cancelUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckoutResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "Redirect URL for checkout"
+          }
+        }
+      },
+      "CreatePresetRequest": {
+        "type": "object",
+        "required": ["name", "description", "promptTemplate", "blendingParameters", "thumbnailUrl"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string"
+          },
+          "promptTemplate": {
+            "type": "string"
+          },
+          "blendingParameters": {
+            "type": "object"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "UpdatePresetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string"
+          },
+          "promptTemplate": {
+            "type": "string"
+          },
+          "blendingParameters": {
+            "type": "object"
+          },
+          "thumbnailUrl": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error code"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error details"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "VALIDATION_ERROR",
+              "message": "Invalid input parameters",
+              "details": {
+                "field": "email",
+                "reason": "Invalid email format"
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "UNAUTHORIZED",
+              "message": "Authentication required"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "FORBIDDEN",
+              "message": "Insufficient permissions"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "NOT_FOUND",
+              "message": "Resource not found"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Resource conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "CONFLICT",
+              "message": "Resource already exists"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limit exceeded",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "RATE_LIMIT_EXCEEDED",
+              "message": "Too many requests",
+              "details": {
+                "retryAfter": 60
+              }
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "INTERNAL_ERROR",
+              "message": "An unexpected error occurred"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token authentication"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}
