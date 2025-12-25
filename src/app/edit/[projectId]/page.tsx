@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Eye, Sparkles, ChevronLeft } from 'lucide-react';
+import { Loader2, Eye, Sparkles, ChevronLeft, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -16,7 +16,20 @@ import { CompareSlider } from '@/components/ui/compare-slider';
 import { ExportMenu, type ExportOptions } from '@/components/ui/export-menu';
 import { Header } from '@/components/ui/header';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TextShimmer } from '@/components/ui/text-shimmer';
+
+// Category configuration with icons
+const CATEGORIES = [
+  { id: 'all', label: 'All Styles', description: 'View all presets' },
+  { id: 'portrait', label: 'Portrait & Beauty', description: 'Beauty retouching & portraits' },
+  { id: 'film', label: 'Film Emulation', description: 'Classic film stock looks' },
+  { id: 'cinematic', label: 'Cinematic', description: 'Movie-style color grading' },
+  { id: 'moody', label: 'Moody & Dramatic', description: 'Dark, dramatic looks' },
+  { id: 'creative', label: 'Creative', description: 'Modern artistic effects' },
+  { id: 'b&w', label: 'Black & White', description: 'Monochrome styles' },
+  { id: 'vintage', label: 'Vintage', description: 'Nostalgic looks' },
+  { id: 'ai', label: 'AI Enhanced', description: 'Smart AI-powered edits' },
+  { id: 'specialized', label: 'Specialized', description: 'Food, product, landscape' },
+];
 
 export default function EditPage() {
   const params = useParams();
@@ -25,6 +38,7 @@ export default function EditPage() {
   const queryClient = useQueryClient();
   
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [intensity, setIntensity] = useState(70);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -47,39 +61,21 @@ export default function EditPage() {
     }
   });
 
-  // Fetch presets (Mock for now, or real API if implemented)
+  // Fetch presets from API
   const { data: presets = [], isLoading: presetsLoading } = useQuery({
     queryKey: ['presets'],
     queryFn: async () => {
-      // Return mock presets directly for now to ensure UI works
-      return [
-        {
-            id: 'p1',
-            name: 'Cinematic Teal',
-            description: 'Classic teal and orange look for dramatic impact.',
-            exampleImageUrl: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=600&auto=format&fit=crop',
-        },
-        {
-            id: 'p2',
-            name: 'Monochrome Noir',
-            description: 'High contrast black and white with subtle grain.',
-            exampleImageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=600&auto=format&fit=crop',
-        },
-        {
-            id: 'p3',
-            name: 'Vivid Pop',
-            description: 'Enhanced saturation and vibrance for social media.',
-            exampleImageUrl: 'https://images.unsplash.com/photo-1504198458649-3128b932f49e?q=80&w=600&auto=format&fit=crop',
-        },
-        {
-            id: 'p4',
-            name: 'Vintage Film',
-            description: 'Faded blacks and warm highlights mimicking Kodak Gold.',
-            exampleImageUrl: 'https://images.unsplash.com/photo-1517502166878-35c93c008235?q=80&w=600&auto=format&fit=crop',
-        },
-      ] as Preset[];
+      const res = await fetch('/api/presets');
+      if (!res.ok) throw new Error('Failed to fetch presets');
+      const data = await res.json();
+      return data.presets || data as Preset[];
     },
   });
+
+  // Filter presets by category
+  const filteredPresets = presets.filter((preset: any) => 
+    selectedCategory === 'all' || preset.category === selectedCategory
+  );
 
   // Start processing mutation
   const startProcessingMutation = useMutation({
@@ -263,34 +259,85 @@ export default function EditPage() {
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6 flex-1 overflow-y-auto">
                     
-                    {/* Presets */}
+                    {/* Category Tabs */}
                     <div className="space-y-3">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            1. Select Style
-                        </label>
-                        <div className="grid grid-cols-1 gap-3">
-                            {presets.map(preset => (
-                                <div 
-                                    key={preset.id}
-                                    onClick={() => setSelectedPreset(preset)}
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-3 w-3 text-muted-foreground" />
+                            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                Filter Styles
+                            </label>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {CATEGORIES.map(category => (
+                                <button
+                                    key={category.id}
+                                    onClick={() => setSelectedCategory(category.id)}
                                     className={`
-                                        group relative cursor-pointer overflow-hidden rounded-sm border transition-all duration-200
-                                        ${selectedPreset?.id === preset.id 
-                                            ? 'border-primary ring-1 ring-primary/50 shadow-[0_0_15px_rgba(48,227,202,0.15)]' 
-                                            : 'border-border hover:border-primary/50'
+                                        px-2 py-1 text-xs font-medium rounded-sm transition-all duration-200
+                                        ${selectedCategory === category.id
+                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                            : 'bg-secondary/50 text-secondary-foreground hover:bg-secondary/70'
                                         }
                                     `}
+                                    title={category.description}
                                 >
-                                    <div className="flex items-center gap-3 p-2 bg-card">
-                                        <div className="relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0">
-                                            <Image src={preset.exampleImageUrl} alt={preset.name} fill className="object-cover" />
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">{preset.name}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                    {category.label}
+                                </button>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* Presets */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                {selectedCategory === 'all' ? 'All Styles' : CATEGORIES.find(c => c.id === selectedCategory)?.label}
+                            </label>
+                            <span className="text-xs text-muted-foreground">
+                                {filteredPresets.length} styles
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3">
+                            {filteredPresets.length > 0 ? (
+                                filteredPresets.map((preset: any) => (
+                                    <div 
+                                        key={preset.id}
+                                        onClick={() => setSelectedPreset(preset)}
+                                        className={`
+                                            group relative cursor-pointer overflow-hidden rounded-sm border transition-all duration-200
+                                            ${selectedPreset?.id === preset.id 
+                                                ? 'border-primary ring-1 ring-primary/50 shadow-[0_0_15px_rgba(48,227,202,0.15)]' 
+                                                : 'border-border hover:border-primary/50'
+                                            }
+                                        `}
+                                    >
+                                        <div className="flex items-center gap-3 p-2 bg-card">
+                                            <div className="relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0">
+                                                <Image src={preset.exampleImageUrl} alt={preset.name} fill className="object-cover" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">{preset.name}</p>
+                                                {preset.description && (
+                                                    <p className="text-xs text-muted-foreground truncate">{preset.description}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {/* Category badge */}
+                                        {preset.category && (
+                                            <div className="absolute top-1 right-1">
+                                                <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 bg-background/90 rounded-sm border border-border/50 text-muted-foreground">
+                                                    {preset.category}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                    <p className="text-sm">No presets found in this category</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 

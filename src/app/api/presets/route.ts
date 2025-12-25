@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
         name: preset.name,
         description: preset.description,
         exampleImageUrl: preset.exampleImageUrl,
+        category: preset.category,
         // Don't expose internal prompt structure
         blendingParams: preset.blendingParams,
       })),

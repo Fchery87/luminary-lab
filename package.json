@@ -11,6 +11,8 @@
     "db:push": "bunx drizzle-kit push",
     "db:studio": "bunx drizzle-kit studio",
     "db:migrate": "bunx drizzle-kit migrate",
+    "db:seed": "bun --bun src/db/seed.ts",
+    "db:migrate-seed": "bunx drizzle-kit migrate && bun --bun src/db/seed.ts",
     "test": "bun test",
     "test:e2e": "bunx playwright test"
   },

@@ -117,6 +117,7 @@ export const images = pgTable("images", {
 export const systemStyles = pgTable("system_styles", {
   id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
   name: text("name").notNull(),
+  category: text("category"), // Category for organizing presets: portrait, film, cinematic, moody, creative, b&w, vintage, ai, specialized
   description: text("description"),
   aiPrompt: text("ai_prompt").notNull(),
   blendingParams: jsonb("blending_params"),

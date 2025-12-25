@@ -1,0 +1,1 @@
+ALTER TABLE "system_styles" ADD COLUMN "category" text;
