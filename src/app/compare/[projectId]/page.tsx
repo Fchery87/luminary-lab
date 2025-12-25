@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -16,10 +16,13 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ProjectData {
   id: string;
@@ -36,12 +39,26 @@ interface ProjectData {
 export default function ComparePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
-  
+  const isOnboarding = searchParams.get('onboarding') === 'true';
+
   const [zoomLevel, setZoomLevel] = useState(100);
   const [dividerPosition, setDividerPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [showAhaMoment, setShowAhaMoment] = useState(false);
+
+  // Show "Aha" moment celebration on mount if onboarding
+  useEffect(() => {
+    if (isOnboarding) {
+      // Delay the celebration slightly for better UX
+      const timer = setTimeout(() => {
+        setShowAhaMoment(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isOnboarding]);
   
   // Mock project data - would fetch from API
   const { data: project, isLoading } = useQuery({
@@ -397,6 +414,88 @@ export default function ComparePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* "Aha" Moment Celebration */}
+        <AnimatePresence>
+          {showAhaMoment && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -10 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className="relative"
+            >
+              <Card className="mb-6 border-2 border-[hsl(var(--gold))] bg-gradient-to-br from-[hsl(var(--gold))]/10 to-[hsl(var(--gold-light))]/5 overflow-hidden">
+                {/* Animated sparkles */}
+                <div className="absolute top-0 right-0 w-32 h-32 opacity-30">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                  >
+                    <Sparkles className="w-full h-full text-[hsl(var(--gold))]" />
+                  </motion.div>
+                </div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 opacity-20">
+                  <motion.div
+                    animate={{ rotate: -360 }}
+                    transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+                  >
+                    <Sparkles className="w-full h-full text-[hsl(var(--gold-light))]" />
+                  </motion.div>
+                </div>
+
+                <CardContent className="p-6 relative z-10">
+                  <div className="flex items-start gap-4">
+                    {/* Close button */}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setShowAhaMoment(false)}
+                      className="flex-shrink-0 p-1.5 rounded-full hover:bg-[hsl(var(--gold))]/20 transition-colors text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))]"
+                    >
+                      <X className="w-4 h-4" />
+                    </motion.button>
+
+                    <div className="flex-1">
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.2 }}
+                      >
+                        <h3 className="font-display text-2xl font-bold text-[hsl(var(--gold))] mb-2">
+                          🎉 Your First Aha Moment!
+                        </h3>
+                        <p className="font-body text-[hsl(var(--foreground))] mb-4 leading-relaxed">
+                          Compare the <strong>Original</strong> and <strong>Processed</strong> images above to see the magic of AI photo enhancement. Drag the divider to reveal the stunning improvements!
+                        </p>
+
+                        <div className="flex flex-wrap gap-3">
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] px-4 py-2 rounded-sm text-sm font-semibold font-display uppercase tracking-wider"
+                            onClick={() => setShowAhaMoment(false)}
+                          >
+                            Got It, Let's Explore!
+                          </motion.div>
+                          <Link href="/dashboard">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="border border-[hsl(var(--gold))] text-[hsl(var(--gold))] px-4 py-2 rounded-sm text-sm font-semibold font-display uppercase tracking-wider hover:bg-[hsl(var(--gold))]/10"
+                            >
+                              Back to Dashboard
+                            </motion.button>
+                          </Link>
+                        </div>
+                      </motion.div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Export Options */}
         <Card>

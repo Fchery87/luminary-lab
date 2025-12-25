@@ -4,6 +4,7 @@ import { projects, images } from '@/db/schema';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { eq, and } from 'drizzle-orm';
+import { generateDownloadUrl } from '@/lib/s3';
 
 // Helper to validate session and getting DB
 async function getContext(req: Request, params: { id: string }) {
@@ -47,14 +48,18 @@ export async function GET(
     .from(images)
     .where(eq(images.projectId, project.id));
 
+  // Generate signed URLs for images from S3
+  const imagesWithUrls = await Promise.all(
+    projectImages.map(async (img) => ({
+      ...img,
+      url: await generateDownloadUrl(img.storageKey, 3600), // 1 hour expiry
+    }))
+  );
+
   // Construct response object
   const response = {
     ...project,
-    images: projectImages.map((img) => ({
-      ...img,
-      // Construct valid URLs (mock for now if local, or presigned if real S3)
-      url: `/api/images/${img.storageKey}`,
-    })),
+    images: imagesWithUrls,
   };
 
   return NextResponse.json(response);

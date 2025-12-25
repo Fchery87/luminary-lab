@@ -15,6 +15,7 @@ import { IntensitySlider } from '@/components/ui/intensity-slider';
 import { CompareSlider } from '@/components/ui/compare-slider';
 import { ExportMenu, type ExportOptions } from '@/components/ui/export-menu';
 import { Header } from '@/components/ui/header';
+import { WhatsNextPanel } from '@/components/ui/whats-next-panel';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Category configuration with icons
@@ -31,6 +32,20 @@ const CATEGORIES = [
   { id: 'specialized', label: 'Specialized', description: 'Food, product, landscape' },
 ];
 
+// Popular preset names for smart defaults
+const POPULAR_PRESET_NAMES = [
+  'Cinematic Teal & Orange',
+  'Clean Commercial Beauty',
+  'Soft Editorial',
+  'Kodak Portra 400',
+];
+
+// Local storage keys
+const STORAGE_KEYS = {
+  LAST_USED_PRESET: 'luminary_last_used_preset',
+  DISMISSED_WHATS_NEXT: 'luminary_dismissed_whats_next',
+};
+
 export default function EditPage() {
   const params = useParams();
   const router = useRouter();
@@ -42,12 +57,31 @@ export default function EditPage() {
   const [intensity, setIntensity] = useState(70);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showWhatsNext, setShowWhatsNext] = useState(true);
+  const [recommendedPresetId, setRecommendedPresetId] = useState<string | null>(null);
+  const [popularPresets, setPopularPresets] = useState<Preset[]>([]);
+  
+  // Fetch user preferences
+  const { data: userPreferences } = useQuery({
+    queryKey: ['userPreferences'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/user/preferences', { credentials: 'include' });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.preferences;
+      } catch (error) {
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
   
   // Fetch Project Data
   const { data: project, isLoading: projectLoading, error: projectError } = useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}`);
+      const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
       if (!res.ok) {
           if (res.status === 404) throw new Error('Project not found');
           throw new Error('Failed to fetch project');
@@ -65,12 +99,104 @@ export default function EditPage() {
   const { data: presets = [], isLoading: presetsLoading } = useQuery({
     queryKey: ['presets'],
     queryFn: async () => {
-      const res = await fetch('/api/presets');
+      const res = await fetch('/api/presets', { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch presets');
       const data = await res.json();
       return data.presets || data as Preset[];
     },
   });
+
+  // Save user preferences mutation
+  const savePreferencesMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch('/api/user/preferences', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to save preferences');
+      return res.json();
+    },
+  });
+
+  // Initialize smart defaults when presets are loaded
+  useEffect(() => {
+    if (presets.length === 0) return;
+
+    // Find popular presets
+    const popular = presets.filter((preset: Preset) =>
+      POPULAR_PRESET_NAMES.includes(preset.name)
+    );
+    setPopularPresets(popular);
+
+    // Check local storage for last used preset
+    const lastUsedPresetId = localStorage.getItem(STORAGE_KEYS.LAST_USED_PRESET);
+    const dismissedWhatsNext = localStorage.getItem(STORAGE_KEYS.DISMISSED_WHATS_NEXT);
+
+    // Set what's next visibility
+    setShowWhatsNext(dismissedWhatsNext !== 'true');
+
+    // Determine recommended preset
+    let recommended: Preset | null = null;
+
+    // Priority 1: Last used preset from localStorage
+    if (lastUsedPresetId) {
+      recommended = presets.find((p: Preset) => p.id === lastUsedPresetId) || null;
+    }
+
+    // Priority 2: Last used preset from user preferences
+    if (!recommended && userPreferences?.lastUsedPreset) {
+      recommended = presets.find((p: Preset) => p.id === userPreferences.lastUsedPreset.id) || null;
+    }
+
+    // Priority 3: Popular preset (Cinematic Teal & Orange)
+    if (!recommended) {
+      recommended = presets.find((p: Preset) => p.name === 'Cinematic Teal & Orange') || popular[0] || null;
+    }
+
+    if (recommended) {
+      setRecommendedPresetId(recommended.id);
+      setSelectedPreset(recommended);
+      // Also set preferred intensity
+      if (userPreferences?.preferredIntensity) {
+        setIntensity(Math.round(userPreferences.preferredIntensity * 100));
+      }
+    }
+  }, [presets, userPreferences]);
+
+  // Handle preset selection
+  const handlePresetSelect = (preset: Preset) => {
+    setSelectedPreset(preset);
+    
+    // Save to localStorage
+    localStorage.setItem(STORAGE_KEYS.LAST_USED_PRESET, preset.id);
+    
+    // Save to user preferences (debounced in real app, here immediate)
+    savePreferencesMutation.mutate({
+      lastUsedPresetId: preset.id,
+      preferredIntensity: intensity / 100,
+    });
+  };
+
+  // Handle intensity change
+  const handleIntensityChange = (value: number) => {
+    setIntensity(value);
+    
+    // Save to user preferences
+    savePreferencesMutation.mutate({
+      preferredIntensity: value / 100,
+    });
+  };
+
+  // Handle what's next dismiss
+  const handleDismissWhatsNext = () => {
+    setShowWhatsNext(false);
+    localStorage.setItem(STORAGE_KEYS.DISMISSED_WHATS_NEXT, 'true');
+    savePreferencesMutation.mutate({
+      dismissedWhatNext: true,
+    });
+  };
 
   // Filter presets by category
   const filteredPresets = presets.filter((preset: any) => 
@@ -120,6 +246,7 @@ export default function EditPage() {
       try {
           const res = await fetch(`/api/projects/${projectId}/export`, {
               method: 'POST',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(options)
           });
@@ -136,6 +263,23 @@ export default function EditPage() {
       } finally {
           setIsExporting(false);
       }
+  };
+
+  // Handle what's next actions
+  const handleWhatsNextAction = (action: string) => {
+    switch (action) {
+      case 'adjustSettings':
+        // Scroll to intensity slider
+        document.getElementById('intensity-slider')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+      case 'download':
+        // Trigger export dialog
+        document.getElementById('export-button')?.click();
+        break;
+      case 'share':
+        toast.success('Share functionality coming soon!');
+        break;
+    }
   };
 
   if (projectLoading || presetsLoading) {
@@ -250,6 +394,23 @@ export default function EditPage() {
           {/* Right Sidebar - Tools */}
           <div className="lg:col-span-3 flex flex-col gap-6 h-full overflow-y-auto pr-1">
             
+            {/* What's Next Panel */}
+            <AnimatePresence>
+              {showWhatsNext && (
+                <WhatsNextPanel
+                  presets={presets}
+                  popularPresets={popularPresets}
+                  recommendedPresetId={recommendedPresetId}
+                  selectedPresetId={selectedPreset?.id || null}
+                  onApplyPreset={handlePresetSelect}
+                  onAdjustSettings={() => handleWhatsNextAction('adjustSettings')}
+                  onDownload={() => handleWhatsNextAction('download')}
+                  onShare={() => handleWhatsNextAction('share')}
+                  className="shadow-lg"
+                />
+              )}
+            </AnimatePresence>
+
             <Card className="border-border shadow-lg flex-1 flex flex-col">
                 <CardHeader className="pb-4 border-b border-border/50">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -299,39 +460,61 @@ export default function EditPage() {
                         </div>
                         <div className="grid grid-cols-1 gap-3">
                             {filteredPresets.length > 0 ? (
-                                filteredPresets.map((preset: any) => (
-                                    <div 
-                                        key={preset.id}
-                                        onClick={() => setSelectedPreset(preset)}
-                                        className={`
-                                            group relative cursor-pointer overflow-hidden rounded-sm border transition-all duration-200
-                                            ${selectedPreset?.id === preset.id 
-                                                ? 'border-primary ring-1 ring-primary/50 shadow-[0_0_15px_rgba(48,227,202,0.15)]' 
-                                                : 'border-border hover:border-primary/50'
-                                            }
-                                        `}
-                                    >
-                                        <div className="flex items-center gap-3 p-2 bg-card">
-                                            <div className="relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0">
-                                                <Image src={preset.exampleImageUrl} alt={preset.name} fill className="object-cover" />
+                                filteredPresets.map((preset: any) => {
+                                    const isRecommended = preset.id === recommendedPresetId;
+                                    const isSelected = selectedPreset?.id === preset.id;
+                                    
+                                    return (
+                                        <div 
+                                            key={preset.id}
+                                            onClick={() => handlePresetSelect(preset)}
+                                            className={`
+                                                group relative cursor-pointer overflow-hidden rounded-sm border transition-all duration-200
+                                                ${isSelected
+                                                    ? 'border-primary ring-1 ring-primary/50 shadow-[0_0_15px_rgba(212,160,86,0.2)]' 
+                                                    : isRecommended
+                                                    ? 'border-amber-500/60 hover:border-primary/50 hover:shadow-[0_0_12px_rgba(212,160,86,0.15)]'
+                                                    : 'border-border hover:border-primary/50'
+                                                }
+                                            `}
+                                        >
+                                            <div className="flex items-center gap-3 p-2 bg-card">
+                                                <div className="relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0">
+                                                    <Image src={preset.exampleImageUrl} alt={preset.name} fill className="object-cover" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">{preset.name}</p>
+                                                        {isRecommended && !isSelected && (
+                                                            <div className="flex-shrink-0">
+                                                                <Sparkles className="h-3 w-3 text-amber-500" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {preset.description && (
+                                                        <p className="text-xs text-muted-foreground truncate">{preset.description}</p>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">{preset.name}</p>
-                                                {preset.description && (
-                                                    <p className="text-xs text-muted-foreground truncate">{preset.description}</p>
-                                                )}
-                                            </div>
+                                            {/* Category badge */}
+                                            {preset.category && (
+                                                <div className="absolute top-1 right-1">
+                                                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 bg-background/90 rounded-sm border border-border/50 text-muted-foreground">
+                                                        {preset.category}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {/* Recommended badge (gold) */}
+                                            {isRecommended && !isSelected && (
+                                                <div className="absolute bottom-1 left-1">
+                                                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-amber-500/90 text-white rounded-sm border border-amber-400/30 shadow-sm">
+                                                        Recommended
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
-                                        {/* Category badge */}
-                                        {preset.category && (
-                                            <div className="absolute top-1 right-1">
-                                                <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 bg-background/90 rounded-sm border border-border/50 text-muted-foreground">
-                                                    {preset.category}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))
+                                    );
+                                })
                             ) : (
                                 <div className="text-center py-8 text-muted-foreground">
                                     <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -342,14 +525,14 @@ export default function EditPage() {
                     </div>
 
                     {/* Controls */}
-                     <div className="space-y-4 pt-4 border-t border-border/50">
+                     <div id="intensity-slider" className="space-y-4 pt-4 border-t border-border/50">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            2. Fine Tune
+                            Fine Tune
                         </label>
                         
                          <IntensitySlider
                           value={intensity}
-                          onValueChange={setIntensity}
+                          onValueChange={handleIntensityChange}
                           disabled={!selectedPreset}
                         />
                      </div>

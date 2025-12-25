@@ -13,6 +13,7 @@ export interface Preset {
   name: string;
   description: string;
   exampleImageUrl: string;
+  category?: string;
   blendingParams?: Record<string, any>;
 }
 

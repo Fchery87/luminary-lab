@@ -1,357 +1,413 @@
-import { createWriteStream, createReadStream } from 'fs';
-import { join } from 'path';
-import { pipeline } from 'stream/promises';
+/**
+ * Server-side thumbnail generation utility using Sharp
+ * Supports various image formats including RAW files
+ */
+
 import sharp from 'sharp';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { generateUploadUrl, generateFileKey } from '@/lib/s3';
+import { db, images } from '@/db';
+import { v7 as uuidv7 } from 'uuid';
+import { generateDownloadUrl, uploadFile } from './s3';
+import { detectMimeType, isImageMimeType } from './mime-types';
 
-export interface ThumbnailOptions {
-  quality?: number;
-  format?: 'jpeg' | 'png' | 'webp';
-  width?: number;
-  height?: number;
-  fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
-  progressive?: boolean;
+/**
+ * Thumbnail generation configuration
+ */
+export interface ThumbnailConfig {
+  maxWidth: number;
+  maxHeight: number;
+  quality: number;
+  format: 'jpeg' | 'png' | 'webp';
+  fit: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
 }
 
-export interface ThumbnailSize {
-  name: string;
+/**
+ * Default thumbnail configurations
+ */
+export const DEFAULT_THUMBNAIL_CONFIGS: Record<string, ThumbnailConfig> = {
+  small: {
+    maxWidth: 200,
+    maxHeight: 200,
+    quality: 85,
+    format: 'jpeg',
+    fit: 'cover',
+  },
+  medium: {
+    maxWidth: 400,
+    maxHeight: 300,
+    quality: 90,
+    format: 'jpeg',
+    fit: 'cover',
+  },
+  large: {
+    maxWidth: 800,
+    maxHeight: 600,
+    quality: 95,
+    format: 'webp',
+    fit: 'inside',
+  },
+};
+
+/**
+ * Thumbnail generation result
+ */
+export interface ThumbnailResult {
+  id: string;
+  projectId: string;
+  storageKey: string;
+  filename: string;
+  sizeBytes: number;
+  mimeType: string;
   width: number;
   height: number;
-  quality: number;
-  options?: Partial<ThumbnailOptions>;
 }
 
-// Predefined thumbnail sizes for different use cases
-export const THUMBNAIL_SIZES: ThumbnailSize[] = [
-  {
-    name: 'small',
-    width: 150,
-    height: 150,
-    quality: 80,
-    options: { fit: 'cover', format: 'webp' }
-  },
-  {
-    name: 'medium',
-    width: 400,
-    height: 300,
-    quality: 85,
-    options: { fit: 'cover', format: 'jpeg', progressive: true }
-  },
-  {
-    name: 'large',
-    width: 800,
-    height: 600,
-    quality: 90,
-    options: { fit: 'cover', format: 'jpeg', progressive: true }
-  },
-  {
-    name: 'preview',
-    width: 1200,
-    height: 1200,
-    quality: 92,
-    options: { fit: 'inside', format: 'jpeg', progressive: true }
+/**
+ * Get bucket name based on configured storage provider
+ */
+function getBucketName(): string {
+  if (process.env.CLOUDFLARE_R2_ACCOUNT_ID) {
+    return process.env.CLOUDFLARE_R2_BUCKET_NAME!;
   }
-];
+  return process.env.AWS_S3_BUCKET!;
+}
 
-export class ThumbnailGenerator {
-  private s3Client: S3Client;
-  private tempDir: string;
+/**
+ * Get S3 client - supports both AWS S3 and Cloudflare R2
+ */
+function getS3Client(): S3Client {
+  // Check which provider to use (R2 or AWS S3)
+  const useR2 = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
 
-  constructor() {
-    this.s3Client = new S3Client({
-      region: process.env.AWS_REGION,
+  if (useR2) {
+    // Cloudflare R2 Configuration
+    const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
+    const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+    const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+      throw new Error('Cloudflare R2 environment variables are not set. Please set: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME');
+    }
+
+    return new S3Client({
+      region: 'auto', // R2 always uses 'auto' for region
+      endpoint: process.env.CLOUDFLARE_R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId,
+        secretAccessKey,
       },
     });
-    this.tempDir = join(process.cwd(), 'temp', 'thumbnails');
-  }
+  } else {
+    // AWS S3 Configuration (legacy)
+    const region = process.env.AWS_REGION;
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-  async generateThumbnails(
-    originalKey: string,
-    userId: string,
-    projectId: string,
-    filename: string,
-    sizes: ThumbnailSize[] = THUMBNAIL_SIZES
-  ): Promise<Record<string, { url: string; key: string; size: number }>> {
-    try {
-      // Download original file from S3
-      const tempFilePath = await this.downloadFromS3(originalKey);
-      
-      // Generate thumbnails for each size
-      const results: Record<string, { url: string; key: string; size: number }> = {};
-      
-      for (const size of sizes) {
-        const thumbnailResult = await this.generateSingleThumbnail(
-          tempFilePath,
-          size,
-          userId,
-          projectId,
-          filename
-        );
-        
-        results[size.name] = thumbnailResult;
-      }
-      
-      // Clean up temporary file
-      await this.cleanupTempFile(tempFilePath);
-      
-      return results;
-      
-    } catch (error) {
-      console.error('Thumbnail generation failed:', error);
-      throw error;
+    if (!region || !accessKeyId || !secretAccessKey) {
+      throw new Error('AWS S3 environment variables are not set. Please set: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET');
     }
-  }
 
-  private async generateSingleThumbnail(
-    inputPath: string,
-    size: ThumbnailSize,
-    userId: string,
-    projectId: string,
-    filename: string
-  ): Promise<{ url: string; key: string; size: number }> {
-    try {
-      // Configure sharp
-      let sharpPipeline = sharp(inputPath);
-      
-      // Apply transformations
-      const options = { ...size.options, ...size };
-      
-      if (options.width || options.height) {
-        sharpPipeline = sharpPipeline.resize(options.width, options.height, {
-          fit: options.fit || 'cover',
-          withoutEnlargement: true
-        });
-      }
-      
-      // Apply format and quality
-      const format = options.format || 'jpeg';
-      const quality = options.quality || 85;
-      
-      const formatOptions: any = {
-        quality,
-        progressive: options.progressive,
-      };
-      
-      // Optimize for web
-      if (format === 'jpeg') {
-        formatOptions.mozjpeg = true;
-        formatOptions.trellisQuantisation = true;
-      } else if (format === 'png') {
-        formatOptions.compressionLevel = 9;
-        formatOptions.palette = true;
-      } else if (format === 'webp') {
-        formatOptions.effort = 6;
-        formatOptions.smartSubsample = true;
-      }
-      
-      sharpPipeline = sharpPipeline.toFormat(format, formatOptions);
-      
-      // Generate output buffer
-      const outputBuffer = await sharpPipeline.toBuffer();
-      
-      // Generate S3 key for thumbnail
-      const thumbnailFilename = `${size.name}_${filename.replace(/\.[^/.]+$/, '')}.${format}`;
-      const thumbnailKey = generateFileKey(
-        userId,
-        projectId,
-        thumbnailFilename,
-        'thumbnail'
-      );
-      
-      // Upload to S3
-      await this.uploadToS3(thumbnailKey, outputBuffer, format);
-      
-      // Generate public URL
-      const url = await generateUploadUrl(thumbnailKey, `image/${format}`, false);
-      
-      return {
-        url: url.split('?')[0], // Remove query params for display
-        key: thumbnailKey,
-        size: outputBuffer.length
-      };
-      
-    } catch (error) {
-      console.error(`Failed to generate ${size.name} thumbnail:`, error);
-      throw error;
-    }
-  }
-
-  private async downloadFromS3(key: string): Promise<string> {
-    try {
-      const command = new GetObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
-        Key: key,
-      });
-      
-      const response = await this.s3Client.send(command);
-      
-      // Create temporary file
-      const tempFilePath = join(this.tempDir, `temp_${Date.now()}_${key.split('/').pop()}`);
-      
-      // Write to temporary file
-      await pipeline(response.Body as NodeJS.ReadableStream, createWriteStream(tempFilePath));
-      
-      return tempFilePath;
-      
-    } catch (error) {
-      console.error('Failed to download from S3:', error);
-      throw error;
-    }
-  }
-
-  private async uploadToS3(key: string, buffer: Buffer, contentType: string): Promise<void> {
-    try {
-      const command = new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-        CacheControl: 'public, max-age=31536000', // 1 year cache
-        Metadata: {
-          'original-width': buffer.length > 0 ? 'processed' : 'thumbnail',
-          'processed-at': new Date().toISOString(),
-        }
-      });
-      
-      await this.s3Client.send(command);
-      
-    } catch (error) {
-      console.error('Failed to upload to S3:', error);
-      throw error;
-    }
-  }
-
-  private async cleanupTempFile(filePath: string): Promise<void> {
-    try {
-      const fs = await import('fs/promises');
-      await fs.unlink(filePath);
-    } catch (error) {
-      console.warn('Failed to cleanup temp file:', error);
-    }
-  }
-
-  async generateSmartThumbnail(
-    originalKey: string,
-    userId: string,
-    projectId: string,
-    filename: string,
-    targetWidth: number = 400,
-    targetHeight: number = 300
-  ): Promise<{ url: string; key: string; size: number; width: number; height: number }> {
-    try {
-      // Download original file
-      const tempFilePath = await this.downloadFromS3(originalKey);
-      
-      // Get image metadata to calculate optimal dimensions
-      const metadata = await sharp(tempFilePath).metadata();
-      const { width = 0, height = 0 } = metadata;
-      
-      // Calculate dimensions maintaining aspect ratio
-      let finalWidth = targetWidth;
-      let finalHeight = targetHeight;
-      
-      const aspectRatio = width / height;
-      
-      if (aspectRatio > (targetWidth / targetHeight)) {
-        // Image is wider - use target width
-        finalHeight = Math.round(targetWidth / aspectRatio);
-      } else {
-        // Image is taller - use target height
-        finalWidth = Math.round(targetHeight * aspectRatio);
-      }
-      
-      // Generate thumbnail
-      const result = await this.generateSingleThumbnail(
-        tempFilePath,
-        {
-          name: 'smart',
-          width: finalWidth,
-          height: finalHeight,
-          quality: 85,
-          options: { fit: 'cover', format: 'jpeg', progressive: true }
-        },
-        userId,
-        projectId,
-        filename
-      );
-      
-      // Clean up
-      await this.cleanupTempFile(tempFilePath);
-      
-      return {
-        ...result,
-        width: finalWidth,
-        height: finalHeight
-      };
-      
-    } catch (error) {
-      console.error('Smart thumbnail generation failed:', error);
-      throw error;
-    }
-  }
-
-  async extractDominantColors(
-    originalKey: string,
-    maxColors: number = 5
-  ): Promise<Array<{ hex: string; rgb: [number, number, number]; percentage: number }>> {
-    try {
-      // Download original file
-      const tempFilePath = await this.downloadFromS3(originalKey);
-      
-      // Generate small thumbnail for color analysis
-      const { data } = await sharp(tempFilePath)
-        .resize(100, 100, { fit: 'cover' })
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      
-      // Simple color quantization
-      const colorMap = new Map<string, number>();
-      const pixels = new Uint8ClampedArray(data);
-      
-      for (let i = 0; i < pixels.length; i += 3) {
-        const r = pixels[i];
-        const g = pixels[i + 1];
-        const b = pixels[i + 2];
-        
-        // Quantize to reduce color variations
-        const quantizedR = Math.round(r / 32) * 32;
-        const quantizedG = Math.round(g / 32) * 32;
-        const quantizedB = Math.round(b / 32) * 32;
-        
-        const hex = `#${quantizedR.toString(16).padStart(2, '0')}${quantizedG.toString(16).padStart(2, '0')}${quantizedB.toString(16).padStart(2, '0')}`;
-        
-        colorMap.set(hex, (colorMap.get(hex) || 0) + 1);
-      }
-      
-      // Sort by frequency and get top colors
-      const sortedColors = Array.from(colorMap.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, maxColors)
-        .map(([hex, count]) => ({
-          hex,
-          rgb: [
-            parseInt(hex.slice(1, 3), 16),
-            parseInt(hex.slice(3, 5), 16),
-            parseInt(hex.slice(5, 7), 16)
-          ] as [number, number, number],
-          percentage: (count / (pixels.length / 3)) * 100
-        }));
-      
-      // Clean up
-      await this.cleanupTempFile(tempFilePath);
-      
-      return sortedColors;
-      
-    } catch (error) {
-      console.error('Color extraction failed:', error);
-      return [];
-    }
+    return new S3Client({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
   }
 }
 
-// Singleton instance
-export const thumbnailGenerator = new ThumbnailGenerator();
+/**
+ * Download image buffer from S3
+ * @param storageKey - S3 object key
+ * @returns Image buffer
+ */
+export async function downloadImageFromS3(storageKey: string): Promise<Buffer> {
+  const s3Client = getS3Client();
+  const command = new GetObjectCommand({
+    Bucket: getBucketName(),
+    Key: storageKey,
+  });
+
+  const response = await s3Client.send(command);
+  
+  if (!response.Body) {
+    throw new Error('No body in S3 response');
+  }
+
+  // Convert stream to buffer
+  const chunks: Uint8Array[] = [];
+  const stream = response.Body as ReadableStream<Uint8Array>;
+  const reader = stream.getReader();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Generate thumbnail from image buffer
+ * @param imageBuffer - Original image buffer
+ * @param config - Thumbnail configuration
+ * @param originalMimeType - Original MIME type for proper handling
+ * @returns Thumbnail buffer and metadata
+ */
+export async function generateThumbnail(
+  imageBuffer: Buffer,
+  config: ThumbnailConfig,
+  originalMimeType?: string
+): Promise<{ buffer: Buffer; width: number; height: number; size: number }> {
+  try {
+    // Check if the image is a RAW file
+    const isRaw = originalMimeType?.startsWith('image/x-');
+    
+    let pipeline = sharp(imageBuffer);
+    
+    // For RAW files, we need to use libvips to convert
+    // Sharp should handle this automatically with the correct flags
+    if (isRaw) {
+      pipeline = pipeline.withMetadata();
+    }
+
+    // Generate thumbnail
+    const result = await pipeline
+      .resize(config.maxWidth, config.maxHeight, {
+        fit: config.fit,
+        withoutEnlargement: true,
+      })
+      .toFormat(config.format, {
+        quality: config.quality,
+        progressive: true,
+      })
+      .toBuffer({
+        resolveWithObject: true,
+      });
+
+    return {
+      buffer: result.data,
+      width: result.info.width,
+      height: result.info.height,
+      size: result.info.size,
+    };
+  } catch (error) {
+    console.error('Thumbnail generation error:', error);
+    throw new Error(`Failed to generate thumbnail: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Generate multiple thumbnails for an image
+ * @param imageBuffer - Original image buffer
+ * @param configs - Array of thumbnail configurations
+ * @param originalMimeType - Original MIME type
+ * @returns Array of thumbnail results
+ */
+export async function generateMultipleThumbnails(
+  imageBuffer: Buffer,
+  configs: ThumbnailConfig[],
+  originalMimeType?: string
+): Promise<ThumbnailResult[]> {
+  const results: ThumbnailResult[] = [];
+
+  for (const [size, config] of Object.entries(configs)) {
+    try {
+      const { buffer, width, height, size: sizeBytes } = await generateThumbnail(
+        imageBuffer,
+        config,
+        originalMimeType
+      );
+
+      results.push({
+        id: uuidv7(),
+        projectId: '', // Will be set by caller
+        storageKey: '',
+        filename: '',
+        sizeBytes,
+        mimeType: config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp',
+        width,
+        height,
+      });
+    } catch (error) {
+      console.error(`Failed to generate ${size} thumbnail:`, error);
+      // Continue with other sizes
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Generate and save thumbnails for a project
+ * @param projectId - Project ID
+ * @param originalStorageKey - S3 key of original image
+ * @param originalMimeType - Original MIME type
+ * @param userId - User ID for generating storage keys
+ * @returns Array of generated thumbnail records
+ */
+export async function generateAndSaveThumbnails(
+  projectId: string,
+  originalStorageKey: string,
+  originalMimeType: string,
+  userId: string
+): Promise<ThumbnailResult[]> {
+  try {
+    // Validate input
+    if (!isImageMimeType(originalMimeType)) {
+      throw new Error(`Unsupported MIME type for thumbnail generation: ${originalMimeType}`);
+    }
+
+    // Download original image
+    const imageBuffer = await downloadImageFromS3(originalStorageKey);
+
+    // Detect actual MIME type from buffer (more accurate than client-provided)
+    const detectedMimeType = detectMimeType(originalStorageKey, imageBuffer, originalMimeType);
+
+    // Generate all thumbnail sizes
+    const thumbnailResults: ThumbnailResult[] = [];
+    const configs = DEFAULT_THUMBNAIL_CONFIGS;
+
+    for (const [size, config] of Object.entries(configs)) {
+      try {
+        const { buffer, width, height, size: sizeBytes } = await generateThumbnail(
+          imageBuffer,
+          config,
+          detectedMimeType
+        );
+
+        // Generate storage key for thumbnail
+        const filename = `thumb_${size}_${originalStorageKey.split('/').pop()}`;
+        const storageKey = `users/${userId}/projects/${projectId}/thumbnail/${Date.now()}-${filename}`;
+
+        // Upload thumbnail to S3
+        await uploadFile(storageKey, buffer, config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp');
+
+        // Create database record
+        const thumbnailRecord = await db.insert(images).values({
+          id: uuidv7(),
+          projectId,
+          type: 'thumbnail',
+          storageKey,
+          filename,
+          sizeBytes,
+          mimeType: config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp',
+          width,
+          height,
+        }).returning();
+
+        if (thumbnailRecord.length > 0) {
+          thumbnailResults.push(thumbnailRecord[0]);
+        }
+      } catch (error) {
+        console.error(`Failed to generate ${size} thumbnail for project ${projectId}:`, error);
+        // Continue with other sizes
+      }
+    }
+
+    return thumbnailResults;
+  } catch (error) {
+    console.error('Failed to generate and save thumbnails:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate a single thumbnail of specified size
+ * @param projectId - Project ID
+ * @param originalStorageKey - S3 key of original image
+ * @param originalMimeType - Original MIME type
+ * @param userId - User ID
+ * @param size - Thumbnail size key ('small', 'medium', 'large')
+ * @returns Generated thumbnail record
+ */
+export async function generateSingleThumbnail(
+  projectId: string,
+  originalStorageKey: string,
+  originalMimeType: string,
+  userId: string,
+  size: keyof typeof DEFAULT_THUMBNAIL_CONFIGS = 'medium'
+): Promise<ThumbnailResult> {
+  const config = DEFAULT_THUMBNAIL_CONFIGS[size];
+
+  // Download original image
+  const imageBuffer = await downloadImageFromS3(originalStorageKey);
+
+  // Detect actual MIME type from buffer
+  const detectedMimeType = detectMimeType(originalStorageKey, imageBuffer, originalMimeType);
+
+  // Generate thumbnail
+  const { buffer, width, height, size: sizeBytes } = await generateThumbnail(
+    imageBuffer,
+    config,
+    detectedMimeType
+  );
+
+  // Generate storage key
+  const filename = `thumb_${size}_${originalStorageKey.split('/').pop()}`;
+  const storageKey = `users/${userId}/projects/${projectId}/thumbnail/${Date.now()}-${filename}`;
+
+  // Upload to S3
+  await uploadFile(storageKey, buffer, config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp');
+
+  // Create database record
+  const thumbnailRecord = await db.insert(images).values({
+    id: uuidv7(),
+    projectId,
+    type: 'thumbnail',
+    storageKey,
+    filename,
+    sizeBytes,
+    mimeType: config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp',
+    width,
+    height,
+  }).returning();
+
+  if (thumbnailRecord.length === 0) {
+    throw new Error('Failed to create thumbnail record');
+  }
+
+  return thumbnailRecord[0];
+}
+
+/**
+ * Validate if a file can generate thumbnails
+ * @param mimeType - MIME type to check
+ * @returns true if thumbnails can be generated, false otherwise
+ */
+export function canGenerateThumbnail(mimeType: string): boolean {
+  if (!isImageMimeType(mimeType)) {
+    return false;
+  }
+
+  // Check if Sharp supports this format
+  const supportedFormats = ['jpeg', 'png', 'webp', 'gif', 'svg', 'tiff', 'avif', 'heif'];
+  
+  // RAW files require libvips support
+  if (mimeType.startsWith('image/x-')) {
+    return true;
+  }
+
+  const format = mimeType.split('/')[1];
+  return supportedFormats.includes(format);
+}
+
+/**
+ * Delete thumbnails for a project
+ * @param projectId - Project ID
+ * @returns Number of thumbnails deleted
+ */
+export async function deleteProjectThumbnails(projectId: string): Promise<number> {
+  const deletedThumbnails = await db
+    .delete(images)
+    .where(
+      (images, { eq, and }) =>
+        and(eq(images.projectId, projectId), eq(images.type, 'thumbnail'))
+    )
+    .returning();
+
+  return deletedThumbnails.length;
+}

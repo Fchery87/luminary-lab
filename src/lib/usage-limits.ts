@@ -195,17 +195,15 @@ export function withUsageLimits(handler: (req: NextRequest) => Promise<Response>
       );
     }
 
-    // Add usage limits info to request headers for downstream use
-    const modifiedRequest = new Request(request.url, {
-      method: request.method,
-      headers: {
-        ...Object.fromEntries(request.headers.entries()),
-        'x-usage-limits': JSON.stringify(usageCheck.limits),
-      },
-      body: request.body,
-    });
+    // Clone the request to preserve the body stream
+    const clonedRequest = request.clone();
 
-    const response = await handler(modifiedRequest as any);
+    // Add usage limits info to request for downstream use
+    // We attach it to the request object for easy access
+    (clonedRequest as any).usageLimits = usageCheck.limits;
+
+    // Call the handler with the cloned request
+    const response = await handler(clonedRequest);
 
     // If the upload was successful, increment usage
     if (response.ok && request.method === 'POST') {

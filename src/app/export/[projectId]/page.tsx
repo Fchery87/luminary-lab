@@ -100,6 +100,7 @@ export default function ExportPage() {
     try {
       const response = await fetch('/api/export', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

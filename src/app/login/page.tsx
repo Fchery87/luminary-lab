@@ -37,6 +37,7 @@ export default function LoginPage() {
     try {
       const response = await fetch(`/api/auth/sign-in/${provider}`, {
         method: 'GET',
+        credentials: 'include',
         redirect: 'manual',
       });
 
@@ -65,6 +66,7 @@ export default function LoginPage() {
     try {
       const response = await fetch('/api/auth/sign-in/email', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email,

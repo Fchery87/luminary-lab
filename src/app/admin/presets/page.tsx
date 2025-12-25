@@ -68,7 +68,7 @@ export default function AdminPresetsPage() {
         ...(searchQuery && { search: searchQuery }),
       });
       
-      const response = await fetch(`/api/admin/presets?${params}`);
+      const response = await fetch(`/api/admin/presets?${params}`, { credentials: 'include' });
       if (!response.ok) {
         throw new Error('Failed to fetch presets');
       }
@@ -87,6 +87,7 @@ export default function AdminPresetsPage() {
       
       const response = await fetch(url, {
         method: editingPreset ? 'PUT' : 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -117,6 +118,7 @@ export default function AdminPresetsPage() {
     mutationFn: async (presetId: string) => {
       const response = await fetch(`/api/admin/presets/${presetId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -140,6 +142,7 @@ export default function AdminPresetsPage() {
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const response = await fetch(`/api/admin/presets/${id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

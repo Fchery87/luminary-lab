@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/db';
-import { projects, images } from '@/db/schema';
+import { projects, images, processingJobs, systemStyles, tags, projectTags } from '@/db/schema';
 import { auth } from '@/lib/auth'; // Ensure this path is correct for Better Auth
 import { headers } from 'next/headers';
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq, and, sql, or, like, gte, lte } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
+import { generateDownloadUrl } from '@/lib/s3';
 
 export async function GET(req: Request) {
   try {
@@ -17,38 +18,141 @@ export async function GET(req: Request) {
     }
 
     const db = getDb();
+    const { searchParams } = new URL(req.url);
 
-    // Fetch projects with their optional thumbnails
-    // We can do a join or just fetch projects and then fetch thumbnails.
-    // Drizzle's query builder is nice for this.
+    // Extract filter parameters
+    const searchQuery = searchParams.get('search') || '';
+    const cameraMake = searchParams.get('cameraMake');
+    const cameraModel = searchParams.get('cameraModel');
+    const lensModel = searchParams.get('lensModel');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    const isoMin = searchParams.get('isoMin');
+    const isoMax = searchParams.get('isoMax');
+    const tag = searchParams.get('tag');
+    const filterStatus = searchParams.get('status') || 'all';
+
+    // Build filter conditions
+    const conditions = [eq(projects.userId, session.user.id)];
+
+    // Status filter
+    if (filterStatus !== 'all') {
+      conditions.push(eq(projects.status, filterStatus));
+    }
+
+    // Search filter (name or tag)
+    if (searchQuery) {
+      // Search in project name
+      const nameCondition = like(projects.name, `%${searchQuery}%`);
+      
+      // Search in tags
+      const tagCondition = sql`${tags.id} IN (
+        SELECT pt.tag_id FROM ${projectTags} pt
+        INNER JOIN ${tags} t ON t.id = pt.tag_id
+        WHERE t.name ILIKE ${`%${searchQuery}%`}
+      )`;
+
+      conditions.push(or(nameCondition, tagCondition)!);
+    }
+
+    // Tag filter
+    if (tag) {
+      conditions.push(sql`${projects.id} IN (
+        SELECT project_id FROM ${projectTags}
+        WHERE tag_id = (SELECT id FROM ${tags} WHERE name = ${tag} AND user_id = ${session.user.id} LIMIT 1)
+      )`);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      conditions.push(gte(projects.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      conditions.push(lte(projects.createdAt, new Date(dateTo)));
+    }
+
+    // Camera make/model filter from metadata
+    if (cameraMake || cameraModel) {
+      conditions.push(sql`(images.metadata->>'make')::text ILIKE ${`%${cameraMake || ''}%`}`);
+      if (cameraModel) {
+        conditions.push(sql`(images.metadata->>'model')::text ILIKE ${`%${cameraModel}%`}`);
+      }
+    }
+
+    // Lens filter from metadata
+    if (lensModel) {
+      conditions.push(sql`(images.metadata->>'lensModel')::text ILIKE ${`%${lensModel}%`}`);
+    }
+
+    // ISO range filter from metadata
+    if (isoMin) {
+      conditions.push(sql`(images.metadata->>'iso')::numeric >= ${parseInt(isoMin)}`);
+    }
+    if (isoMax) {
+      conditions.push(sql`(images.metadata->>'iso')::numeric <= ${parseInt(isoMax)}`);
+    }
+
+    // Fetch projects with their optional thumbnails and processing job info
+    // Join with images for thumbnails and with processingJobs+systemStyles for style info
     const userProjects = await db
       .select({
         id: projects.id,
         name: projects.name,
         status: projects.status,
         createdAt: projects.createdAt,
-        thumbnailUrl: images.storageKey, // Using storageKey as URL placeholder for now
-        // We might want to join with images where type = 'thumbnail' or 'processed' or 'original'
+        thumbnailUrl: images.storageKey,
+        styleName: systemStyles.name,
+        intensity: processingJobs.intensity,
+        metadata: images.metadata,
       })
       .from(projects)
       .leftJoin(
         images,
         and(
           eq(images.projectId, projects.id),
-          eq(images.type, 'thumbnail') // Prefer thumbnail
+          eq(images.type, 'original') // Use original to get metadata
         )
       )
-      .where(eq(projects.userId, session.user.id))
+      .leftJoin(
+        processingJobs,
+        eq(processingJobs.projectId, projects.id)
+      )
+      .leftJoin(
+        systemStyles,
+        eq(systemStyles.id, processingJobs.styleId)
+      )
+      .where(and(...conditions))
       .orderBy(desc(projects.createdAt));
 
-    // Note: In reality, we'd need to convert storageKey to a signed URL here if using S3
-    // For now, returning the raw data or a placeholder
-    const formattedProjects = userProjects.map((p) => ({
-      ...p,
-      thumbnailUrl: p.thumbnailUrl
-        ? `/api/images/${p.thumbnailUrl}` // Mock endpoint for serving images if local
-        : null,
-    }));
+    // Get tags for each project
+    const projectsWithTags = await Promise.all(
+      userProjects.map(async (project) => {
+        const projectTagsList = await db
+          .select({
+            name: tags.name,
+            type: tags.type,
+          })
+          .from(projectTags)
+          .innerJoin(tags, eq(projectTags.tagId, tags.id))
+          .where(eq(projectTags.projectId, project.id));
+
+        return {
+          ...project,
+          tags: projectTagsList,
+        };
+      })
+    );
+
+    // Generate signed URLs for thumbnails from S3 and convert intensity to number
+    const formattedProjects = await Promise.all(
+      projectsWithTags.map(async (p) => ({
+        ...p,
+        thumbnailUrl: p.thumbnailUrl
+          ? await generateDownloadUrl(p.thumbnailUrl, 3600) // 1 hour expiry
+          : null,
+        intensity: p.intensity ? parseFloat(p.intensity as string) * 100 : undefined,
+      }))
+    );
 
     return NextResponse.json(formattedProjects);
   } catch (error) {

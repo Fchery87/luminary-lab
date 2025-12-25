@@ -388,7 +388,7 @@ const presets = [
       skinPreserve: 0.7,
     },
     exampleImageUrl:
-      'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?q=80&w=600',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
     sortOrder: 18,
     category: 'ai',
   },
@@ -405,7 +405,7 @@ const presets = [
       castRemoval: 0.4,
     },
     exampleImageUrl:
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=600',
+      'https://images.unsplash.com/photo-1609505848912-b7c3b8b4beda?q=80&w=600',
     sortOrder: 19,
     category: 'ai',
   },
@@ -423,7 +423,7 @@ const presets = [
       radius: 1.0,
     },
     exampleImageUrl:
-      'https://images.unsplash.com/photo-1472214103451-937d2cdcc7dc?q=80&w=600',
+      'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=600',
     sortOrder: 20,
     category: 'ai',
   },
@@ -442,7 +442,7 @@ const presets = [
       clarity: 1.1,
     },
     exampleImageUrl:
-      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600',
+      'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?q=80&w=600',
     sortOrder: 21,
     category: 'specialized',
   },
@@ -476,7 +476,7 @@ const presets = [
       vegBoost: 0.2,
     },
     exampleImageUrl:
-      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600',
+      'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=600',
     sortOrder: 23,
     category: 'specialized',
   },

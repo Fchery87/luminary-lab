@@ -1,0 +1,16 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#1a1a1a"/>
+  <rect width="800" height="600" fill="url(#gradient)" opacity="0.1"/>
+  <text x="400" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#666">
+    No Image Available
+  </text>
+  <text x="400" y="320" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#444">
+    Upload a RAW file to get started
+  </text>
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#1a1a1a"/>
+    </linearGradient>
+  </defs>
+</svg>

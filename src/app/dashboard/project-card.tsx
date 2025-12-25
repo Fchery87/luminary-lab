@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ProjectTags } from '@/components/ui/tag-badge';
 
 // Local Project type definition
 export interface Project {
@@ -24,15 +25,18 @@ export interface Project {
   createdAt: string;
   originalImageUrl?: string;
   processedImageUrl?: string;
+  tags?: Array<{ name: string; type: string }>;
+  metadata?: any;
 }
 
 interface ProjectCardProps {
   project: Project;
   onDelete: (id: string) => void;
   isDeleting?: boolean;
+  viewMode?: 'grid' | 'list';
 }
 
-export function ProjectCard({ project, onDelete, isDeleting }: ProjectCardProps) {
+export function ProjectCard({ project, onDelete, isDeleting, viewMode = 'grid' }: ProjectCardProps) {
   const statusConfig = {
     completed: {
       icon: <CheckCircle2 className="w-3 h-3" />,
@@ -70,16 +74,16 @@ export function ProjectCard({ project, onDelete, isDeleting }: ProjectCardProps)
           borderColor: "rgba(255, 255, 255, 0.08)",
           boxShadow: "0 0 24px rgba(0, 0, 0, 0.06)",
         }}
-        className="
+        className={`
           bg-card/50 backdrop-blur-sm border border-white/5 rounded-lg
           transition-all duration-400
-          flex flex-col
-        "
+          ${viewMode === 'list' ? 'flex flex-row gap-4' : 'flex flex-col'}
+        `}
       >
         {/* Image Container */}
-        <div className="relative aspect-[3/2] overflow-hidden bg-secondary">
+        <div className={`relative overflow-hidden bg-secondary ${viewMode === 'list' ? 'w-48 h-32 flex-shrink-0' : 'aspect-[3/2]'}`}>
           <Image
-            src={project.thumbnailUrl || project.originalImageUrl || '/placeholder.jpg'}
+            src={project.thumbnailUrl || project.originalImageUrl || '/placeholder.svg'}
             alt={project.name}
             fill
             className="object-cover opacity-95 transition-all duration-400 group-hover:opacity-100 group-hover:translate-y-[-2px]"
@@ -110,7 +114,7 @@ export function ProjectCard({ project, onDelete, isDeleting }: ProjectCardProps)
         </div>
 
         {/* Status Badge */}
-        <div className="absolute top-3 right-3">
+        <div className={`absolute top-3 ${viewMode === 'list' ? 'right-auto left-3' : 'right-3'}`}>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium backdrop-blur-md ${statusConfig[project.status as keyof typeof statusConfig].badge}`}>
             {statusConfig[project.status as keyof typeof statusConfig].icon}
             <span className="capitalize">{project.status}</span>
@@ -118,20 +122,33 @@ export function ProjectCard({ project, onDelete, isDeleting }: ProjectCardProps)
         </div>
 
         {/* Content */}
-        <CardContent className="p-4">
+        <CardContent className={`p-4 ${viewMode === 'list' ? 'flex-1 flex flex-col justify-center min-w-0' : ''}`}>
           <div className="mb-2">
             <h3 className="font-semibold text-sm text-foreground truncate group-hover:text-primary/80 transition-colors" title={project.name}>
               {project.name}
             </h3>
           </div>
 
+          {/* Tags */}
+          {project.tags && project.tags.length > 0 && (
+            <div className="mb-3">
+              <ProjectTags tags={project.tags} maxTags={viewMode === 'list' ? 5 : 3} />
+            </div>
+          )}
+
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="font-mono">{project.id.substring(0, 8)}</span>
             <span>{new Date(project.createdAt).toLocaleDateString()}</span>
+            {viewMode === 'list' && (
+              <>
+                <span>Style: {project.styleName || 'None'}</span>
+                <span>Intensity: {project.intensity || 100}%</span>
+              </>
+            )}
           </div>
         </CardContent>
 
-        <CardFooter className="p-4 pt-0 flex justify-between items-center text-xs text-muted-foreground border-t border-white/5">
+        <CardFooter className={`p-4 pt-0 flex justify-between items-center text-xs text-muted-foreground border-t border-white/5 ${viewMode === 'list' ? 'border-t-0 flex-row items-center gap-4' : ''}`}>
           <div className="flex items-center">
             <span className="font-mono uppercase text-[10px] tracking-wider text-primary opacity-80">
               {project.styleName}

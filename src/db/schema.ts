@@ -110,6 +110,7 @@ export const images = pgTable("images", {
   mimeType: text("mime_type").notNull(),
   width: integer("width"),
   height: integer("height"),
+  metadata: jsonb("metadata"), // RAW metadata: camera, lens, ISO, aperture, etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -175,6 +176,82 @@ export const auditLogs = pgTable("audit_logs", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
+// Upload parts table for tracking chunked/resumable uploads
+export const uploadParts = pgTable("upload_parts", {
+  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  uploadId: text("upload_id").notNull(), // AWS multipart upload ID
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  partNumber: integer("part_number").notNull(),
+  partEtag: text("part_etag"), // ETag returned by S3 after part upload
+  sizeBytes: integer("size_bytes").notNull(),
+  status: text("status").notNull().default("pending"), // pending, uploaded, completed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Multipart uploads table for tracking active multipart upload sessions
+export const multipartUploads = pgTable("multipart_uploads", {
+  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  uploadId: text("upload_id").notNull().unique(), // AWS multipart upload ID
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  fileSize: integer("file_size").notNull(),
+  mimeType: text("mime_type").notNull(),
+  storageKey: text("storage_key").notNull(),
+  totalParts: integer("total_parts").notNull(),
+  uploadedParts: integer("uploaded_parts").default(0).notNull(),
+  status: text("status").notNull().default("initiated"), // initiated, in_progress, completed, failed, cancelled
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Tags table
+export const tags = pgTable("tags", {
+  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // camera, lens, date_range, iso_range, custom
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Project tags junction table
+export const projectTags = pgTable("project_tags", {
+  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  tagId: uuid("tag_id")
+    .notNull()
+    .references(() => tags.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User preferences table for smart defaults
+export const userPreferences = pgTable("user_preferences", {
+  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  lastUsedPresetId: uuid("last_used_preset_id").references(() => systemStyles.id),
+  preferredIntensity: decimal("preferred_intensity", { precision: 5, scale: 2 }).default("0.70").notNull(),
+  preferredViewMode: text("preferred_view_mode").default("split"), // split, before, after
+  dismissedWhatNext: boolean("dismissed_what_next").default(false).notNull(),
+  preferences: jsonb("preferences"), // Additional flexible preferences
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Export all tables
 export const schema = {
   users,
@@ -189,4 +266,9 @@ export const schema = {
   processingJobs,
   usageTracking,
   auditLogs,
+  uploadParts,
+  multipartUploads,
+  tags,
+  projectTags,
+  userPreferences,
 };
