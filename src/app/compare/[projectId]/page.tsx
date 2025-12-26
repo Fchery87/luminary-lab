@@ -84,13 +84,18 @@ export default function ComparePage() {
 
   // Extract image URLs from project images array
   // For RAW files, we need to use the thumbnail since browsers can't display RAW
+  // Priority: large thumbnail > medium thumbnail > small thumbnail > original (for non-RAW)
+  const largeThumbnail = project?.images?.find((img: any) => img.type === 'thumbnail' && img.filename?.includes('thumb_large'))?.url;
+  const mediumThumbnail = project?.images?.find((img: any) => img.type === 'thumbnail' && img.filename?.includes('thumb_medium'))?.url;
+  const anyThumbnail = project?.images?.find((img: any) => img.type === 'thumbnail')?.url;
   const originalImageObj = project?.images?.find((img: any) => img.type === 'original');
-  const thumbnailUrl = project?.images?.find((img: any) => img.type === 'thumbnail')?.url;
   const isRawFile = originalImageObj?.mimeType?.startsWith('image/x-');
   
-  // Use thumbnail for RAW files, otherwise use original
-  const originalImageUrl = (isRawFile ? thumbnailUrl : originalImageObj?.url)
-    || thumbnailUrl  // Fallback to thumbnail if original not displayable
+  // Use large thumbnail for RAW files, otherwise use original
+  const originalImageUrl = (isRawFile ? (largeThumbnail || mediumThumbnail || anyThumbnail) : originalImageObj?.url)
+    || largeThumbnail   // Fallback to large thumbnail
+    || mediumThumbnail  // Then medium
+    || anyThumbnail     // Then any thumbnail
     || originalImageObj?.url;  // Try original anyway
     
   const processedImageUrl = project?.images?.find((img: any) => img.type === 'processed')?.url;
@@ -342,7 +347,29 @@ export default function ComparePage() {
                     <div className="text-white text-center">
                     <p className="text-lg font-medium mb-2">Original Image</p>
                     <div className="text-sm text-muted">
-                      {originalImageUrl ? (
+                      {originalImageUrl && !isRawFile ? (
+                        <Image
+                          src={originalImageUrl}
+                          alt="Original"
+                          width={1200}
+                          height={800}
+                          className="max-w-full max-h-full object-contain"
+                          style={{ transform: `scale(${zoomLevel / 100})` }}
+                        />
+                      ) : isRawFile && !thumbnailUrl ? (
+                        <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <p className="text-base font-medium">RAW File Uploaded</p>
+                          <p className="text-sm text-muted-foreground">{originalImageObj?.filename || 'Unknown file'}</p>
+                          <p className="text-xs text-muted-foreground max-w-xs">
+                            Preview not available. Process your image to see the result.
+                          </p>
+                        </div>
+                      ) : originalImageUrl ? (
                         <Image
                           src={originalImageUrl}
                           alt="Original"

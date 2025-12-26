@@ -46,6 +46,7 @@
     "bull": "^4.16.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cr2-raw": "^1.1.0",
     "date-fns": "4.1.0",
     "drizzle-orm": "0.45.1",
     "exif-parser": "^0.1.12",

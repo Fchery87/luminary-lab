@@ -185,6 +185,127 @@ export async function downloadImageFromS3(storageKey: string): Promise<Buffer> {
 }
 
 /**
+ * Extract embedded JPEG preview from Canon CR2 RAW files using cr2-raw
+ * @param imageBuffer - RAW image buffer
+ * @returns JPEG buffer
+ */
+async function extractCR2Preview(imageBuffer: Buffer): Promise<Buffer> {
+  try {
+    // cr2-raw package can read from a buffer path, but we need to read from buffer
+    // The package expects a file path, so we'll write to temp file
+    const fs = await import('fs');
+    const path = await import('path');
+    const os = await import('os');
+
+    const tempDir = os.tmpdir();
+    const tempFile = path.join(
+      tempDir,
+      `cr2_${Date.now()}_${Math.random().toString(36).slice(2)}.CR2`
+    );
+
+    try {
+      // Write buffer to temp file
+      await fs.promises.writeFile(tempFile, imageBuffer);
+
+      // Use cr2-raw to extract preview
+      const cr2Raw = require('cr2-raw');
+      const raw = cr2Raw(tempFile);
+      const previewBuffer = raw.previewImage();
+
+      if (previewBuffer && previewBuffer.length > 100) {
+        console.log(
+          '[cr2-raw] Successfully extracted embedded JPEG preview, size:',
+          previewBuffer.length
+        );
+        return previewBuffer;
+      }
+
+      throw new Error('No preview image found in CR2 file');
+    } finally {
+      // Cleanup temp file
+      await fs.promises.unlink(tempFile).catch(() => {});
+    }
+  } catch (error) {
+    console.error('[cr2-raw] Failed to extract preview:', error);
+    throw error;
+  }
+}
+
+/**
+ * Convert RAW file to JPEG using dcraw command-line tool (fallback for non-CR2 formats)
+ * @param imageBuffer - RAW image buffer
+ * @param extension - File extension (e.g., '.nef', '.arw')
+ * @returns JPEG buffer
+ */
+async function convertRawWithDcraw(
+  imageBuffer: Buffer,
+  extension: string = '.raw'
+): Promise<Buffer> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const fs = await import('fs');
+  const path = await import('path');
+  const os = await import('os');
+
+  const execAsync = promisify(exec);
+
+  // Create temp file for RAW input
+  const tempDir = os.tmpdir();
+  const tempInputFile = path.join(
+    tempDir,
+    `raw_${Date.now()}_${Math.random().toString(36).slice(2)}${extension}`
+  );
+  const tempOutputFile = tempInputFile.replace(extension, '.ppm');
+
+  try {
+    // Write RAW buffer to temp file
+    await fs.promises.writeFile(tempInputFile, imageBuffer);
+
+    // Use dcraw to extract embedded JPEG preview (-e) or convert to PPM
+    try {
+      // First try to extract embedded JPEG thumbnail
+      await execAsync(
+        `dcraw -e -c "${tempInputFile}" > "${tempInputFile}.thumb.jpg"`,
+        { maxBuffer: 50 * 1024 * 1024 }
+      );
+      const thumbPath = `${tempInputFile}.thumb.jpg`;
+
+      if (fs.existsSync(thumbPath)) {
+        const jpegBuffer = await fs.promises.readFile(thumbPath);
+        await fs.promises.unlink(thumbPath).catch(() => {});
+
+        if (jpegBuffer.length > 100) {
+          console.log('[dcraw] Successfully extracted embedded JPEG preview');
+          return jpegBuffer;
+        }
+      }
+    } catch {
+      // Embedded JPEG not available, try full conversion
+    }
+
+    // Fall back to full RAW to PPM conversion
+    console.log('[dcraw] Attempting full RAW conversion...');
+    await execAsync(`dcraw -c -w "${tempInputFile}" > "${tempOutputFile}"`, {
+      maxBuffer: 100 * 1024 * 1024,
+    });
+
+    if (fs.existsSync(tempOutputFile)) {
+      const ppmBuffer = await fs.promises.readFile(tempOutputFile);
+      await fs.promises.unlink(tempOutputFile).catch(() => {});
+      console.log('[dcraw] Successfully converted RAW to PPM');
+      return ppmBuffer;
+    }
+
+    throw new Error('dcraw conversion failed - no output file');
+  } finally {
+    // Cleanup temp files
+    await fs.promises.unlink(tempInputFile).catch(() => {});
+    await fs.promises.unlink(tempOutputFile).catch(() => {});
+    await fs.promises.unlink(`${tempInputFile}.thumb.jpg`).catch(() => {});
+  }
+}
+
+/**
  * Generate thumbnail from image buffer
  * @param imageBuffer - Original image buffer
  * @param config - Thumbnail configuration
@@ -196,20 +317,58 @@ export async function generateThumbnail(
   config: ThumbnailConfig,
   originalMimeType?: string
 ): Promise<{ buffer: Buffer; width: number; height: number; size: number }> {
-  try {
-    // Check if the image is a RAW file
-    const isRaw = originalMimeType?.startsWith('image/x-');
+  // Check if the image is a RAW file
+  const isRaw = originalMimeType?.startsWith('image/x-');
+  const isCR2 =
+    originalMimeType === 'image/x-canon-cr2' ||
+    originalMimeType?.includes('canon');
 
-    let pipeline = sharp(imageBuffer);
+  let inputBuffer = imageBuffer;
 
-    // For RAW files, we need to use libvips to convert
-    // Sharp should handle this automatically with the correct flags
-    if (isRaw) {
-      pipeline = pipeline.withMetadata();
+  // For RAW files, extract the embedded preview
+  if (isRaw) {
+    let conversionSuccess = false;
+
+    // Try cr2-raw for Canon CR2 files first
+    if (isCR2) {
+      try {
+        console.log(
+          '[Thumbnail] Attempting cr2-raw extraction for Canon CR2 file...'
+        );
+        inputBuffer = await extractCR2Preview(imageBuffer);
+        conversionSuccess = true;
+        console.log(
+          '[Thumbnail] cr2-raw extraction successful, buffer size:',
+          inputBuffer.length
+        );
+      } catch (cr2Error) {
+        console.error('[Thumbnail] cr2-raw extraction failed:', cr2Error);
+      }
     }
 
-    // Generate thumbnail
+    // Fall back to dcraw for other RAW formats or if cr2-raw failed
+    if (!conversionSuccess) {
+      try {
+        console.log('[Thumbnail] Attempting dcraw conversion for RAW file...');
+        inputBuffer = await convertRawWithDcraw(imageBuffer, '.raw');
+        conversionSuccess = true;
+        console.log(
+          '[Thumbnail] dcraw conversion successful, buffer size:',
+          inputBuffer.length
+        );
+      } catch (dcrawError) {
+        console.error('[Thumbnail] dcraw conversion failed:', dcrawError);
+        // Continue and try Sharp anyway - it might work for some RAW formats
+      }
+    }
+  }
+
+  try {
+    let pipeline = sharp(inputBuffer);
+
+    // Generate thumbnail with auto-rotation based on EXIF
     const result = await pipeline
+      .rotate() // Auto-rotate based on EXIF Orientation tag
       .resize(config.maxWidth, config.maxHeight, {
         fit: config.fit,
         withoutEnlargement: true,
