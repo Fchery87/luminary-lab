@@ -138,13 +138,8 @@ export default function ExportPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header 
+      <Header
         variant="minimal"
-        navigation={
-          <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
-            Dashboard
-          </Link>
-        }
         showUserMenu={true}
       />
 

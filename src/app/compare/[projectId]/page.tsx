@@ -30,9 +30,13 @@ interface ProjectData {
   name: string;
   status: string;
   createdAt: string;
-  originalImageUrl?: string;
-  processedImageUrl?: string;
-  thumbnailUrl?: string;
+  images?: Array<{
+    id: string;
+    type: 'original' | 'processed' | 'thumbnail';
+    url: string;
+    filename: string;
+    mimeType: string;
+  }>;
   styleName?: string;
   intensity?: number;
 }
@@ -60,29 +64,50 @@ export default function ComparePage() {
       return () => clearTimeout(timer);
     }
   }, [isOnboarding]);
-  
-  // Mock project data - would fetch from API
-  const { data: project, isLoading } = useQuery({
+
+  // Fetch project data from API
+  const { data: project, isLoading, error } = useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
-      // Mock API call
-      const mockProject: ProjectData = {
-        id: projectId,
-        name: 'Beauty Portrait Session',
-        status: 'completed',
-        createdAt: new Date().toISOString(),
-        originalImageUrl: 'https://picsum.photos/seed/original/1200/800.jpg',
-        processedImageUrl: 'https://picsum.photos/seed/processed/1200/800.jpg',
-        thumbnailUrl: 'https://picsum.photos/seed/thumb/400/300.jpg',
-        styleName: 'Clean Commercial Beauty',
-        intensity: 0.7,
-      };
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return mockProject;
+      const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('Project not found');
+        throw new Error('Failed to fetch project');
+      }
+      return res.json() as Promise<ProjectData>;
     },
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return (status === 'processing' || status === 'queued') ? 2000 : false;
+    }
   });
+
+  // Extract image URLs from project images array
+  const originalImageUrl = project?.images?.find((img: any) => img.type === 'original')?.url;
+  const processedImageUrl = project?.images?.find((img: any) => img.type === 'processed')?.url;
+  const thumbnailUrl = project?.images?.find((img: any) => img.type === 'thumbnail')?.url;
+
+  // Debug logging
+  useEffect(() => {
+    if (project) {
+      console.log('[Compare] Project data loaded:', {
+        projectId: project.id,
+        status: project.status,
+        imagesCount: project.images?.length || 0,
+        images: project.images?.map((img: any) => ({
+          type: img.type,
+          hasUrl: !!img.url,
+          filename: img.filename
+        }))
+      });
+      
+      if (!originalImageUrl) {
+        console.warn('[Compare] No original image URL found. Images:', project.images);
+      } else {
+        console.log('[Compare] Original image URL:', originalImageUrl);
+      }
+    }
+  }, [project, originalImageUrl]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
@@ -154,6 +179,22 @@ export default function ComparePage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4 text-destructive">Error Loading Project</h2>
+          <p className="text-muted-foreground mb-6">
+            {error instanceof Error ? error.message : 'An error occurred while loading the project.'}
+          </p>
+          <Button asChild>
+            <Link href="/dashboard">Back to Dashboard</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!project) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -172,18 +213,8 @@ export default function ComparePage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header 
+      <Header
         variant="minimal"
-        navigation={
-          <>
-            <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/upload" className="text-sm font-medium hover:text-primary transition-colors">
-              Upload
-            </Link>
-          </>
-        }
         showUserMenu={true}
       />
 
@@ -296,15 +327,16 @@ export default function ComparePage() {
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
             >
-              {(showOriginal || !project.originalImageUrl || !project.processedImageUrl) ? (
+              {/* Show original-only view or handle missing images */}
+              {showOriginal || !originalImageUrl || !processedImageUrl ? (
                 <div className="w-full h-full flex items-center justify-center">
                   {showOriginal ? (
                     <div className="text-white text-center">
                     <p className="text-lg font-medium mb-2">Original Image</p>
-                    <p className="text-sm text-muted">
-                      {project.originalImageUrl ? (
+                    <div className="text-sm text-muted">
+                      {originalImageUrl ? (
                         <Image
-                          src={project.originalImageUrl}
+                          src={originalImageUrl}
                           alt="Original"
                           width={1200}
                           height={800}
@@ -324,15 +356,15 @@ export default function ComparePage() {
                           </p>
                         </div>
                       )}
-                    </p>
+                    </div>
                   </div>
                   ) : (
                     <div className="text-white text-center">
                       <p className="text-lg font-medium mb-2">Processed Image</p>
-                      <p className="text-sm text-muted">
-                        {project.processedImageUrl ? (
+                      <div className="text-sm text-muted">
+                        {processedImageUrl ? (
                           <Image
-                            src={project.processedImageUrl}
+                            src={processedImageUrl}
                             alt="Processed"
                             width={1200}
                             height={800}
@@ -341,55 +373,78 @@ export default function ComparePage() {
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center py-8 space-y-3">
-                            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                            <p className="text-base">
-                              {project.status === 'processing'
-                                ? 'Processing your image...'
-                                : project.status === 'queued'
-                                ? 'Waiting to process...'
-                                : 'Processing not completed'}
-                            </p>
-                            <p className="text-xs text-muted-foreground max-w-xs">
-                              This may take 2-3 minutes. You can come back later or refresh the page.
-                            </p>
+                            {project.status === 'pending' || project.status === 'processing' || project.status === 'queued' ? (
+                              <>
+                                <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                                <p className="text-base">
+                                  {project.status === 'processing'
+                                    ? 'Processing your image...'
+                                    : project.status === 'queued'
+                                    ? 'Waiting to process...'
+                                    : 'Processing not started'}
+                                </p>
+                                <p className="text-xs text-muted-foreground max-w-xs mb-4">
+                                  {project.status === 'pending'
+                                    ? 'Go to the editor to start processing your image.'
+                                    : 'This may take 2-3 minutes. You can come back later or refresh the page.'}
+                                </p>
+                                {project.status === 'pending' && (
+                                  <Button asChild>
+                                    <Link href={`/edit/${projectId}`}>
+                                      <Sparkles className="mr-2 h-4 w-4" />
+                                      Go to Editor to Start Processing
+                                    </Link>
+                                  </Button>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-base">Processing not completed</p>
+                                <p className="text-xs text-muted-foreground max-w-xs">
+                                  The processed image is not available yet.
+                                </p>
+                              </>
+                            )}
                           </div>
                         )}
-                      </p>
+                      </div>
                     </div>
                   )}
                 </div>
               ) : (
                 <>
-                  {/* Original Image (Left Side) */}
-                  <div
-                    className="absolute inset-0 overflow-hidden"
-                    style={{ width: `${dividerPosition}%` }}
-                  >
-                    <Image
-                      src={project.originalImageUrl}
-                      alt="Original"
-                      fill
-                      className="object-contain"
-                      style={{ transform: `scale(${zoomLevel / 100})` }}
-                    />
-                  </div>
+                   {/* Original Image (Left Side) */}
+                   <div
+                     className="absolute inset-0 overflow-hidden"
+                     style={{ width: `${dividerPosition}%` }}
+                   >
+                     <Image
+                       src={originalImageUrl!}
+                       alt="Original"
+                       fill
+                       sizes="100vw"
+                       className="object-contain"
+                       style={{ transform: `scale(${zoomLevel / 100})` }}
+                     />
+                   </div>
 
-                  {/* Processed Image (Right Side) */}
-                  <div
-                    className="absolute inset-0 overflow-hidden"
-                    style={{ 
-                      left: `${dividerPosition}%`,
-                      width: `${100 - dividerPosition}%` 
-                    }}
-                  >
-                    <Image
-                      src={project.processedImageUrl}
-                      alt="Processed"
-                      fill
-                      className="object-contain"
-                      style={{ transform: `scale(${zoomLevel / 100})` }}
-                    />
-                  </div>
+                   {/* Processed Image (Right Side) */}
+                   <div
+                     className="absolute inset-0 overflow-hidden"
+                     style={{
+                       left: `${dividerPosition}%`,
+                       width: `${100 - dividerPosition}%`
+                     }}
+                   >
+                     <Image
+                       src={processedImageUrl!}
+                       alt="Processed"
+                       fill
+                       sizes="100vw"
+                       className="object-contain"
+                       style={{ transform: `scale(${zoomLevel / 100})` }}
+                     />
+                   </div>
 
                   {/* Divider Line */}
                   <div

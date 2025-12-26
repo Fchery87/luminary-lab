@@ -334,12 +334,29 @@ export async function completeMultipartUpload(
     },
   });
 
-  const response = await s3Client.send(command);
+  try {
+    const response = await s3Client.send(command);
+    console.log('Multipart upload completed:', {
+      key,
+      uploadId,
+      location: response.Location,
+      etag: response.ETag,
+    });
 
-  return {
-    location: response.Location || '',
-    etag: response.ETag || '',
-  };
+    return {
+      location: response.Location || '',
+      etag: response.ETag || '',
+    };
+  } catch (error) {
+    console.error('Failed to complete multipart upload:', {
+      key,
+      uploadId,
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      partsCount: parts.length
+    });
+    throw error;
+  }
 }
 
 /**

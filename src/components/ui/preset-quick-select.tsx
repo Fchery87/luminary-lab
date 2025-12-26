@@ -65,13 +65,14 @@ export function PresetQuickSelect({
                 )}
               >
                 {/* Thumbnail */}
-                <div className="relative h-full w-full">
-                  <Image
-                    src={preset.exampleImageUrl}
-                    alt={preset.name}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
+                 <div className="relative h-full w-full">
+                   <Image
+                     src={preset.exampleImageUrl}
+                     alt={preset.name}
+                     fill
+                     sizes="(max-width: 640px) 50vw, 25vw"
+                     className="object-cover transition-transform duration-300 group-hover:scale-105"
+                   />
                   
                   {/* Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />

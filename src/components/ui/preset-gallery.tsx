@@ -54,6 +54,7 @@ export function PresetGallery({
                 src={preset.exampleImageUrl}
                 alt={preset.name}
                 fill
+                sizes="(max-width: 640px) 100vw, 50vw"
                 className="object-cover opacity-95 transition-opacity duration-200 group-hover:opacity-100"
               />
               

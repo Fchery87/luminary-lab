@@ -111,20 +111,55 @@ function UploadPageContent() {
         if (!handleMultipartUploadRef.current) {
           throw new Error('Multipart upload handler not initialized');
         }
+        console.log('[Upload] Starting multipart upload for project:', data.projectId);
         await handleMultipartUploadRef.current(file, data);
+        console.log('[Upload] Multipart upload completed for project:', data.projectId);
       } else if (data.uploadType === 'single-part' && data.uploadUrl) {
         if (!handleSinglePartUploadRef.current) {
           throw new Error('Single part upload handler not initialized');
         }
+        console.log('[Upload] Starting single-part upload for project:', data.projectId);
         await handleSinglePartUploadRef.current(file, data);
+        console.log('[Upload] Single-part upload completed for project:', data.projectId);
       } else {
         throw new Error('Invalid upload response from server');
       }
 
+      // Verify image was created by fetching project
+      console.log('[Upload] Verifying image upload for project:', data.projectId);
+      setUploadStatus('Verifying upload...');
+      
+      try {
+        const verifyResponse = await fetch(`/api/projects/${data.projectId}`, {
+          credentials: 'include',
+        });
+        
+        if (verifyResponse.ok) {
+          const projectData = await verifyResponse.json();
+          const hasOriginalImage = projectData.images?.some((img: any) => img.type === 'original');
+          
+          if (!hasOriginalImage) {
+            console.warn('[Upload] Warning: No original image found after upload. Project data:', projectData);
+            // Continue anyway but log warning
+          } else {
+            console.log('[Upload] Verification successful - original image exists');
+          }
+        } else {
+          console.warn('[Upload] Could not verify upload, but proceeding anyway');
+        }
+      } catch (verifyError) {
+        console.warn('[Upload] Verification failed, but proceeding:', verifyError);
+        // Don't fail the upload if verification fails
+      }
+
       toast.success('File uploaded successfully!');
+
+      // Small delay to ensure database commit completes
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // For onboarding, redirect to compare page to show the "Aha" moment
       // Otherwise, redirect to editing page
+      console.log('[Upload] Navigating to', isOnboarding ? 'compare' : 'edit', 'page');
       if (isOnboarding) {
         router.push(`/compare/${data.projectId}?onboarding=true`);
       } else {
@@ -211,7 +246,7 @@ function UploadPageContent() {
       setUploadStatus(`Uploading part ${partNumber} of ${totalParts}...`);
 
       // Upload part to S3
-      const etag = await uploadPartToS3(partUrl, chunk);
+      const etag = await uploadPartToS3(partUrl, chunk, partNumber);
 
       // Register part with server
       await registerPart(data.uploadId!, partNumber, chunk.size, etag);
@@ -230,7 +265,7 @@ function UploadPageContent() {
   // Assign to ref for stable reference
   handleMultipartUploadRef.current = handleMultipartUpload;
 
-  const uploadPartToS3 = useCallback((url: string, chunk: Blob): Promise<string> => {
+  const uploadPartToS3 = useCallback((url: string, chunk: Blob, partNumber: number): Promise<string> => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', url);
@@ -238,8 +273,9 @@ function UploadPageContent() {
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           // Extract ETag from response headers
-          const etag = xhr.getResponseHeader('ETag');
+          let etag = xhr.getResponseHeader('ETag');
           if (!etag) {
+            console.error('Response headers:', xhr.getAllResponseHeaders());
             reject(
               new Error(
                 'Missing ETag from storage response. Ensure your bucket CORS exposes the ETag header.'
@@ -247,9 +283,12 @@ function UploadPageContent() {
             );
             return;
           }
+          // ETag may be returned with quotes, strip them for consistency
+          etag = etag.replace(/^"|"$/g, '');
+          console.log(`Part ${partNumber} uploaded successfully, ETag:`, etag);
           resolve(etag);
         } else {
-          reject(new Error(`Failed to upload part. Status: ${xhr.status}`));
+          reject(new Error(`Failed to upload part. Status: ${xhr.status}, Response: ${xhr.responseText}`));
         }
       };
 
@@ -306,8 +345,13 @@ function UploadPageContent() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to complete upload');
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Complete upload failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
+      throw new Error(errorData.error || `Failed to complete upload (HTTP ${response.status})`);
     }
 
     setUploadProgress(100);
@@ -373,17 +417,8 @@ function UploadPageContent() {
         <div className="absolute inset-0 grid-pattern" />
       </div>
 
-      <Header 
+      <Header
         variant="minimal"
-        navigation={
-          <Link
-            href="/dashboard"
-            className="font-body text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors flex items-center h-8 relative group"
-          >
-            Dashboard
-            <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[hsl(var(--gold))] group-hover:w-full transition-all duration-300" />
-          </Link>
-        }
         showUserMenu={true}
       />
 

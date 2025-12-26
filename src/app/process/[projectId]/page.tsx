@@ -109,18 +109,8 @@ export default function ProcessingPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header 
+      <Header
         variant="minimal"
-        navigation={
-          <>
-            <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/upload" className="text-sm font-medium hover:text-primary transition-colors">
-              Upload
-            </Link>
-          </>
-        }
         showUserMenu={true}
       />
 
@@ -227,15 +217,16 @@ export default function ProcessingPage() {
                 <CardTitle>Preview</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="relative w-full h-80">
-                  <Image
-                    src={jobStatus.thumbnailUrl}
-                    alt="Processed image preview"
-                    fill
-                    className="rounded-sm object-cover"
-                  />
-                </div>
-              </CardContent>
+                 <div className="relative w-full h-80">
+                   <Image
+                     src={jobStatus.thumbnailUrl}
+                     alt="Processed image preview"
+                     fill
+                     sizes="(max-width: 768px) 100vw, 80vw"
+                     className="rounded-sm object-cover"
+                   />
+                 </div>
+               </CardContent>
             </Card>
           )}
         </div>

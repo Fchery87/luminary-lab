@@ -363,13 +363,14 @@ export default function EditPage() {
                         aspectRatio="h-full" // Override aspect
                      />
                  ) : (
-                     <div className="h-full w-full relative">
-                         <Image 
-                            src={originalImage} 
-                            alt="Original" 
-                            fill 
-                            className="object-contain"
-                         />
+                      <div className="h-full w-full relative">
+                          <Image
+                             src={originalImage}
+                             alt="Original"
+                             fill
+                             sizes="(max-width: 1024px) 100vw, 75vw"
+                             className="object-contain"
+                          />
                          {!isProcessing && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
                                 <div className="bg-background/90 p-4 rounded-md border border-border shadow-xl text-center">
@@ -478,10 +479,16 @@ export default function EditPage() {
                                                 }
                                             `}
                                         >
-                                            <div className="flex items-center gap-3 p-2 bg-card">
-                                                <div className="relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0">
-                                                    <Image src={preset.exampleImageUrl} alt={preset.name} fill className="object-cover" />
-                                                </div>
+                                             <div className="flex items-center gap-3 p-2 bg-card">
+                                                 <div className="relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0">
+                                                     <Image
+                                                         src={preset.exampleImageUrl}
+                                                         alt={preset.name}
+                                                         fill
+                                                         sizes="48px"
+                                                         className="object-cover"
+                                                     />
+                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">{preset.name}</p>

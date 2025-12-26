@@ -92,15 +92,15 @@ export async function GET(req: Request) {
       conditions.push(sql`(images.metadata->>'iso')::numeric <= ${parseInt(isoMax)}`);
     }
 
-    // Fetch projects with their optional thumbnails and processing job info
-    // Join with images for thumbnails and with processingJobs+systemStyles for style info
+    // Fetch projects with their original images and processing job info
+    // We'll fetch thumbnails separately
     const userProjects = await db
       .select({
         id: projects.id,
         name: projects.name,
         status: projects.status,
         createdAt: projects.createdAt,
-        thumbnailUrl: images.storageKey,
+        originalStorageKey: images.storageKey,
         styleName: systemStyles.name,
         intensity: processingJobs.intensity,
         metadata: images.metadata,
@@ -110,7 +110,7 @@ export async function GET(req: Request) {
         images,
         and(
           eq(images.projectId, projects.id),
-          eq(images.type, 'original') // Use original to get metadata
+          eq(images.type, 'original')
         )
       )
       .leftJoin(
@@ -124,9 +124,30 @@ export async function GET(req: Request) {
       .where(and(...conditions))
       .orderBy(desc(projects.createdAt));
 
+    // Get thumbnail URLs for each project (prefer thumbnail type over original)
+    const projectsWithThumbnails = await Promise.all(
+      userProjects.map(async (project) => {
+        const [thumbnail] = await db
+          .select({ storageKey: images.storageKey })
+          .from(images)
+          .where(
+            and(
+              eq(images.projectId, project.id),
+              eq(images.type, 'thumbnail')
+            )
+          )
+          .limit(1);
+
+        return {
+          ...project,
+          thumbnailUrl: thumbnail?.storageKey || project.originalStorageKey || null,
+        };
+      })
+    );
+
     // Get tags for each project
     const projectsWithTags = await Promise.all(
-      userProjects.map(async (project) => {
+      projectsWithThumbnails.map(async (project) => {
         const projectTagsList = await db
           .select({
             name: tags.name,

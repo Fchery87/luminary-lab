@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { uploadPart, listParts, completeMultipartUpload, abortMultipartUpload } from '@/lib/s3';
-import { db, multipartUploads, uploadParts, images, tags, projectTags, projects } from '@/db';
+import {
+  uploadPart,
+  listParts,
+  completeMultipartUpload,
+  abortMultipartUpload,
+} from '@/lib/s3';
+import {
+  db,
+  multipartUploads,
+  uploadParts,
+  images,
+  tags,
+  projectTags,
+  projects,
+} from '@/db';
 import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
 import { withUsageLimits } from '@/lib/usage-limits';
 import { AuditLogger } from '@/lib/audit-logger';
-import { extractTagsFromMetadata, formatMetadataForDisplay, generateProjectName, extractMetadataFromS3 } from '@/lib/raw-metadata';
+import {
+  extractTagsFromMetadata,
+  formatMetadataForDisplay,
+  generateProjectName,
+  extractMetadataFromS3,
+} from '@/lib/raw-metadata';
 import { detectMimeType } from '@/lib/mime-types';
 import { eq, and } from 'drizzle-orm';
 import { generateAndSaveThumbnails } from '@/lib/thumbnail-generator';
@@ -66,7 +84,7 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     }
   } catch (error) {
     console.error('Chunk upload error:', error);
-    
+
     // Log failed chunk upload
     try {
       await AuditLogger.logFailure(
@@ -81,7 +99,7 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     } catch (logError) {
       console.error('Failed to log chunk upload error:', logError);
     }
-    
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -98,7 +116,7 @@ async function handlePartRegistration(
   request: NextRequest
 ): Promise<NextResponse> {
   const validated = registerPartSchema.safeParse(body);
-  
+
   if (!validated.success) {
     return NextResponse.json(
       { error: 'Invalid part data', details: validated.error },
@@ -171,7 +189,9 @@ async function handlePartRegistration(
     message: 'Part registered successfully',
     uploadedParts: (existingUpload?.uploadedParts || 0) + 1,
     totalParts: upload.totalParts,
-    progress: Math.round(((existingUpload?.uploadedParts || 0) + 1) / upload.totalParts * 100),
+    progress: Math.round(
+      (((existingUpload?.uploadedParts || 0) + 1) / upload.totalParts) * 100
+    ),
   });
 }
 
@@ -184,7 +204,7 @@ async function handleUploadCompletion(
   request: NextRequest
 ): Promise<NextResponse> {
   const validated = completeUploadSchema.safeParse(body);
-  
+
   if (!validated.success) {
     return NextResponse.json(
       { error: 'Invalid completion data', details: validated.error },
@@ -217,10 +237,10 @@ async function handleUploadCompletion(
 
   if (parts.length !== upload.totalParts) {
     return NextResponse.json(
-      { 
+      {
         error: 'Not all parts uploaded',
         uploadedParts: parts.length,
-        totalParts: upload.totalParts
+        totalParts: upload.totalParts,
       },
       { status: 400 }
     );
@@ -234,7 +254,54 @@ async function handleUploadCompletion(
       etag: p.partEtag!,
     }));
 
-  await completeMultipartUpload(upload.storageKey, uploadId, partsArray);
+  console.log('[Multipart Completion] Starting multipart upload completion:', {
+    uploadId,
+    storageKey: upload.storageKey,
+    totalParts: partsArray.length,
+    parts: partsArray.map((p) => ({ partNumber: p.partNumber, etag: p.etag })),
+  });
+
+  try {
+    const result = await completeMultipartUpload(
+      upload.storageKey,
+      uploadId,
+      partsArray
+    );
+    console.log('[Multipart Completion] Successfully completed:', {
+      uploadId,
+      storageKey: upload.storageKey,
+      location: result.location,
+      etag: result.etag,
+    });
+  } catch (s3Error) {
+    const error = s3Error as any;
+    console.error(
+      '[Multipart Completion] FAILED - S3 completeMultipartUpload failed:',
+      {
+        error,
+        message: error.message,
+        code: error.Code,
+        statusCode: error.$metadata?.httpStatusCode,
+        requestId: error.$metadata?.requestId,
+        uploadId,
+        storageKey: upload.storageKey,
+        partsProvided: partsArray.length,
+      }
+    );
+
+    const statusCode = error.$metadata?.httpStatusCode;
+    const errorMessage =
+      statusCode === 400
+        ? 'Invalid part data or ETags. Ensure all parts uploaded successfully.'
+        : statusCode === 404
+        ? 'Upload not found or expired. Please try again.'
+        : error.message || 'Failed to complete upload on storage';
+
+    return NextResponse.json(
+      { error: errorMessage, details: error.message },
+      { status: 500 }
+    );
+  }
 
   // Update multipart upload status
   await db
@@ -277,7 +344,11 @@ async function handleUploadCompletion(
   // Extract real metadata from the uploaded file
   let metadata = null;
   try {
-    metadata = await extractMetadataFromS3(originalKey, filename, finalMimeType);
+    metadata = await extractMetadataFromS3(
+      originalKey,
+      filename,
+      finalMimeType
+    );
     console.log('Extracted metadata for', filename, ':', metadata);
 
     // Update image record with extracted metadata
@@ -314,36 +385,38 @@ async function handleUploadCompletion(
   if (metadata) {
     const extractedTags = extractTagsFromMetadata(metadata);
     for (const tag of extractedTags) {
-    const existingTags = await db
-      .select()
-      .from(tags)
-      .where(eq(tags.userId, userId));
+      const existingTags = await db
+        .select()
+        .from(tags)
+        .where(eq(tags.userId, userId));
 
-    let tagId: string | undefined;
-    const existingTag = existingTags.find(t => t.name === tag.name && t.type === tag.type);
-    
-    if (existingTag) {
-      tagId = existingTag.id;
-    } else {
-      const [newTag] = await db
-        .insert(tags)
-        .values({
+      let tagId: string | undefined;
+      const existingTag = existingTags.find(
+        (t) => t.name === tag.name && t.type === tag.type
+      );
+
+      if (existingTag) {
+        tagId = existingTag.id;
+      } else {
+        const [newTag] = await db
+          .insert(tags)
+          .values({
+            id: uuidv7(),
+            userId,
+            name: tag.name,
+            type: tag.type,
+          })
+          .returning();
+        tagId = newTag.id;
+      }
+
+      if (tagId) {
+        await db.insert(projectTags).values({
           id: uuidv7(),
-          userId,
-          name: tag.name,
-          type: tag.type,
-        })
-        .returning();
-      tagId = newTag.id;
-    }
-
-    if (tagId) {
-      await db.insert(projectTags).values({
-        id: uuidv7(),
-        projectId,
-        tagId,
-      });
-    }
+          projectId,
+          tagId,
+        });
+      }
     }
   }
 
@@ -380,7 +453,7 @@ async function handleGetProgress(
   userId: string
 ): Promise<NextResponse> {
   const validated = progressSchema.safeParse(body);
-  
+
   if (!validated.success) {
     return NextResponse.json(
       { error: 'Invalid progress request', details: validated.error },
@@ -410,7 +483,9 @@ async function handleGetProgress(
     .from(uploadParts)
     .where(eq(uploadParts.uploadId, uploadId));
 
-  const progress = Math.round((upload.uploadedParts || 0) / upload.totalParts * 100);
+  const progress = Math.round(
+    ((upload.uploadedParts || 0) / upload.totalParts) * 100
+  );
 
   return NextResponse.json({
     success: true,
@@ -419,7 +494,7 @@ async function handleGetProgress(
     uploadedParts: upload.uploadedParts || 0,
     totalParts: upload.totalParts,
     progress,
-    parts: parts.map(p => ({
+    parts: parts.map((p) => ({
       partNumber: p.partNumber,
       status: p.status,
       sizeBytes: p.sizeBytes,
@@ -436,7 +511,7 @@ async function handleUploadAbort(
   request: NextRequest
 ): Promise<NextResponse> {
   const validated = abortUploadSchema.safeParse(body);
-  
+
   if (!validated.success) {
     return NextResponse.json(
       { error: 'Invalid abort request', details: validated.error },

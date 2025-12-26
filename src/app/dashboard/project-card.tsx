@@ -86,6 +86,7 @@ export function ProjectCard({ project, onDelete, isDeleting, viewMode = 'grid' }
             src={project.thumbnailUrl || project.originalImageUrl || '/placeholder.svg'}
             alt={project.name}
             fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
             className="object-cover opacity-95 transition-all duration-400 group-hover:opacity-100 group-hover:translate-y-[-2px]"
           />
 

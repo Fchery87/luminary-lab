@@ -107,16 +107,17 @@ export function CompareSlider({
           Usually slider at 50%: Left half shows Before, Right half shows After. 
       */}
       
-      {/* Layer 1: Right Image (After/Processed) - Full width, sitting at the back */}
-      <div className="absolute inset-0 w-full h-full select-none">
-        <Image
-          src={afterImage}
-          alt={afterLabel}
-          fill
-          priority
-          className="object-cover object-center pointer-events-none"
-          draggable={false}
-        />
+       {/* Layer 1: Right Image (After/Processed) - Full width, sitting at the back */}
+       <div className="absolute inset-0 w-full h-full select-none">
+         <Image
+           src={afterImage}
+           alt={afterLabel}
+           fill
+           sizes="(max-width: 1024px) 100vw, 75vw"
+           priority
+           className="object-cover object-center pointer-events-none"
+           draggable={false}
+         />
        
          {/* Label for After - Positioned Top Right */}
          <div className={cn(
@@ -129,19 +130,20 @@ export function CompareSlider({
          </div>
       </div>
 
-      {/* Layer 2: Left Image (Before/Original) - Clipped */}
-      <div 
-        className="absolute inset-0 w-full h-full select-none overflow-hidden"
-        style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
-      >
-        <Image
-          src={beforeImage}
-          alt={beforeLabel}
-          fill
-          priority
-          className="object-cover object-center pointer-events-none"
-          draggable={false}
-        />
+       {/* Layer 2: Left Image (Before/Original) - Clipped */}
+       <div
+         className="absolute inset-0 w-full h-full select-none overflow-hidden"
+         style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+       >
+         <Image
+           src={beforeImage}
+           alt={beforeLabel}
+           fill
+           sizes="(max-width: 1024px) 100vw, 75vw"
+           priority
+           className="object-cover object-center pointer-events-none"
+           draggable={false}
+         />
         
         {/* Label for Before - Positioned Top Left */}
          <div className={cn(
