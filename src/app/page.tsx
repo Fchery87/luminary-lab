@@ -3,45 +3,36 @@
 import Link from 'next/link';
 import { Header } from '@/components/ui/header';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion';
+import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import {
   ArrowRight, Upload, Download, Sparkles, Aperture,
   Shield, Layers, Zap, Cpu, Wand2, Sliders, Camera
 } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
 
-// Utility: Character-by-character reveal animation
-function CharReveal({ 
+// Utility: Simple fade-in animation (replaces expensive CharReveal)
+function FadeIn({ 
   children, 
   delay = 0,
-  stagger = 0.02
+  className = ''
 }: { 
-  children: string; 
+  children: React.ReactNode; 
   delay?: number;
-  stagger?: number;
+  className?: string;
 }) {
-  const chars = children.split('');
-  
   return (
-    <span className="inline-block">
-      {chars.map((char, i) => (
-        <motion.span
-          key={i}
-          className="inline-block"
-          initial={{ opacity: 0, y: 30, rotateX: -15 }}
-          animate={{ opacity: 1, y: 0, rotateX: 0 }}
-          transition={{ 
-            duration: 0.5, 
-            delay: delay + (i * stagger),
-            type: "spring",
-            stiffness: 200,
-            damping: 25
-          }}
-        >
-          {char === ' ' ? '\u00A0' : char}
-        </motion.span>
-      ))}
-    </span>
+    <motion.span
+      className={`inline-block ${className}`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ 
+        duration: 0.6, 
+        delay,
+        ease: [0.25, 0.1, 0.25, 1] // CSS ease-out equivalent
+      }}
+    >
+      {children}
+    </motion.span>
   );
 }
 
@@ -282,14 +273,10 @@ export default function HomePage() {
 
               {/* Headline */}
               <h1 className="text-6xl md:text-8xl lg:text-[10rem] font-display font-bold tracking-tighter leading-[0.85] mb-8">
-                <CharReveal stagger={0.012}>
-                  Precision
-                </CharReveal>
+                <FadeIn>Precision</FadeIn>
                 <br />
                 <span className="text-shimmer">
-                  <CharReveal stagger={0.012} delay={0.3}>
-                    Retouching
-                  </CharReveal>
+                  <FadeIn delay={0.2}>Retouching</FadeIn>
                 </span>
               </h1>
 
@@ -377,9 +364,7 @@ export default function HomePage() {
                   <div className="w-12 h-[1px] bg-[hsl(var(--gold))]" />
                 </div>
                 <h2 className="font-display text-4xl md:text-6xl font-bold mb-4">
-                  <CharReveal stagger={0.015}>
-                    Professional Capabilities
-                  </CharReveal>
+                  <FadeIn>Professional Capabilities</FadeIn>
                 </h2>
                 <p className="font-body text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto">
                   Advanced processing powered by distributed GPU clusters and neural networks trained on millions of editorial images.
@@ -464,9 +449,7 @@ export default function HomePage() {
                   <div className="w-12 h-[1px] bg-[hsl(var(--gold))]" />
                 </div>
                 <h2 className="font-display text-4xl md:text-6xl font-bold mb-4">
-                  <CharReveal stagger={0.015}>
-                    Seamless Process
-                  </CharReveal>
+                  <FadeIn>Seamless Process</FadeIn>
                 </h2>
               </motion.div>
 
@@ -542,9 +525,7 @@ export default function HomePage() {
                   </motion.div>
 
                   <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
-                    <CharReveal stagger={0.015}>
-                      Create Something Extraordinary
-                    </CharReveal>
+                    <FadeIn>Create Something Extraordinary</FadeIn>
                   </h2>
                   
                   <p className="font-body text-xl text-[hsl(var(--muted-foreground))] max-w-xl mx-auto mb-10 leading-relaxed">

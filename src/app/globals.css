@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Import distinctive fonts */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800;900&display=swap');
@@ -86,7 +86,7 @@ body {
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
 }
 
 html {
@@ -111,7 +111,7 @@ html {
   background: hsl(var(--gold));
 }
 
-/* Film grain texture overlay */
+/* Film grain texture overlay - Use GPU layer */
 .film-grain {
   position: fixed;
   top: 0;
@@ -123,9 +123,11 @@ html {
   opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
   background-size: 200px 200px;
+  contain: strict;
+  will-change: auto;
 }
 
-/* Subtle scanline effect */
+/* Subtle scanline effect - Use GPU layer */
 .scanlines {
   position: fixed;
   top: 0;
@@ -142,19 +144,21 @@ html {
     transparent 1px,
     transparent 2px
   );
+  contain: strict;
 }
 
 /* Grid pattern overlay */
 .grid-pattern {
-  background-image: 
-    linear-gradient(hsl(var(--border)) 1px, transparent 1px),
+  background-image: linear-gradient(hsl(var(--border)) 1px, transparent 1px),
     linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px);
   background-size: 60px 60px;
   background-position: center center;
+  contain: paint;
 }
 
 @keyframes amber-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 20px -5px hsl(var(--gold) / 0.3);
   }
   50% {
@@ -164,6 +168,7 @@ html {
 
 .amber-glow {
   animation: amber-glow 4s ease-in-out infinite;
+  will-change: box-shadow;
 }
 
 @keyframes text-shimmer {
@@ -189,12 +194,14 @@ html {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: text-shimmer 6s linear infinite;
+  will-change: background-position;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .text-shimmer,
   .amber-glow {
     animation: none;
+    will-change: auto;
   }
   .film-grain,
   .scanlines {
