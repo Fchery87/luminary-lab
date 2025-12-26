@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,10 +27,14 @@ interface MultipartUploadData {
   partUrls?: Array<{ partNumber: number; url: string }>;
 }
 
-export default function UploadPage() {
+function UploadPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isOnboarding = searchParams.get('onboarding') === 'true';
+  const [isOnboarding, setIsOnboarding] = useState(false);
+
+  useEffect(() => {
+    setIsOnboarding(searchParams.get('onboarding') === 'true');
+  }, [searchParams]);
 
   const [projectName, setProjectName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -612,5 +616,13 @@ export default function UploadPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <UploadPageContent />
+    </Suspense>
   );
 }
