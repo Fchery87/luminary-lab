@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { Header } from '@/components/ui/header';
 
 export default function ExportPage() {
   const params = useParams();
@@ -137,16 +138,15 @@ export default function ExportPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="px-4 lg:px-6 h-14 flex items-center border-b">
-        <Link href="/" className="flex items-center justify-center">
-          <h1 className="text-xl font-semibold">Luminary Lab</h1>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link href="/dashboard" className="text-sm font-medium hover:underline">
+      <Header 
+        variant="minimal"
+        navigation={
+          <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
             Dashboard
           </Link>
-        </nav>
-      </header>
+        }
+        showUserMenu={true}
+      />
 
       <main className="flex-1 container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">

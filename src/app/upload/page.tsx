@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { OnboardingChecklist, type OnboardingStep } from '@/components/ui/onboarding-checklist';
+import { Header } from '@/components/ui/header';
 
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
 
@@ -192,10 +193,10 @@ export default function UploadPage() {
       setUploadStatus(`Uploading part ${partNumber} of ${totalParts}...`);
 
       // Upload part to S3
-      await uploadPartToS3(partUrl, chunk);
+      const etag = await uploadPartToS3(partUrl, chunk);
 
       // Register part with server
-      await registerPart(data.uploadId!, partNumber, chunk.size);
+      await registerPart(data.uploadId!, partNumber, chunk.size, etag);
 
       uploadedParts++;
       const progress = Math.round((uploadedParts / totalParts) * 100);
@@ -207,7 +208,7 @@ export default function UploadPage() {
     await completeMultipartUpload(file, data);
   };
 
-  const uploadPartToS3 = (url: string, chunk: Blob): Promise<void> => {
+  const uploadPartToS3 = (url: string, chunk: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', url);
@@ -216,7 +217,15 @@ export default function UploadPage() {
         if (xhr.status >= 200 && xhr.status < 300) {
           // Extract ETag from response headers
           const etag = xhr.getResponseHeader('ETag');
-          resolve();
+          if (!etag) {
+            reject(
+              new Error(
+                'Missing ETag from storage response. Ensure your bucket CORS exposes the ETag header.'
+              )
+            );
+            return;
+          }
+          resolve(etag);
         } else {
           reject(new Error(`Failed to upload part. Status: ${xhr.status}`));
         }
@@ -230,10 +239,9 @@ export default function UploadPage() {
   const registerPart = async (
     uploadId: string,
     partNumber: number,
-    sizeBytes: number
+    sizeBytes: number,
+    etag: string
   ): Promise<void> => {
-    // Extract ETag from the part upload - in practice we'll get this from S3 response
-    // For now, we'll use a placeholder since S3 ETag is in the response
     const response = await fetch('/api/upload/chunk', {
       method: 'POST',
       credentials: 'include',
@@ -244,7 +252,7 @@ export default function UploadPage() {
         action: 'register',
         uploadId,
         partNumber,
-        etag: `"${uploadId}-${partNumber}"`, // Placeholder ETag
+        etag,
         sizeBytes,
       }),
     });
@@ -343,23 +351,9 @@ export default function UploadPage() {
         <div className="absolute inset-0 grid-pattern" />
       </div>
 
-      <header className="px-4 lg:px-6 h-14 flex items-center border-b border-[hsl(var(--border))] relative">
-        {/* Top amber accent line */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[hsl(var(--gold))] via-[hsl(var(--gold-light))] to-transparent opacity-60" />
-
-        <Link href="/" className="flex items-center gap-2 group">
-          <motion.div
-            whileHover={{ rotate: 360 }}
-            transition={{ duration: 8, ease: "linear" }}
-            className="relative w-6 h-6 bg-[hsl(var(--gold))] rounded-sm flex items-center justify-center"
-          >
-            <Aperture className="h-3 w-3 text-[hsl(var(--charcoal))]" />
-          </motion.div>
-          <span className="font-display text-sm font-bold uppercase tracking-tight text-[hsl(var(--foreground))]">
-            Luminary Lab
-          </span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
+      <Header 
+        variant="minimal"
+        navigation={
           <Link
             href="/dashboard"
             className="font-body text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors flex items-center h-8 relative group"
@@ -367,15 +361,9 @@ export default function UploadPage() {
             Dashboard
             <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[hsl(var(--gold))] group-hover:w-full transition-all duration-300" />
           </Link>
-          <Link
-            href="/login"
-            className="font-body text-xs font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors flex items-center h-8 relative group"
-          >
-            Login
-            <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[hsl(var(--gold))] group-hover:w-full transition-all duration-300" />
-          </Link>
-        </nav>
-      </header>
+        }
+        showUserMenu={true}
+      />
 
       <main className="flex-1 flex items-center justify-center p-6 relative z-10">
         {isOnboarding ? (

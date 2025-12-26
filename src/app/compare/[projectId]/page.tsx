@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Header } from '@/components/ui/header';
 
 interface ProjectData {
   id: string;
@@ -171,19 +172,20 @@ export default function ComparePage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="px-4 lg:px-6 h-14 flex items-center border-b">
-        <Link href="/" className="flex items-center justify-center">
-          <h1 className="text-xl font-semibold">Luminary Lab</h1>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link href="/dashboard" className="text-sm font-medium hover:underline">
-            Dashboard
-          </Link>
-          <Link href="/upload" className="text-sm font-medium hover:underline">
-            Upload
-          </Link>
-        </nav>
-      </header>
+      <Header 
+        variant="minimal"
+        navigation={
+          <>
+            <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
+              Dashboard
+            </Link>
+            <Link href="/upload" className="text-sm font-medium hover:text-primary transition-colors">
+              Upload
+            </Link>
+          </>
+        }
+        showUserMenu={true}
+      />
 
       <main className="flex-1 container mx-auto px-4 py-6">
         {/* Project Header */}
