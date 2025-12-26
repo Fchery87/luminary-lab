@@ -304,8 +304,16 @@ export default function EditPage() {
   }
 
   // Determine images to show
-  // Fallback to placeholder if original URL missing (shouldn't happen in real app)
-  const originalImage = project.images?.find((img: any) => img.type === 'original' || !img.type)?.url 
+  // For RAW files, we need to use the thumbnail since browsers can't display RAW
+  // Priority: large thumbnail > medium thumbnail > any thumbnail > original (for non-RAW)
+  const thumbnailImage = project.images?.find((img: any) => img.type === 'thumbnail')?.url;
+  const originalImageObj = project.images?.find((img: any) => img.type === 'original' || !img.type);
+  const isRawFile = originalImageObj?.mimeType?.startsWith('image/x-');
+  
+  // Use thumbnail for RAW files, otherwise use original
+  const originalImage = (isRawFile ? thumbnailImage : originalImageObj?.url)
+    || thumbnailImage  // Fallback to thumbnail if original not displayable
+    || originalImageObj?.url  // Try original anyway
     || project.originalImageUrl 
     || 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=2000&auto=format&fit=crop';
     

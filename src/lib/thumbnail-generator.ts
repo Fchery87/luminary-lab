@@ -4,7 +4,11 @@
  */
 
 import sharp from 'sharp';
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { db, images } from '@/db';
 import { and, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
@@ -88,12 +92,16 @@ function getS3Client(): S3Client {
     const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME;
 
     if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
-      throw new Error('Cloudflare R2 environment variables are not set. Please set: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME');
+      throw new Error(
+        'Cloudflare R2 environment variables are not set. Please set: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME'
+      );
     }
 
     return new S3Client({
       region: 'auto', // R2 always uses 'auto' for region
-      endpoint: process.env.CLOUDFLARE_R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`,
+      endpoint:
+        process.env.CLOUDFLARE_R2_ENDPOINT ||
+        `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId,
         secretAccessKey,
@@ -106,7 +114,9 @@ function getS3Client(): S3Client {
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
     if (!region || !accessKeyId || !secretAccessKey) {
-      throw new Error('AWS S3 environment variables are not set. Please set: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET');
+      throw new Error(
+        'AWS S3 environment variables are not set. Please set: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET'
+      );
     }
 
     return new S3Client({
@@ -132,23 +142,46 @@ export async function downloadImageFromS3(storageKey: string): Promise<Buffer> {
   });
 
   const response = await s3Client.send(command);
-  
+
   if (!response.Body) {
     throw new Error('No body in S3 response');
   }
 
-  // Convert stream to buffer
-  const chunks: Uint8Array[] = [];
-  const stream = response.Body as ReadableStream<Uint8Array>;
-  const reader = stream.getReader();
+  // Handle different stream types based on runtime environment
+  const body = response.Body;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
+  // Check if it's a Node.js Readable stream (has pipe method)
+  if ('pipe' in body && typeof (body as any).pipe === 'function') {
+    // Node.js Readable stream - use transformToByteArray()
+    const byteArray = await body.transformToByteArray();
+    return Buffer.from(byteArray);
   }
 
-  return Buffer.concat(chunks);
+  // Check if it's a Web ReadableStream (has getReader method)
+  if ('getReader' in body && typeof (body as any).getReader === 'function') {
+    const stream = body as ReadableStream<Uint8Array>;
+    const reader = stream.getReader();
+    const chunks: Uint8Array[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  // Fallback: try transformToByteArray which should work in most cases
+  if (
+    'transformToByteArray' in body &&
+    typeof (body as any).transformToByteArray === 'function'
+  ) {
+    const byteArray = await (body as any).transformToByteArray();
+    return Buffer.from(byteArray);
+  }
+
+  throw new Error('Unsupported S3 response body type');
 }
 
 /**
@@ -166,9 +199,9 @@ export async function generateThumbnail(
   try {
     // Check if the image is a RAW file
     const isRaw = originalMimeType?.startsWith('image/x-');
-    
+
     let pipeline = sharp(imageBuffer);
-    
+
     // For RAW files, we need to use libvips to convert
     // Sharp should handle this automatically with the correct flags
     if (isRaw) {
@@ -197,7 +230,11 @@ export async function generateThumbnail(
     };
   } catch (error) {
     console.error('Thumbnail generation error:', error);
-    throw new Error(`Failed to generate thumbnail: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to generate thumbnail: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+    );
   }
 }
 
@@ -217,11 +254,12 @@ export async function generateMultipleThumbnails(
 
   for (const [size, config] of Object.entries(configs)) {
     try {
-      const { buffer, width, height, size: sizeBytes } = await generateThumbnail(
-        imageBuffer,
-        config,
-        originalMimeType
-      );
+      const {
+        buffer,
+        width,
+        height,
+        size: sizeBytes,
+      } = await generateThumbnail(imageBuffer, config, originalMimeType);
 
       results.push({
         id: uuidv7(),
@@ -229,7 +267,12 @@ export async function generateMultipleThumbnails(
         storageKey: '',
         filename: '',
         sizeBytes,
-        mimeType: config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp',
+        mimeType:
+          config.format === 'jpeg'
+            ? 'image/jpeg'
+            : config.format === 'png'
+            ? 'image/png'
+            : 'image/webp',
         width,
         height,
       });
@@ -259,14 +302,20 @@ export async function generateAndSaveThumbnails(
   try {
     // Validate input
     if (!isImageMimeType(originalMimeType)) {
-      throw new Error(`Unsupported MIME type for thumbnail generation: ${originalMimeType}`);
+      throw new Error(
+        `Unsupported MIME type for thumbnail generation: ${originalMimeType}`
+      );
     }
 
     // Download original image
     const imageBuffer = await downloadImageFromS3(originalStorageKey);
 
     // Detect actual MIME type from buffer (more accurate than client-provided)
-    const detectedMimeType = detectMimeType(originalStorageKey, imageBuffer, originalMimeType);
+    const detectedMimeType = detectMimeType(
+      originalStorageKey,
+      imageBuffer,
+      originalMimeType
+    );
 
     // Generate all thumbnail sizes
     const thumbnailResults: ThumbnailResult[] = [];
@@ -274,37 +323,57 @@ export async function generateAndSaveThumbnails(
 
     for (const [size, config] of Object.entries(configs)) {
       try {
-        const { buffer, width, height, size: sizeBytes } = await generateThumbnail(
-          imageBuffer,
-          config,
-          detectedMimeType
-        );
+        const {
+          buffer,
+          width,
+          height,
+          size: sizeBytes,
+        } = await generateThumbnail(imageBuffer, config, detectedMimeType);
 
         // Generate storage key for thumbnail
         const filename = `thumb_${size}_${originalStorageKey.split('/').pop()}`;
         const storageKey = `users/${userId}/projects/${projectId}/thumbnail/${Date.now()}-${filename}`;
 
         // Upload thumbnail to S3
-        await uploadFile(storageKey, buffer, config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp');
+        await uploadFile(
+          storageKey,
+          buffer,
+          config.format === 'jpeg'
+            ? 'image/jpeg'
+            : config.format === 'png'
+            ? 'image/png'
+            : 'image/webp'
+        );
 
         // Create database record
-        const thumbnailRecord = await db.insert(images).values({
-          id: uuidv7(),
-          projectId,
-          type: 'thumbnail',
-          storageKey,
-          filename,
-          sizeBytes,
-          mimeType: config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp',
-          width,
-          height,
-        }).returning();
+        const thumbnailRecord = await db
+          .insert(images)
+          .values({
+            id: uuidv7(),
+            projectId,
+            type: 'thumbnail',
+            storageKey,
+            filename,
+            sizeBytes,
+            mimeType:
+              config.format === 'jpeg'
+                ? 'image/jpeg'
+                : config.format === 'png'
+                ? 'image/png'
+                : 'image/webp',
+            width,
+            height,
+          })
+          .returning();
 
         if (thumbnailRecord.length > 0) {
           thumbnailResults.push(thumbnailRecord[0]);
         }
       } catch (error) {
-        console.error(`Failed to generate ${size} thumbnail for project ${projectId}:`, error);
+        console.error(
+          `Failed to generate ${size} thumbnail for project ${projectId}:`,
+          error
+        );
         // Continue with other sizes
       }
     }
@@ -338,34 +407,55 @@ export async function generateSingleThumbnail(
   const imageBuffer = await downloadImageFromS3(originalStorageKey);
 
   // Detect actual MIME type from buffer
-  const detectedMimeType = detectMimeType(originalStorageKey, imageBuffer, originalMimeType);
+  const detectedMimeType = detectMimeType(
+    originalStorageKey,
+    imageBuffer,
+    originalMimeType
+  );
 
   // Generate thumbnail
-  const { buffer, width, height, size: sizeBytes } = await generateThumbnail(
-    imageBuffer,
-    config,
-    detectedMimeType
-  );
+  const {
+    buffer,
+    width,
+    height,
+    size: sizeBytes,
+  } = await generateThumbnail(imageBuffer, config, detectedMimeType);
 
   // Generate storage key
   const filename = `thumb_${size}_${originalStorageKey.split('/').pop()}`;
   const storageKey = `users/${userId}/projects/${projectId}/thumbnail/${Date.now()}-${filename}`;
 
   // Upload to S3
-  await uploadFile(storageKey, buffer, config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp');
+  await uploadFile(
+    storageKey,
+    buffer,
+    config.format === 'jpeg'
+      ? 'image/jpeg'
+      : config.format === 'png'
+      ? 'image/png'
+      : 'image/webp'
+  );
 
   // Create database record
-  const thumbnailRecord = await db.insert(images).values({
-    id: uuidv7(),
-    projectId,
-    type: 'thumbnail',
-    storageKey,
-    filename,
-    sizeBytes,
-    mimeType: config.format === 'jpeg' ? 'image/jpeg' : config.format === 'png' ? 'image/png' : 'image/webp',
-    width,
-    height,
-  }).returning();
+  const thumbnailRecord = await db
+    .insert(images)
+    .values({
+      id: uuidv7(),
+      projectId,
+      type: 'thumbnail',
+      storageKey,
+      filename,
+      sizeBytes,
+      mimeType:
+        config.format === 'jpeg'
+          ? 'image/jpeg'
+          : config.format === 'png'
+          ? 'image/png'
+          : 'image/webp',
+      width,
+      height,
+    })
+    .returning();
 
   if (thumbnailRecord.length === 0) {
     throw new Error('Failed to create thumbnail record');
@@ -385,8 +475,17 @@ export function canGenerateThumbnail(mimeType: string): boolean {
   }
 
   // Check if Sharp supports this format
-  const supportedFormats = ['jpeg', 'png', 'webp', 'gif', 'svg', 'tiff', 'avif', 'heif'];
-  
+  const supportedFormats = [
+    'jpeg',
+    'png',
+    'webp',
+    'gif',
+    'svg',
+    'tiff',
+    'avif',
+    'heif',
+  ];
+
   // RAW files require libvips support
   if (mimeType.startsWith('image/x-')) {
     return true;
@@ -401,12 +500,12 @@ export function canGenerateThumbnail(mimeType: string): boolean {
  * @param projectId - Project ID
  * @returns Number of thumbnails deleted
  */
-export async function deleteProjectThumbnails(projectId: string): Promise<number> {
+export async function deleteProjectThumbnails(
+  projectId: string
+): Promise<number> {
   const deletedThumbnails = await db
     .delete(images)
-    .where(
-      and(eq(images.projectId, projectId), eq(images.type, 'thumbnail'))
-    )
+    .where(and(eq(images.projectId, projectId), eq(images.type, 'thumbnail')))
     .returning();
 
   return deletedThumbnails.length;

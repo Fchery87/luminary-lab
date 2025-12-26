@@ -83,9 +83,17 @@ export default function ComparePage() {
   });
 
   // Extract image URLs from project images array
-  const originalImageUrl = project?.images?.find((img: any) => img.type === 'original')?.url;
-  const processedImageUrl = project?.images?.find((img: any) => img.type === 'processed')?.url;
+  // For RAW files, we need to use the thumbnail since browsers can't display RAW
+  const originalImageObj = project?.images?.find((img: any) => img.type === 'original');
   const thumbnailUrl = project?.images?.find((img: any) => img.type === 'thumbnail')?.url;
+  const isRawFile = originalImageObj?.mimeType?.startsWith('image/x-');
+  
+  // Use thumbnail for RAW files, otherwise use original
+  const originalImageUrl = (isRawFile ? thumbnailUrl : originalImageObj?.url)
+    || thumbnailUrl  // Fallback to thumbnail if original not displayable
+    || originalImageObj?.url;  // Try original anyway
+    
+  const processedImageUrl = project?.images?.find((img: any) => img.type === 'processed')?.url;
 
   // Debug logging
   useEffect(() => {
