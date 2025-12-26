@@ -8,7 +8,7 @@ const updatePresetSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
   aiPrompt: z.string().min(1).max(2000).optional(),
-  blendingParams: z.record(z.any()).optional(),
+  blendingParams: z.record(z.string(), z.any()).optional(),
   exampleImageUrl: z.string().url().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().min(0).optional(),
@@ -17,8 +17,10 @@ const updatePresetSchema = z.object({
 // PUT - Update preset (admin only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -28,14 +30,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isAdmin = session.user.email?.endsWith('@admin.com') || 
+    const isAdmin = session.user.email?.endsWith('@admin.com') ||
                   session.user.email === 'admin@luminarylab.com';
-    
+
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = params;
     if (!id) {
       return NextResponse.json({ error: 'Preset ID required' }, { status: 400 });
     }
@@ -91,8 +92,10 @@ export async function PUT(
 // DELETE - Delete preset (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -102,14 +105,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isAdmin = session.user.email?.endsWith('@admin.com') || 
+    const isAdmin = session.user.email?.endsWith('@admin.com') ||
                   session.user.email === 'admin@luminarylab.com';
-    
+
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = params;
     if (!id) {
       return NextResponse.json({ error: 'Preset ID required' }, { status: 400 });
     }
@@ -148,8 +150,10 @@ export async function DELETE(
 // PATCH - Toggle active status (admin only)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -159,14 +163,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isAdmin = session.user.email?.endsWith('@admin.com') || 
+    const isAdmin = session.user.email?.endsWith('@admin.com') ||
                   session.user.email === 'admin@luminarylab.com';
-    
+
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = params;
     if (!id) {
       return NextResponse.json({ error: 'Preset ID required' }, { status: 400 });
     }

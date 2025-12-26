@@ -81,9 +81,8 @@ export class AuditLogger {
       resource,
       resourceId,
       details,
-      ipAddress: request?.headers.get('x-forwarded-for') || 
-                 request?.headers.get('x-real-ip'),
-      userAgent: request?.headers.get('user-agent'),
+      ipAddress: request?.headers.get('x-forwarded-for') || request?.headers.get('x-real-ip') || undefined,
+      userAgent: request?.headers.get('user-agent') || undefined,
       success: true,
     });
   }
@@ -105,9 +104,8 @@ export class AuditLogger {
       resourceId,
       details,
       error,
-      ipAddress: request?.headers.get('x-forwarded-for') || 
-                 request?.headers.get('x-real-ip'),
-      userAgent: request?.headers.get('user-agent'),
+      ipAddress: request?.headers.get('x-forwarded-for') || request?.headers.get('x-real-ip') || undefined,
+      userAgent: request?.headers.get('user-agent') || undefined,
       success: false,
     });
   }

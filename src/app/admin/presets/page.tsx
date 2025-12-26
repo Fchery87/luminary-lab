@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/ui/header';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
   EyeOff, 
   Search,
   Filter,
@@ -166,7 +167,7 @@ export default function AdminPresetsPage() {
   });
 
   // Filter presets
-  const filteredPresets = presets.filter(preset => {
+  const filteredPresets = presets.filter((preset: SystemStyle) => {
     const matchesSearch = preset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          preset.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesActive = showInactive || preset.isActive;
@@ -203,7 +204,7 @@ export default function AdminPresetsPage() {
       aiPrompt: '',
       exampleImageUrl: '',
       isActive: true,
-      sortOrder: Math.max(...presets.map(p => p.sortOrder), 0) + 1,
+      sortOrder: Math.max(...presets.map((p: SystemStyle) => p.sortOrder), 0) + 1,
       blendingParams: {}
     });
   };
@@ -230,7 +231,7 @@ export default function AdminPresetsPage() {
   };
 
   const handleDelete = (presetId: string) => {
-    const preset = presets.find(p => p.id === presetId);
+    const preset = presets.find((p: SystemStyle) => p.id === presetId);
     if (preset && window.confirm(`Are you sure you want to delete "${preset.name}"? This action cannot be undone.`)) {
       deletePresetMutation.mutate(presetId);
     }
@@ -371,10 +372,13 @@ export default function AdminPresetsPage() {
                                 <div className="space-y-4">
                                     {/* Example Image */}
                                     <div className="aspect-video rounded-sm overflow-hidden bg-muted relative">
-                                        <img
+                                        <Image
                                             src={preset.exampleImageUrl}
                                             alt={preset.name}
+                                            width={320}
+                                            height={180}
                                             className="w-full h-full object-cover"
+                                            unoptimized
                                         />
                                         {!preset.isActive && (
                                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">

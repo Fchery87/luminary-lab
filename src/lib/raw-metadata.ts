@@ -65,7 +65,6 @@ export async function extractRawMetadata(
     const options = {
       tiff: true, // Include TIFF tags
       exif: true, // Include EXIF tags
-      ifd0: true, // Include IFD0 tags
       gps: true, // Include GPS data
       mergeTags: true, // Merge tags from different locations
     };
@@ -99,7 +98,6 @@ export async function extractRawMetadataFromBuffer(
     const options = {
       tiff: true, // Include TIFF tags
       exif: true, // Include EXIF tags
-      ifd0: true, // Include IFD0 tags
       gps: true, // Include GPS data
       mergeTags: true, // Merge tags from different locations
     };

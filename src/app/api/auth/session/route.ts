@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       user: session.user,
       authenticated: true,
-      sessionToken: session.token, // Better Auth stores token in session
+      sessionToken: session.session?.token, // Better Auth stores token in session
     });
   } catch (error) {
     console.error('Error getting session:', error);

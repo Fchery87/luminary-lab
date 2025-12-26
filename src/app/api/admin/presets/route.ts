@@ -9,7 +9,7 @@ const presetSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   aiPrompt: z.string().min(1).max(2000),
-  blendingParams: z.record(z.any()).optional().default({}),
+  blendingParams: z.record(z.string(), z.any()).optional().default({}),
   exampleImageUrl: z.string().url().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().min(0).default(0),

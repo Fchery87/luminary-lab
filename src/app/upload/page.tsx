@@ -38,6 +38,10 @@ export default function UploadPage() {
   const [uploadStatus, setUploadStatus] = useState('');
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Refs for stable function references to avoid useCallback dependency issues
+  const handleSinglePartUploadRef = useRef<((file: File, data: MultipartUploadData) => Promise<void>) | null>(null);
+  const handleMultipartUploadRef = useRef<((file: File, data: MultipartUploadData) => Promise<void>) | null>(null);
+
   // Onboarding state
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('name');
   const [completedSteps, setCompletedSteps] = useState<OnboardingStep[]>([]);
@@ -66,7 +70,7 @@ export default function UploadPage() {
     // Update onboarding state
     if (isOnboarding) {
       setSelectedFile(file);
-      setCompletedSteps((prev) => [...new Set([...prev, 'upload'])]);
+      setCompletedSteps((prev) => [...new Set([...prev, 'upload' as const])]);
       setCurrentStep('preview');
     }
 
@@ -94,14 +98,21 @@ export default function UploadPage() {
       const data: MultipartUploadData = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to get upload URL');
+        const errorBody = data as { error?: string };
+        throw new Error(errorBody.error || 'Failed to get upload URL');
       }
 
       // Handle multipart or single-part upload
       if (data.uploadType === 'multipart' && data.uploadId) {
-        await handleMultipartUpload(file, data);
+        if (!handleMultipartUploadRef.current) {
+          throw new Error('Multipart upload handler not initialized');
+        }
+        await handleMultipartUploadRef.current(file, data);
       } else if (data.uploadType === 'single-part' && data.uploadUrl) {
-        await handleSinglePartUpload(file, data);
+        if (!handleSinglePartUploadRef.current) {
+          throw new Error('Single part upload handler not initialized');
+        }
+        await handleSinglePartUploadRef.current(file, data);
       } else {
         throw new Error('Invalid upload response from server');
       }
@@ -134,7 +145,7 @@ export default function UploadPage() {
     }
   }, [projectName, router, isOnboarding]);
 
-  const handleSinglePartUpload = async (
+  const handleSinglePartUpload = useCallback(async (
     file: File,
     data: MultipartUploadData
   ): Promise<void> => {
@@ -163,9 +174,12 @@ export default function UploadPage() {
       xhr.onerror = () => reject(new Error('Failed to upload file'));
       xhr.send(file);
     });
-  };
+  }, []);
 
-  const handleMultipartUpload = async (
+  // Assign the function to the ref for stable reference
+  handleSinglePartUploadRef.current = handleSinglePartUpload;
+
+  const handleMultipartUpload = useCallback(async (
     file: File,
     data: MultipartUploadData
   ): Promise<void> => {
@@ -206,9 +220,13 @@ export default function UploadPage() {
     // Complete the multipart upload
     setUploadStatus('Finalizing upload...');
     await completeMultipartUpload(file, data);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const uploadPartToS3 = (url: string, chunk: Blob): Promise<string> => {
+  // Assign to ref for stable reference
+  handleMultipartUploadRef.current = handleMultipartUpload;
+
+  const uploadPartToS3 = useCallback((url: string, chunk: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', url);
@@ -234,9 +252,9 @@ export default function UploadPage() {
       xhr.onerror = () => reject(new Error('Failed to upload part to S3'));
       xhr.send(chunk);
     });
-  };
+  }, []);
 
-  const registerPart = async (
+  const registerPart = useCallback(async (
     uploadId: string,
     partNumber: number,
     sizeBytes: number,
@@ -261,9 +279,9 @@ export default function UploadPage() {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Failed to register part');
     }
-  };
+  }, []);
 
-  const completeMultipartUpload = async (
+  const completeMultipartUpload = useCallback(async (
     file: File,
     data: MultipartUploadData
   ): Promise<void> => {
@@ -290,7 +308,7 @@ export default function UploadPage() {
 
     setUploadProgress(100);
     setUploadStatus('Upload complete!');
-  };
+  }, []);
 
   const cancelUpload = useCallback(() => {
     if (abortControllerRef.current) {

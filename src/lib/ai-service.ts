@@ -127,20 +127,16 @@ export async function processWithAI(
     // === TONE CURVE ADJUSTMENTS ===
     if (style.blendingParams.blackLift) {
       const lift = style.blendingParams.blackLift * intensityFactor * 30;
-      image = image.linear([
-        [0, 0, 0, 0], // Black point (raised)
-        [1, 1, 1, 1],  // White point
-      ], { ch: 'r', g: 'g', b: 'b' });
+      // Use gamma correction to simulate black lift
+      image = image.linear(lift * 0.5); // Linear multiplier for brightness
       console.log(`  ✓ Lifted blacks: +${lift.toFixed(1)} points`);
     }
-    
+
     if (style.blendingParams.blackPoint || style.blendingParams.whitePoint) {
       const blackPoint = style.blendingParams.blackPoint || 0;
       const whitePoint = style.blendingParams.whitePoint || 1;
-      image = image.linear([
-        [blackPoint, blackPoint, blackPoint, blackPoint],
-        [whitePoint, whitePoint, whitePoint, whitePoint],
-      ]);
+      // Use modulate to simulate tone curve adjustments
+      image = image.linear(1.0, blackPoint * -255); // Adjust black point
       console.log(`  ✓ Applied tone curve: black ${blackPoint}, white ${whitePoint}`);
     }
     
@@ -169,24 +165,18 @@ export async function processWithAI(
     if (style.blendingParams.clarity) {
       const clarity = style.blendingParams.clarity;
       const clarityAmount = (clarity - 1) * intensityFactor * 0.5;
-      
+
       // Simulate clarity by sharpening midtones
       image = image
         .modulate({ brightness: 100 + clarityAmount * 10 })
-        .sharpen({
-          sigma: 1.5 + (clarityAmount * 2),
-          flat: false
-        });
+        .sharpen(1.5 + (clarityAmount * 2));
       console.log(`  ✓ Applied clarity: ${clarity.toFixed(2)}x`);
     }
-    
+
     if (style.blendingParams.structure) {
       const structure = style.blendingParams.structure;
       const structureAmount = (structure - 1) * intensityFactor;
-      image = image.sharpen({
-        sigma: 2.0,
-        flat: false
-      });
+      image = image.sharpen(2.0);
       console.log(`  ✓ Applied structure enhancement: ${structure.toFixed(2)}x`);
     }
     

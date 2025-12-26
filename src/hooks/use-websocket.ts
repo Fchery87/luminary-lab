@@ -44,6 +44,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const [connectionError, setConnectionError] = useState<Error | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const hasConnectedRef = useRef(false);
+  const autoConnectAttemptedRef = useRef(false);
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);
@@ -178,11 +179,17 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       setError(error.message);
       setConnectionError(error);
     }
-  }, [reconnection, reconnectionAttempts, reconnectionDelay, autoConnect]);
+  }, [reconnection, reconnectionAttempts, reconnectionDelay]);
 
   useEffect(() => {
-    if (autoConnect) {
-      connect();
+    if (autoConnect && !autoConnectAttemptedRef.current) {
+      autoConnectAttemptedRef.current = true;
+      // Use setTimeout to defer setState call, avoiding cascading renders
+      const timerId = setTimeout(() => {
+        connect();
+      }, 0);
+
+      return () => clearTimeout(timerId);
     }
 
     return () => {
@@ -191,8 +198,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         socketRef.current = null;
       }
       hasConnectedRef.current = false; // Reset connection flag
+      autoConnectAttemptedRef.current = false;
     };
-  }, [autoConnect]); // Removed 'connect' from dependencies to prevent infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect]);
 
   return {
     socket,

@@ -193,7 +193,7 @@ export function OnboardingChecklist({
                 🎉 Aha Moment!
               </h4>
               <p className="font-body text-sm text-[hsl(var(--foreground))]">
-                You've successfully enhanced your first photo. Use the slider below to compare the before & after!
+                You&apos;ve successfully enhanced your first photo. Use the slider below to compare the before &amp; after!
               </p>
             </div>
           </motion.div>

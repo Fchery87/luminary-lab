@@ -478,7 +478,7 @@ export default function ComparePage() {
                             className="bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] px-4 py-2 rounded-sm text-sm font-semibold font-display uppercase tracking-wider"
                             onClick={() => setShowAhaMoment(false)}
                           >
-                            Got It, Let's Explore!
+                            Got It, Let&apos;s Explore!
                           </motion.div>
                           <Link href="/dashboard">
                             <motion.button

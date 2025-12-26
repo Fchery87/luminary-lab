@@ -3,6 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
+// Note: Using <img> instead of next/image because this component
+// uses native browser lazy loading with fallback functionality,
+// which is not directly supported by next/image.
+/* eslint-disable @next/next/no-img-element */
 interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallback?: React.ReactNode;
   onLoad?: () => void;

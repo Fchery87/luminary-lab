@@ -186,9 +186,8 @@ function StatCounter({
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-100px' }}
-        transition={{ duration: 0.6, delay: index * 0.1 }}
+        transition={{ duration: isComplete ? 0.3 : 0.6, delay: isComplete ? 0 : index * 0.1 }}
         animate={{ scale: isComplete ? [1, 1.02, 1] : 1 }}
-        transition={{ duration: 0.3 }}
       >
         <div className="font-mono text-5xl md:text-7xl font-medium text-[hsl(var(--gold))] mb-1">
           {count.toFixed(value.includes('.') ? 1 : 0)}

@@ -44,7 +44,7 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       'Non-Error promise rejection captured',
     ],
 
-    ignoreUrls: [
+    denyUrls: [
       // Ignore errors from browser extensions
       /extensions\//i,
       /^chrome:\/\//i,

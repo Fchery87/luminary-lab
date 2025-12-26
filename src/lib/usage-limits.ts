@@ -195,14 +195,16 @@ export function withUsageLimits(handler: (req: NextRequest) => Promise<Response>
       );
     }
 
-    // Clone the request to preserve the body stream
-    const clonedRequest = request.clone();
+    // Clone the request to preserve body stream
+    // Note: request.clone() returns a standard Request, not NextRequest
+    // So we need to handle this properly
+    const clonedRequest = request.clone() as unknown as NextRequest;
 
     // Add usage limits info to request for downstream use
-    // We attach it to the request object for easy access
+    // We attach it to request object for easy access
     (clonedRequest as any).usageLimits = usageCheck.limits;
 
-    // Call the handler with the cloned request
+    // Call handler with cloned request
     const response = await handler(clonedRequest);
 
     // If the upload was successful, increment usage

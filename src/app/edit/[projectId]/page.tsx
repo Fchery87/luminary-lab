@@ -297,7 +297,7 @@ export default function EditPage() {
       return (
         <div className="flex min-h-screen items-center justify-center bg-background flex-col gap-4">
             <h1 className="text-2xl font-bold text-destructive">Error Loading Project</h1>
-            <p className="text-muted-foreground">The project could not be found or you don't have permission.</p>
+            <p className="text-muted-foreground">The project could not be found or you don&apos;t have permission.</p>
             <Button asChild variant="secondary"><Link href="/dashboard">Return to Dashboard</Link></Button>
         </div>
       )

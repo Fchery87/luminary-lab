@@ -6,6 +6,7 @@
 import sharp from 'sharp';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { db, images } from '@/db';
+import { and, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { generateDownloadUrl, uploadFile } from './s3';
 import { detectMimeType, isImageMimeType } from './mime-types';
@@ -58,8 +59,8 @@ export interface ThumbnailResult {
   filename: string;
   sizeBytes: number;
   mimeType: string;
-  width: number;
-  height: number;
+  width: number | null;
+  height: number | null;
 }
 
 /**
@@ -404,8 +405,7 @@ export async function deleteProjectThumbnails(projectId: string): Promise<number
   const deletedThumbnails = await db
     .delete(images)
     .where(
-      (images, { eq, and }) =>
-        and(eq(images.projectId, projectId), eq(images.type, 'thumbnail'))
+      and(eq(images.projectId, projectId), eq(images.type, 'thumbnail'))
     )
     .returning();
 

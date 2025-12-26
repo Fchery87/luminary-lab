@@ -12,8 +12,9 @@ interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
   ({ label, error, required, id, className, ...props }, ref) => {
-    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
-    
+    const generatedId = React.useId();
+    const inputId = id || generatedId;
+
     return (
       <div className="space-y-2">
         {label && (

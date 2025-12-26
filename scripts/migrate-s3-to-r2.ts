@@ -20,8 +20,8 @@ console.log('AWS S3 to Cloudflare R2 Migration');
 console.log('='.repeat(60));
 
 // Configuration
-const SOURCE_BUCKET = process.env.AWS_S3_BUCKET;
-const DEST_BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+const SOURCE_BUCKET = process.env.AWS_S3_BUCKET || '';
+const DEST_BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME || '';
 const DRY_RUN = process.env.DRY_RUN === 'true';
 
 if (!SOURCE_BUCKET || !DEST_BUCKET) {
@@ -84,10 +84,10 @@ async function listAllObjects(bucket: string, prefix: string = ''): Promise<stri
       Bucket: bucket,
       Prefix: prefix,
       ContinuationToken: continuationToken,
-    }));
+    })) as { Contents?: Array<{ Key?: string }>; NextContinuationToken?: string };
 
     if (response.Contents) {
-      objects.push(...response.Contents.map(obj => obj.Key!).filter(Boolean));
+      objects.push(...response.Contents.map((obj: { Key?: string }) => obj.Key!).filter(Boolean));
     }
 
     continuationToken = response.NextContinuationToken;

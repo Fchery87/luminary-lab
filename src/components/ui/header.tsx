@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Aperture, LogOut } from 'lucide-react';
 import { ReactNode } from 'react';
@@ -69,9 +70,11 @@ export function Header({
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-[hsl(var(--foreground))]">
                   {session.data.user.image && (
-                    <img
+                    <Image
                       src={session.data.user.image}
                       alt={session.data.user.name || 'User'}
+                      width={32}
+                      height={32}
                       className="w-8 h-8 rounded-full"
                     />
                   )}

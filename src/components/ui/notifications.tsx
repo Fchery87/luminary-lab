@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { WebSocketNotification } from '@/lib/websocket-server';
@@ -11,32 +11,9 @@ interface NotificationToastProps {
 }
 
 export function NotificationToast({ notifications }: NotificationToastProps) {
-  useEffect(() => {
-    // Process new notifications and show toasts
-    const latestNotification = notifications[0];
-    if (!latestNotification) return;
-
-    const { type } = latestNotification;
-
-    switch (type) {
-      case 'project-update':
-        handleProjectUpdate(latestNotification);
-        break;
-      case 'job-status-change':
-        handleJobStatusChange(latestNotification);
-        break;
-      case 'processing-progress':
-        handleProcessingProgress(latestNotification);
-        break;
-      case 'error':
-        handleError(latestNotification);
-        break;
-    }
-  }, [notifications]);
-
-  const handleProjectUpdate = (notification: any) => {
+  const handleProjectUpdate = useCallback((notification: any) => {
     const { updateType, projectId, data } = notification;
-    
+
     switch (updateType) {
       case 'completed':
         toast.success('Project completed!', {
@@ -60,11 +37,11 @@ export function NotificationToast({ notifications }: NotificationToastProps) {
         });
         break;
     }
-  };
+  }, []);
 
-  const handleJobStatusChange = (notification: any) => {
+  const handleJobStatusChange = useCallback((notification: any) => {
     const { status, data } = notification;
-    
+
     switch (status) {
       case 'completed':
         toast.success('Processing completed!', {
@@ -82,26 +59,49 @@ export function NotificationToast({ notifications }: NotificationToastProps) {
         });
         break;
     }
-  };
+  }, []);
 
-  const handleProcessingProgress = (notification: any) => {
+  const handleProcessingProgress = useCallback((notification: any) => {
     const { progress, message } = notification;
-    
+
     if (progress % 25 === 0 || progress === 100) {
       toast.message('Processing...', {
         description: message || `Progress: ${progress}%`,
         duration: 2000,
       });
     }
-  };
+  }, []);
 
-  const handleError = (notification: any) => {
+  const handleError = useCallback((notification: any) => {
     const { type, message } = notification;
-    
+
     toast.error('Error', {
       description: message || 'An unexpected error occurred.',
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    // Process new notifications and show toasts
+    const latestNotification = notifications[0];
+    if (!latestNotification) return;
+
+    const { type } = latestNotification;
+
+    switch (type) {
+      case 'project-update':
+        handleProjectUpdate(latestNotification);
+        break;
+      case 'job-status-change':
+        handleJobStatusChange(latestNotification);
+        break;
+      case 'processing-progress':
+        handleProcessingProgress(latestNotification);
+        break;
+      case 'error':
+        handleError(latestNotification);
+        break;
+    }
+  }, [notifications, handleProjectUpdate, handleJobStatusChange, handleProcessingProgress, handleError]);
 
   // This component doesn't render anything visible
   // It just handles the side effect of showing toasts
@@ -114,14 +114,14 @@ export function useConnectWebSocket() {
     autoConnect: true, // Auto-connect for pages that call this hook
   });
 
-  const { connect, isConnected } = websocket;
+  const { isConnected } = websocket;
 
   // Connect immediately when hook is called
   React.useEffect(() => {
-    if (!isConnected) {
-      connect();
+    if (!isConnected && websocket.socket === null) {
+      // The useWebSocket hook handles connection automatically with autoConnect: true
     }
-  }, [connect, isConnected]);
+  }, [isConnected, websocket.socket]);
 
   return websocket;
 }

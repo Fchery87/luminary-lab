@@ -71,25 +71,28 @@ export default function ModernHomePage() {
                 transition={{ duration: 0.4, ease: "easeOut", delay: 0.3 }}
                 className="flex flex-col sm:flex-row gap-4 justify-center"
               >
-                <motion.button
+                <motion.div
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="bg-primary text-primary-foreground px-8 py-4 rounded-sm font-medium uppercase tracking-wide hover:-translate-y-[-2px] transition-all duration-200"
-                  asChild
+                  className="inline-block"
                 >
-                  <Link href="/register">
-                    Start Free Trial
-                  </Link>
-                </motion.button>
-                <Button
-                  variant="outline"
-                  className="border-border/50 bg-background/50 hover:border-primary/30 hover:bg-primary/5 px-8 py-4 rounded-sm font-medium uppercase tracking-wide transition-colors duration-200"
-                  asChild
+                  <Button className="bg-primary text-primary-foreground px-8 py-4 rounded-sm font-medium uppercase tracking-wide hover:-translate-y-[-2px] transition-all duration-200">
+                    <Link href="/register" className="text-inherit no-underline">
+                      Start Free Trial
+                    </Link>
+                  </Button>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-block"
                 >
-                  <Link href="/login">
-                    Sign In
-                  </Link>
-                </Button>
+                  <Button variant="outline" className="border-border/50 bg-background/50 hover:border-primary/30 hover:bg-primary/5 px-8 py-4 rounded-sm font-medium uppercase tracking-wide transition-colors duration-200">
+                    <Link href="/login" className="text-inherit no-underline">
+                      Sign In
+                    </Link>
+                  </Button>
+                </motion.div>
               </motion.div>
             </div>
           </section>
@@ -203,17 +206,16 @@ export default function ModernHomePage() {
                   Join thousands of professional photographers using Luminary Lab for AI-powered photo editing.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="bg-primary text-primary-foreground px-10 py-4 rounded-sm font-bold uppercase tracking-wide hover:-translate-y-[-2px] transition-all duration-200 flex items-center"
-                    asChild
-                  >
-                    <Link href="/register">
+                  <Link href="/register">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="bg-primary text-primary-foreground px-10 py-4 rounded-sm font-bold uppercase tracking-wide hover:-translate-y-[-2px] transition-all duration-200 flex items-center"
+                    >
                       Get Started Free
                       <ArrowRight className="ml-2 w-4 h-4" />
-                    </Link>
-                  </motion.button>
+                    </motion.button>
+                  </Link>
                   <Button
                     variant="outline"
                     className="border-border/50 bg-background/50 hover:border-primary/30 hover:bg-primary/5 px-10 py-4 rounded-sm font-medium uppercase tracking-wide transition-colors duration-200"
