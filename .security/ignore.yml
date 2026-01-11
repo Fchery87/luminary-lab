@@ -1,0 +1,23 @@
+# Security Baseline Suppressions
+# Track accepted risks with expiry dates
+
+suppressions:
+  # Rate limiting - tracked for future implementation
+  - finding_id: "rate-limiting-missing"
+    reason: "Rate limiting to be implemented in Phase 2"
+    owner: "security-team"
+    expires_on: "2026-06-01"
+
+  # Admin role system - database migration required
+  - finding_id: "admin-auth-email-based"
+    reason: "Role-based admin auth planned for database migration"
+    owner: "security-team"
+    expires_on: "2026-04-01"
+
+  # Image domains - requires business decision on allowed domains
+  - finding_id: "image-remote-patterns-permissive"
+    reason: "Allowed domains aligned with S3/R2 configuration"
+    owner: "platform-team"
+    expires_on: "2026-03-01"
+
+created_on: "2026-01-11"
