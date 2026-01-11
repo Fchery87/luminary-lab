@@ -8,8 +8,9 @@ interface BlurHashImageProps {
   src: string;
   blurHash: string | null | undefined;
   alt: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
+  fill?: boolean;
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export function BlurHashImage({
   alt,
   width,
   height,
+  fill = false,
   className,
 }: BlurHashImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -34,11 +36,18 @@ export function BlurHashImage({
           const r = pixels[0];
           const g = pixels[1];
           const b = pixels[2];
-          setPlaceholderColor(`rgb(${r}, ${g}, ${b})`);
+          // Defer state update to avoid cascading renders
+          const timer = setTimeout(() => {
+            setPlaceholderColor(`rgb(${r}, ${g}, ${b})`);
+          }, 0);
+          return () => clearTimeout(timer);
         }
       } catch {
-        // Use fallback color if decode fails
-        setPlaceholderColor('#1a1a1a');
+        // Use fallback color if decode fails - defer to avoid cascading renders
+        const timer = setTimeout(() => {
+          setPlaceholderColor('#1a1a1a');
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
   }, [blurHash]);
@@ -49,15 +58,20 @@ export function BlurHashImage({
       <Image
         src={src || '/placeholder.svg'}
         alt={alt}
-        width={width}
-        height={height}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        fill={fill}
         className={className}
       />
     );
   }
 
+  const containerStyle = fill
+    ? { position: 'relative' as const, width: '100%', height: '100%' }
+    : { width, height };
+
   return (
-    <div className="relative" style={{ width, height }}>
+    <div className="relative" style={containerStyle}>
       {/* Blur hash placeholder */}
       <div
         data-blurhash
@@ -67,13 +81,14 @@ export function BlurHashImage({
           opacity: isLoaded ? 0 : 1,
         }}
       />
-      
+
       {/* Actual image */}
       <Image
         src={src}
         alt={alt}
-        width={width}
-        height={height}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        fill={fill}
         className={`${className} transition-opacity duration-300 ${
           isLoaded ? 'opacity-100' : 'opacity-0'
         }`}

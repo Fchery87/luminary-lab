@@ -16,6 +16,7 @@ import { CompareSlider } from '@/components/ui/compare-slider';
 import { ExportMenu, type ExportOptions } from '@/components/ui/export-menu';
 import { Header } from '@/components/ui/header';
 import { WhatsNextPanel } from '@/components/ui/whats-next-panel';
+import { BlurHashImage } from '@/components/ui/blur-hash-image';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Category configuration with icons
@@ -206,28 +207,35 @@ export default function EditPage() {
   // Start processing mutation
   const startProcessingMutation = useMutation({
     mutationFn: async () => {
-       // Mock processing trigger
-       // In real app: POST /api/projects/[id]/process
-       await new Promise(resolve => setTimeout(resolve, 1500)); 
-       return { success: true };
+      const res = await fetch('/api/process', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          presetId: selectedPreset?.id,
+          intensity: intensity / 100,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to start processing');
+      }
+
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Processing started!');
-      // Optimistically update status
+      toast.info(`Estimated time: ${data.estimatedTime || '2-3 minutes'}`);
       queryClient.setQueryData(['project', projectId], (old: any) => ({
-          ...old,
-          status: 'processing'
+        ...old,
+        status: 'processing',
       }));
       setIsProcessing(false);
-      
-      // Simulate completion after a few seconds for demo
-      setTimeout(() => {
-           toast.success('Processing complete!');
-           queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-      }, 3000);
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to apply style');
       setIsProcessing(false);
     },
   });
@@ -309,6 +317,7 @@ export default function EditPage() {
   const largeThumbnail = project.images?.find((img: any) => img.type === 'thumbnail' && img.filename?.includes('thumb_large'))?.url;
   const mediumThumbnail = project.images?.find((img: any) => img.type === 'thumbnail' && img.filename?.includes('thumb_medium'))?.url;
   const anyThumbnail = project.images?.find((img: any) => img.type === 'thumbnail')?.url;
+  const thumbnailImageObj = project.images?.find((img: any) => img.type === 'thumbnail');
   const originalImageObj = project.images?.find((img: any) => img.type === 'original' || !img.type);
   const isRawFile = originalImageObj?.mimeType?.startsWith('image/x-');
   
@@ -391,21 +400,13 @@ export default function EditPage() {
                      </div>
                  ) : (
                       <div className="h-full w-full relative">
-                          <Image
+                          <BlurHashImage
                              src={originalImage}
-                             alt="Original"
+                             blurHash={thumbnailImageObj?.blurHash}
+                             alt="Preview"
                              fill
-                             sizes="(max-width: 1024px) 100vw, 75vw"
                              className="object-contain"
                           />
-                         {!isProcessing && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
-                                <div className="bg-background/90 p-4 rounded-md border border-border shadow-xl text-center">
-                                    <p className="font-medium">Ready to Process</p>
-                                    <p className="text-xs text-muted-foreground mt-1">Select a preset on the right to begin</p>
-                                </div>
-                            </div>
-                         )}
                          {isProcessing && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50">
                                 <div className="flex flex-col items-center gap-4">
