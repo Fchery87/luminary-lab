@@ -111,6 +111,7 @@ export const images = pgTable("images", {
   width: integer("width"),
   height: integer("height"),
   metadata: jsonb("metadata"), // RAW metadata: camera, lens, ISO, aperture, etc.
+  blurHash: text("blurHash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
