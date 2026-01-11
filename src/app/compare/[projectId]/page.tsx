@@ -356,7 +356,7 @@ export default function ComparePage() {
                           className="max-w-full max-h-full object-contain"
                           style={{ transform: `scale(${zoomLevel / 100})` }}
                         />
-                      ) : isRawFile && !thumbnailUrl ? (
+                      ) : isRawFile && !anyThumbnail ? (
                         <div className="flex flex-col items-center justify-center py-8 space-y-3">
                           <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
                             <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
