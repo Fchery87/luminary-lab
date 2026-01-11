@@ -66,6 +66,7 @@ export interface ThumbnailResult {
   mimeType: string;
   width: number | null;
   height: number | null;
+  blurHash?: string | null;
 }
 
 /**
@@ -343,7 +344,7 @@ export async function generateThumbnail(
   imageBuffer: Buffer,
   config: ThumbnailConfig,
   originalMimeType?: string
-): Promise<{ buffer: Buffer; width: number; height: number; size: number }> {
+): Promise<{ buffer: Buffer; width: number; height: number; size: number; blurHash?: string }> {
   // Check if the image is a RAW file
   const isRaw = originalMimeType?.startsWith('image/x-');
   const isCR2 =
@@ -475,6 +476,7 @@ export async function generateMultipleThumbnails(
         width,
         height,
         size: sizeBytes,
+        blurHash,
       } = await generateThumbnail(imageBuffer, config, originalMimeType);
 
       results.push({
@@ -491,6 +493,7 @@ export async function generateMultipleThumbnails(
             : 'image/webp',
         width,
         height,
+        blurHash,
       });
     } catch (error) {
       console.error(`Failed to generate ${size} thumbnail:`, error);
@@ -544,6 +547,7 @@ export async function generateAndSaveThumbnails(
           width,
           height,
           size: sizeBytes,
+          blurHash,
         } = await generateThumbnail(imageBuffer, config, detectedMimeType);
 
         // Generate storage key for thumbnail
@@ -579,6 +583,7 @@ export async function generateAndSaveThumbnails(
                 : 'image/webp',
             width,
             height,
+            blurHash,
           })
           .returning();
 
@@ -635,6 +640,7 @@ export async function generateSingleThumbnail(
     width,
     height,
     size: sizeBytes,
+    blurHash,
   } = await generateThumbnail(imageBuffer, config, detectedMimeType);
 
   // Generate storage key
@@ -670,6 +676,7 @@ export async function generateSingleThumbnail(
           : 'image/webp',
       width,
       height,
+      blurHash,
     })
     .returning();
 
