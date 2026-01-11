@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp';
+import { encodeBlurHash } from './blurhash';
 import {
   S3Client,
   GetObjectCommand,
@@ -38,16 +39,16 @@ export const DEFAULT_THUMBNAIL_CONFIGS: Record<string, ThumbnailConfig> = {
     fit: 'cover',
   },
   medium: {
-    maxWidth: 400,
-    maxHeight: 300,
+    maxWidth: 800,
+    maxHeight: 600,
     quality: 90,
     format: 'jpeg',
     fit: 'cover',
   },
   large: {
-    maxWidth: 800,
-    maxHeight: 600,
-    quality: 95,
+    maxWidth: 1920,
+    maxHeight: 1080,
+    quality: 98,
     format: 'webp',
     fit: 'inside',
   },
@@ -217,7 +218,10 @@ async function extractCR2Preview(imageBuffer: Buffer): Promise<Buffer> {
           '[cr2-raw] Successfully extracted embedded JPEG preview, size:',
           previewBuffer.length
         );
-        return previewBuffer;
+        // Apply EXIF rotation immediately after extraction to ensure correct orientation
+        const rotatedBuffer = await sharp(previewBuffer).rotate().toBuffer();
+        console.log('[cr2-raw] Applied EXIF rotation to embedded preview');
+        return rotatedBuffer;
       }
 
       throw new Error('No preview image found in CR2 file');
@@ -293,7 +297,11 @@ async function convertRawWithDcraw(
       const ppmBuffer = await fs.promises.readFile(tempOutputFile);
       await fs.promises.unlink(tempOutputFile).catch(() => {});
       console.log('[dcraw] Successfully converted RAW to PPM');
-      return ppmBuffer;
+
+      // Apply EXIF rotation to PPM using Sharp
+      const rotatedBuffer = await sharp(ppmBuffer).rotate().toBuffer();
+      console.log('[dcraw] Applied EXIF rotation to converted image');
+      return rotatedBuffer;
     }
 
     throw new Error('dcraw conversion failed - no output file');
@@ -302,6 +310,25 @@ async function convertRawWithDcraw(
     await fs.promises.unlink(tempInputFile).catch(() => {});
     await fs.promises.unlink(tempOutputFile).catch(() => {});
     await fs.promises.unlink(`${tempInputFile}.thumb.jpg`).catch(() => {});
+  }
+}
+
+/**
+ * Generate blur hash from image buffer for placeholder display
+ * @param imageBuffer - Image buffer
+ * @returns Blur hash string
+ */
+async function generateBlurHash(imageBuffer: Buffer): Promise<string | undefined> {
+  try {
+    const { data, info } = await sharp(imageBuffer)
+      .resize(32, 32, { fit: 'inside' })
+      .raw()
+      .ensureAlpha()
+      .toBuffer({ resolveWithObject: true });
+    return encodeBlurHash(info.width, info.height, new Uint8ClampedArray(data));
+  } catch (blurHashError) {
+    console.warn('Failed to generate blur hash:', blurHashError);
+    return undefined;
   }
 }
 
@@ -325,12 +352,41 @@ export async function generateThumbnail(
 
   let inputBuffer = imageBuffer;
 
-  // For RAW files, extract the embedded preview
+  // For RAW files, try multiple conversion methods
   if (isRaw) {
     let conversionSuccess = false;
 
-    // Try cr2-raw for Canon CR2 files first
-    if (isCR2) {
+    // Method 1: Try Sharp directly (supports most RAW formats via libvips)
+    if (!conversionSuccess) {
+      try {
+        console.log(
+          '[Thumbnail] Attempting direct Sharp processing for RAW file...'
+        );
+        // Test if Sharp can read the RAW file directly
+        const testImage = sharp(imageBuffer);
+        const metadata = await testImage.metadata();
+
+        if (metadata.format && metadata.width && metadata.height) {
+          console.log(
+            '[Thumbnail] Sharp can process this RAW format directly:',
+            metadata.format
+          );
+          // Apply EXIF rotation during thumbnail generation
+          const rotatedBuffer = await testImage.rotate().toBuffer();
+          inputBuffer = rotatedBuffer;
+          conversionSuccess = true;
+          console.log(
+            '[Thumbnail] Direct Sharp processing successful, buffer size:',
+            inputBuffer.length
+          );
+        }
+      } catch (sharpError) {
+        console.error('[Thumbnail] Direct Sharp processing failed:', sharpError);
+      }
+    }
+
+    // Method 2: Try cr2-raw for Canon CR2 files
+    if (!conversionSuccess && isCR2) {
       try {
         console.log(
           '[Thumbnail] Attempting cr2-raw extraction for Canon CR2 file...'
@@ -346,7 +402,7 @@ export async function generateThumbnail(
       }
     }
 
-    // Fall back to dcraw for other RAW formats or if cr2-raw failed
+    // Method 3: Fall back to dcraw for other RAW formats or if cr2-raw failed
     if (!conversionSuccess) {
       try {
         console.log('[Thumbnail] Attempting dcraw conversion for RAW file...');
@@ -386,6 +442,7 @@ export async function generateThumbnail(
       width: result.info.width,
       height: result.info.height,
       size: result.info.size,
+      blurHash: await generateBlurHash(result.data),
     };
   } catch (error) {
     console.error('Thumbnail generation error:', error);
