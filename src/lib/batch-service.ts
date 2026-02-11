@@ -152,13 +152,16 @@ class BatchService {
 
     const completed = jobs.filter((j) => j.status === 'completed').length;
     const failed = jobs.filter((j) => j.status === 'failed').length;
+    const cancelled = jobs.filter((j) => j.status === 'cancelled').length;
 
     let status: string;
-    if (failed === jobs.length) {
+    if (cancelled === jobs.length) {
+      status = 'cancelled';
+    } else if (failed === jobs.length) {
       status = 'failed';
     } else if (completed === jobs.length) {
       status = 'completed';
-    } else if (failed > 0) {
+    } else if (failed > 0 || cancelled > 0) {
       status = 'partial_failure';
     } else {
       status = 'processing';
