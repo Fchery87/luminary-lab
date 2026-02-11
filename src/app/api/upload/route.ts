@@ -20,6 +20,8 @@ import { validateRawFile, generateProjectName } from '@/lib/raw-metadata';
 import { AuditLogger } from '@/lib/audit-logger';
 import { detectMimeType } from '@/lib/mime-types';
 import { eq } from 'drizzle-orm';
+import { checkUploadRateLimit, checkUploadBytesRateLimit } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const uploadSchema = z.object({
   filename: z.string().min(1),
@@ -58,6 +60,57 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     filename = validated.data.filename;
     fileSize = validated.data.fileSize;
     const { mimeType, projectName } = validated.data;
+
+    // Check rate limits
+    const uploadCountLimitCheck = await checkUploadRateLimit(userId);
+    if (!uploadCountLimitCheck.success) {
+      logger.warn('Rate limit exceeded: upload count', {
+        userId,
+        retryAfter: uploadCountLimitCheck.retryAfter
+      });
+      
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          message: `Too many uploads. Max 10 per hour. Retry in ${uploadCountLimitCheck.retryAfter}s`
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(uploadCountLimitCheck.retryAfter),
+            'X-RateLimit-Limit': String(uploadCountLimitCheck.limit),
+            'X-RateLimit-Remaining': String(uploadCountLimitCheck.remaining),
+            'X-RateLimit-Reset': new Date(uploadCountLimitCheck.resetTime).toISOString()
+          }
+        }
+      );
+    }
+
+    const uploadBytesLimitCheck = await checkUploadBytesRateLimit(userId, fileSize);
+    if (!uploadBytesLimitCheck.success) {
+      logger.warn('Rate limit exceeded: upload bytes', {
+        userId,
+        fileSize,
+        remaining: uploadBytesLimitCheck.remaining,
+        retryAfter: uploadBytesLimitCheck.retryAfter
+      });
+      
+      return NextResponse.json(
+        {
+          error: 'Storage quota exceeded',
+          message: `Upload would exceed your 5GB/hour limit. ${(uploadBytesLimitCheck.remaining / (1024 * 1024 * 1024)).toFixed(2)}GB remaining.`
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(uploadBytesLimitCheck.retryAfter),
+            'X-RateLimit-Bytes-Limit': String(uploadBytesLimitCheck.limit),
+            'X-RateLimit-Bytes-Remaining': String(uploadBytesLimitCheck.remaining),
+            'X-RateLimit-Reset': new Date(uploadBytesLimitCheck.resetTime).toISOString()
+          }
+        }
+      );
+    }
 
     // Use enhanced MIME type detection with server-side sniffing capability
     const finalMimeType = detectMimeType(filename, undefined, mimeType);
