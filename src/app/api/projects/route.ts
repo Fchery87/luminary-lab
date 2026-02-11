@@ -3,9 +3,10 @@ import { getDb } from '@/db';
 import { projects, images, processingJobs, systemStyles, tags, projectTags } from '@/db/schema';
 import { auth } from '@/lib/auth'; // Ensure this path is correct for Better Auth
 import { headers } from 'next/headers';
-import { desc, eq, and, sql, or, like, gte, lte } from 'drizzle-orm';
+import { desc, eq, and, sql, or, like, gte, lte, count } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { generateDownloadUrl } from '@/lib/s3';
+import { extractPaginationParams, getPaginatedResponse, calculateOffset } from '@/lib/pagination';
 
 export async function GET(req: Request) {
   try {
@@ -92,6 +93,16 @@ export async function GET(req: Request) {
       conditions.push(sql`(images.metadata->>'iso')::numeric <= ${parseInt(isoMax)}`);
     }
 
+    // Extract and validate pagination params
+    const pagination = extractPaginationParams(new URL(req.url));
+    const offset = calculateOffset(pagination.page, pagination.limit);
+
+    // Get total count for pagination metadata
+    const [{ totalCount }] = await db
+      .select({ totalCount: count() })
+      .from(projects)
+      .where(and(...conditions));
+
     // Fetch projects with their original images and processing job info
     // We'll fetch thumbnails separately
     const userProjects = await db
@@ -122,7 +133,9 @@ export async function GET(req: Request) {
         eq(systemStyles.id, processingJobs.styleId)
       )
       .where(and(...conditions))
-      .orderBy(desc(projects.createdAt));
+      .orderBy(desc(projects.createdAt))
+      .limit(pagination.limit)
+      .offset(offset);
 
     // Get thumbnail URLs for each project (prefer thumbnail type over original)
     const projectsWithThumbnails = await Promise.all(
@@ -175,7 +188,9 @@ export async function GET(req: Request) {
       }))
     );
 
-    return NextResponse.json(formattedProjects);
+    return NextResponse.json(
+      getPaginatedResponse(formattedProjects, pagination.page, pagination.limit, totalCount)
+    );
   } catch (error) {
     console.error('[PROJECTS_GET]', error);
     return new NextResponse('Internal Error', { status: 500 });
