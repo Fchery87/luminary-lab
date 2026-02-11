@@ -130,12 +130,32 @@ export const systemStyles = pgTable("system_styles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Batches table (for batch uploads)
+export const batches = pgTable("batches", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name"),
+  description: text("description"),
+  status: text("status").notNull().default("pending"), // pending, processing, completed, partial_failure, failed
+  totalJobs: integer("total_jobs").default(0),
+  completedJobs: integer("completed_jobs").default(0),
+  failedJobs: integer("failed_jobs").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
 // Processing jobs table
 export const processingJobs = pgTable("processing_jobs", {
   id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
   projectId: uuid("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  batchId: text("batch_id").references(() => batches.id, { onDelete: "cascade" }),
   styleId: uuid("style_id")
     .notNull()
     .references(() => systemStyles.id),
@@ -145,6 +165,7 @@ export const processingJobs = pgTable("processing_jobs", {
   completedAt: timestamp("completed_at"),
   errorMessage: text("error_message"),
   attempts: integer("attempts").default(0),
+  originalImageKey: text("original_image_key"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -264,6 +285,7 @@ export const schema = {
   projects,
   images,
   systemStyles,
+  batches,
   processingJobs,
   usageTracking,
   auditLogs,
