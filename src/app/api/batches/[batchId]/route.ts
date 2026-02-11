@@ -16,8 +16,9 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { batchId: string } }
+  { params }: { params: Promise<{ batchId: string }> }
 ): Promise<NextResponse> {
+  const { batchId } = await params;
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -31,7 +32,6 @@ export async function GET(
     }
 
     const userId = session.user.id;
-    const { batchId } = params;
 
     // Get batch
     const batch = await batchService.getBatch(batchId);
@@ -73,8 +73,9 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { batchId: string } }
+  { params }: { params: Promise<{ batchId: string }> }
 ): Promise<NextResponse> {
+  const { batchId } = await params;
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -88,7 +89,6 @@ export async function POST(
     }
 
     const userId = session.user.id;
-    const { batchId } = params;
 
     // Get batch
     const batch = await batchService.getBatch(batchId);

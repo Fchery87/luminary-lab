@@ -80,8 +80,18 @@ class BatchService {
     return {
       ...batch,
       userId: batch.userId as unknown as string,
-      jobs,
-    };
+      name: batch.name ?? undefined,
+      description: batch.description ?? undefined,
+      totalJobs: batch.totalJobs ?? 0,
+      completedJobs: batch.completedJobs ?? 0,
+      failedJobs: batch.failedJobs ?? 0,
+      completedAt: batch.completedAt ?? undefined,
+      jobs: jobs.map(job => ({
+        id: job.id,
+        status: job.status,
+        error: job.error ?? undefined,
+      })),
+    } as BatchWithJobs;
   }
 
   /**
@@ -128,10 +138,11 @@ class BatchService {
 
     if (!batch) throw new Error('Batch not found');
 
+    const currentTotal = batch.totalJobs ?? 0;
     await db
       .update(batches)
       .set({
-        totalJobs: batch.totalJobs + increment,
+        totalJobs: currentTotal + increment,
       })
       .where(eq(batches.id, batchId));
   }

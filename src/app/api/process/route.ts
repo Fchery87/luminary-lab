@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
     await db.insert(processingJobs).values({
       id: jobId,
       projectId,
+      userId: session.user.id as any,
       styleId: presetId,
       intensity: intensity.toString(),
       status: 'queued',

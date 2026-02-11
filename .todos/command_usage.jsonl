@@ -4,3 +4,4 @@
 {"ts":"2026-02-10T23:57:35.331247641-05:00","cmd":"usage","flags":{"quiet":"true"},"session":"ses_96a162","ok":true,"dur_ms":440}
 {"ts":"2026-02-10T23:58:42.394727521-05:00","cmd":"usage","flags":{"new-session":"true"},"session":"ses_b2d3f7","ok":true,"dur_ms":149}
 {"ts":"2026-02-10T23:58:45.90878544-05:00","cmd":"usage","flags":{"quiet":"true"},"session":"ses_b2d3f7","ok":true,"dur_ms":249}
+{"ts":"2026-02-11T01:14:30.230394201-05:00","cmd":"version","flags":{"short":"true"},"session":"ses_b2d3f7","ok":true,"dur_ms":0}

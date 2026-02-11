@@ -35,7 +35,7 @@ describe('Logger', () => {
 
     test('should not throw when logging error messages', () => {
       expect(() => {
-        logger.error('Error message', { error: 'details' });
+        logger.error('Error message', new Error('details'));
       }).not.toThrow();
     });
 

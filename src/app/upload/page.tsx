@@ -167,7 +167,7 @@ function UploadPageContent() {
       }
     } catch (error) {
       import('@/lib/logger').then(({ logger }) => {
-        logger.error('Upload failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.error('Upload failed', error as Error);
       });
       toast.error(error instanceof Error ? error.message : 'Upload failed');
       // Reset onboarding state on error

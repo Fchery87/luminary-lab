@@ -1,112 +1,102 @@
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+/**
+ * Structured logger with request context
+ */
 
-interface LogEntry {
+import { getRequestContext, getContextDuration } from './request-context';
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface LogEntry {
   level: LogLevel;
   message: string;
-  context?: Record<string, any>;
-  timestamp: string;
+  timestamp: number;
+  requestId?: string;
+  userId?: string;
+  endpoint?: string;
+  duration?: number;
+  error?: string;
+  stack?: string;
+  tags?: Record<string, string>;
+  metadata?: Record<string, any>;
 }
 
 class Logger {
-  private isDevelopment = process.env.NODE_ENV === 'development';
-  private isSentryEnabled = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
+  private logs: LogEntry[] = [];
+  private readonly maxLogs = 10000;
 
-  private formatLog(entry: LogEntry): string {
-    return `[${entry.timestamp}] ${entry.level.toUpperCase()}: ${entry.message}${
-      entry.context ? ` ${JSON.stringify(entry.context)}` : ''
-    }`;
-  }
+  private formatLog(
+    level: LogLevel,
+    message: string,
+    metadata?: Record<string, any>
+  ): LogEntry {
+    const context = getRequestContext();
+    const duration = context ? getContextDuration() : undefined;
 
-  private log(level: LogLevel, message: string, context?: Record<string, any>) {
-    const entry: LogEntry = {
+    return {
       level,
       message,
-      context,
-      timestamp: new Date().toISOString(),
+      timestamp: Date.now(),
+      requestId: context?.requestId,
+      userId: context?.userId,
+      endpoint: context?.endpoint,
+      duration,
+      tags: context?.tags,
+      metadata
     };
+  }
 
-    const formattedLog = this.formatLog(entry);
+  debug(message: string, metadata?: Record<string, any>): void {
+    const entry = this.formatLog('debug', message, metadata);
+    this.store(entry);
+    console.debug(JSON.stringify(entry));
+  }
 
-    // In development, log to console with appropriate severity
-    if (this.isDevelopment) {
-      switch (level) {
-        case 'debug':
-          console.debug(formattedLog);
-          break;
-        case 'info':
-          console.info(formattedLog);
-          break;
-        case 'warn':
-          console.warn(formattedLog);
-          break;
-        case 'error':
-          console.error(formattedLog);
-          break;
-      }
+  info(message: string, metadata?: Record<string, any>): void {
+    const entry = this.formatLog('info', message, metadata);
+    this.store(entry);
+    console.info(JSON.stringify(entry));
+  }
+
+  warn(message: string, metadata?: Record<string, any>): void {
+    const entry = this.formatLog('warn', message, metadata);
+    this.store(entry);
+    console.warn(JSON.stringify(entry));
+  }
+
+  error(message: string, error?: Error, metadata?: Record<string, any>): void {
+    const entry = this.formatLog('error', message, metadata);
+    if (error) {
+      entry.error = error.message;
+      entry.stack = error.stack;
     }
+    this.store(entry);
+    console.error(JSON.stringify(entry));
+  }
 
-    // In production, send to logging service (Sentry)
-    if (!this.isDevelopment) {
-      this.sendToLoggingService(entry);
+  private store(entry: LogEntry): void {
+    this.logs.push(entry);
+    if (this.logs.length > this.maxLogs) {
+      this.logs = this.logs.slice(-this.maxLogs);
     }
   }
 
-  private sendToLoggingService(entry: LogEntry) {
-    // Only log if Sentry is configured
-    if (!this.isSentryEnabled) {
-      return;
-    }
+  getLogs(filter?: { level?: LogLevel; userId?: string; endpoint?: string }): LogEntry[] {
+    if (!filter) return [...this.logs];
 
-    // Lazy import Sentry to avoid loading it unnecessarily
-    import('@sentry/nextjs').then((Sentry) => {
-      switch (entry.level) {
-        case 'debug':
-        case 'info':
-          // For info/debug, we can use Sentry's breadcrumbs or custom logging
-          Sentry.addBreadcrumb({
-            message: entry.message,
-            level: entry.level,
-            data: entry.context,
-          });
-          break;
-        case 'warn':
-          // Warnings can be captured as messages
-          Sentry.captureMessage(entry.message, {
-            level: 'warning',
-            extra: entry.context,
-          });
-          break;
-        case 'error':
-          // Errors should be captured with additional context
-          Sentry.captureException(new Error(entry.message), {
-            level: 'error',
-            extra: entry.context,
-            tags: {
-              timestamp: entry.timestamp,
-            },
-          });
-          break;
-      }
-    }).catch((error) => {
-      // Fallback to console if Sentry fails
-      console.error('Failed to send log to Sentry:', error);
+    return this.logs.filter(log => {
+      if (filter.level && log.level !== filter.level) return false;
+      if (filter.userId && log.userId !== filter.userId) return false;
+      if (filter.endpoint && log.endpoint !== filter.endpoint) return false;
+      return true;
     });
   }
 
-  debug(message: string, context?: Record<string, any>) {
-    this.log('debug', message, context);
+  getRecentLogs(count: number = 100): LogEntry[] {
+    return this.logs.slice(-count);
   }
 
-  info(message: string, context?: Record<string, any>) {
-    this.log('info', message, context);
-  }
-
-  warn(message: string, context?: Record<string, any>) {
-    this.log('warn', message, context);
-  }
-
-  error(message: string, context?: Record<string, any>) {
-    this.log('error', message, context);
+  clear(): void {
+    this.logs = [];
   }
 }
 

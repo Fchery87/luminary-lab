@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,7 +49,7 @@ export default function BatchStatusPage() {
     return ['completed', 'failed', 'partial_failure', 'cancelled'].includes(status);
   };
 
-  const fetchBatch = async () => {
+  const fetchBatch = useCallback(async () => {
     try {
       const response = await fetch(`/api/batches/${batchId}`);
       if (!response.ok) {
@@ -67,11 +67,11 @@ export default function BatchStatusPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [batchId]);
 
   useEffect(() => {
     fetchBatch();
-  }, [batchId]);
+  }, [fetchBatch]);
 
   // Polling
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function BatchStatusPage() {
 
     const interval = setInterval(fetchBatch, 3000);
     return () => clearInterval(interval);
-  }, [isTerminal, batch, batchId]);
+  }, [isTerminal, batch, fetchBatch]);
 
   const handleRetry = async () => {
     try {

@@ -204,12 +204,10 @@ export async function processImageJob(job: ImageProcessingJob) {
     };
     
     } catch (error) {
-    logger.error('Image processing failed after all retries', {
+    logger.error('Image processing failed after all retries', error as Error, {
       projectId,
       styleId,
       intensity,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
     });
     
     // Update job status to failed
