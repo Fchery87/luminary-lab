@@ -62,6 +62,3 @@ playwright/.cache
 .DS_Store
 Thumbs.db
 
-.todos/
-
-package-lock.json
