@@ -4,6 +4,8 @@ import { processWithAI, generateThumbnail, AI_CONFIG } from './ai-service';
 import { uploadFile, generateDownloadUrl, deleteFile } from './s3';
 import { eq, and, sql } from 'drizzle-orm';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { withRetry } from './retry-strategy';
+import { logger } from './logger';
 
 let s3ClientSingleton: S3Client | null = null;
 
@@ -54,14 +56,23 @@ export async function processImageJob(job: ImageProcessingJob) {
   const { projectId, styleId, intensity, originalImageKey, userId } = job;
   
   try {
-    // Update job status to processing
-    await db.update(processingJobs)
-      .set({ 
-        status: 'processing', 
-        startedAt: new Date(),
-        attempts: sql`attempts + 1`
-      })
-      .where(eq(processingJobs.id, job.id));
+    // Update job status to processing with retry
+    await withRetry(
+      async () => {
+        await db.update(processingJobs)
+          .set({ 
+            status: 'processing', 
+            startedAt: new Date(),
+            attempts: sql`attempts + 1`
+          })
+          .where(eq(processingJobs.id, job.id));
+      },
+      3,
+      500,
+      (attempt) => {
+        logger.warn('Retry: Failed to update job status', { attempt, jobId: job.id });
+      }
+    );
 
     // Update project status
     await db.update(projects)
@@ -78,34 +89,69 @@ export async function processImageJob(job: ImageProcessingJob) {
       throw new Error('Style not found');
     }
 
-    // Download original image from S3
-    console.log('Downloading original image from S3...');
-    const originalImageBuffer = await downloadImageFromS3(originalImageKey);
+    // Download original image from S3 with retry
+    logger.info('Downloading original image from S3...', { projectId, key: originalImageKey });
+    const originalImageBuffer = await withRetry(
+      () => downloadImageFromS3(originalImageKey),
+      3,
+      1000,
+      (attempt) => {
+        logger.warn('Retry: Failed to download from S3', { attempt, key: originalImageKey });
+      }
+    );
     
-    // Generate thumbnail
-    console.log('Generating thumbnail...');
-    const thumbnailBuffer = await generateThumbnail(originalImageBuffer);
+    // Generate thumbnail with retry
+    logger.info('Generating thumbnail...', { projectId });
+    const thumbnailBuffer = await withRetry(
+      () => generateThumbnail(originalImageBuffer),
+      2,
+      1000,
+      (attempt) => {
+        logger.warn('Retry: Thumbnail generation failed', { attempt, projectId });
+      }
+    );
     
-    // Process image with AI
-    console.log('Processing image with AI...');
-    const processedImageBuffer = await processWithAI(
-      originalImageBuffer,
-      {
-        name: style.name,
-        description: style.description || '',
-        aiPrompt: style.aiPrompt,
-        blendingParams: style.blendingParams as any,
-      },
-      intensity
+    // Process image with AI with retry
+    logger.info('Processing image with AI...', { projectId, styleId, intensity });
+    const processedImageBuffer = await withRetry(
+      () => processWithAI(
+        originalImageBuffer,
+        {
+          name: style.name,
+          description: style.description || '',
+          aiPrompt: style.aiPrompt,
+          blendingParams: style.blendingParams as any,
+        },
+        intensity
+      ),
+      2,
+      2000,
+      (attempt) => {
+        logger.warn('Retry: AI processing failed', { attempt, styleId, intensity });
+      }
     );
 
-    // Upload processed image to S3
+    // Upload processed image to S3 with retry
     const processedImageKey = `users/${userId}/projects/${projectId}/processed/${Date.now()}-processed.jpg`;
-    await uploadFile(processedImageKey, processedImageBuffer, 'image/jpeg');
+    await withRetry(
+      () => uploadFile(processedImageKey, processedImageBuffer, 'image/jpeg'),
+      3,
+      1000,
+      (attempt) => {
+        logger.warn('Retry: Failed to upload processed image', { attempt, key: processedImageKey });
+      }
+    );
     
-    // Upload thumbnail to S3
+    // Upload thumbnail to S3 with retry
     const thumbnailKey = `users/${userId}/projects/${projectId}/thumbnail/${Date.now()}-thumb.jpg`;
-    await uploadFile(thumbnailKey, thumbnailBuffer, 'image/jpeg');
+    await withRetry(
+      () => uploadFile(thumbnailKey, thumbnailBuffer, 'image/jpeg'),
+      3,
+      1000,
+      (attempt) => {
+        logger.warn('Retry: Failed to upload thumbnail', { attempt, key: thumbnailKey });
+      }
+    );
 
     // Create image records
     await db.insert(images).values([
@@ -142,7 +188,12 @@ export async function processImageJob(job: ImageProcessingJob) {
       .set({ status: 'completed' })
       .where(eq(projects.id, projectId));
 
-    console.log(`Image processing completed for project ${projectId}`);
+    logger.info('Image processing completed successfully', {
+      projectId,
+      styleId,
+      intensity,
+      processedImageKey
+    });
     
     return {
       success: true,
@@ -152,8 +203,14 @@ export async function processImageJob(job: ImageProcessingJob) {
       thumbnailUrl: await generateDownloadUrl(thumbnailKey),
     };
     
-  } catch (error) {
-    console.error(`Image processing failed for project ${projectId}:`, error);
+    } catch (error) {
+    logger.error('Image processing failed after all retries', {
+      projectId,
+      styleId,
+      intensity,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     
     // Update job status to failed
     await db.update(processingJobs)
@@ -163,15 +220,15 @@ export async function processImageJob(job: ImageProcessingJob) {
         completedAt: new Date()
       })
       .where(eq(processingJobs.id, job.id));
-
+    
     // Update project status to failed
     await db.update(projects)
       .set({ status: 'failed' })
       .where(eq(projects.id, projectId));
-
+    
     throw error;
-  }
-}
+    }
+    }
 
 // Job processor
 imageProcessingQueue.process(async (job) => {
