@@ -15,6 +15,26 @@ import { and, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { generateDownloadUrl, uploadFile } from './s3';
 import { detectMimeType, isImageMimeType } from './mime-types';
+import { orientation as exifrOrientation } from 'exifr';
+
+/**
+ * Extract orientation from image buffer using exifr's dedicated API.
+ * More reliable than parsing full EXIF for RAW formats (CR2, NEF, etc.)
+ */
+export async function extractOrientationFromBuffer(
+  buffer: Buffer,
+): Promise<number | undefined> {
+  try {
+    const orient = await exifrOrientation(buffer);
+    if (orient && typeof orient === 'number') {
+      console.log('[Orientation] Extracted via exifr.orientation():', orient);
+      return orient;
+    }
+  } catch (e) {
+    console.warn('[Orientation] exifr.orientation() failed:', e);
+  }
+  return undefined;
+}
 
 /**
  * Apply EXIF orientation to a sharp pipeline.
@@ -247,6 +267,19 @@ async function extractCR2Preview(
   orientation?: number,
 ): Promise<Buffer> {
   try {
+    // If orientation is unknown, try extracting directly from the raw buffer
+    let effectiveOrientation = orientation;
+    if (!effectiveOrientation || effectiveOrientation === 1) {
+      const extracted = await extractOrientationFromBuffer(imageBuffer);
+      if (extracted) {
+        effectiveOrientation = extracted;
+        console.log(
+          '[cr2-raw] Extracted orientation from CR2 buffer:',
+          extracted,
+        );
+      }
+    }
+
     // cr2-raw package can read from a buffer path, but we need to read from buffer
     // The package expects a file path, so we'll write to temp file
     const fs = await import('fs');
@@ -276,9 +309,12 @@ async function extractCR2Preview(
         // Apply EXIF rotation immediately after extraction to ensure correct orientation
         const rotatedBuffer = await applyExifOrientation(
           sharp(previewBuffer),
-          orientation,
+          effectiveOrientation,
         ).toBuffer();
-        console.log('[cr2-raw] Applied EXIF rotation to embedded preview');
+        console.log(
+          '[cr2-raw] Applied EXIF rotation with orientation:',
+          effectiveOrientation,
+        );
         return rotatedBuffer;
       }
 
@@ -305,6 +341,16 @@ async function convertRawWithDcraw(
   extension: string = '.raw',
   orientation?: number,
 ): Promise<Buffer> {
+  // If orientation is unknown, try extracting directly from the raw buffer
+  let effectiveOrientation = orientation;
+  if (!effectiveOrientation || effectiveOrientation === 1) {
+    const extracted = await extractOrientationFromBuffer(imageBuffer);
+    if (extracted) {
+      effectiveOrientation = extracted;
+      console.log('[dcraw] Extracted orientation from RAW buffer:', extracted);
+    }
+  }
+
   const { exec } = await import('child_process');
   const { promisify } = await import('util');
   const fs = await import('fs');
@@ -342,9 +388,12 @@ async function convertRawWithDcraw(
           console.log('[dcraw] Successfully extracted embedded JPEG preview');
           const rotatedBuffer = await applyExifOrientation(
             sharp(jpegBuffer),
-            orientation,
+            effectiveOrientation,
           ).toBuffer();
-          console.log('[dcraw] Applied EXIF rotation to embedded preview');
+          console.log(
+            '[dcraw] Applied EXIF rotation with orientation:',
+            effectiveOrientation,
+          );
           return rotatedBuffer;
         }
       }
@@ -366,9 +415,12 @@ async function convertRawWithDcraw(
       // Apply EXIF rotation to PPM using Sharp
       const rotatedBuffer = await applyExifOrientation(
         sharp(ppmBuffer),
-        orientation,
+        effectiveOrientation,
       ).toBuffer();
-      console.log('[dcraw] Applied EXIF rotation to converted image');
+      console.log(
+        '[dcraw] Applied EXIF rotation with orientation:',
+        effectiveOrientation,
+      );
       return rotatedBuffer;
     }
 
@@ -430,6 +482,19 @@ export async function generateThumbnail(
 
   let inputBuffer = imageBuffer;
 
+  // For RAW files, try to extract orientation from buffer if not provided
+  let effectiveOrientation = orientation;
+  if (isRaw && (!effectiveOrientation || effectiveOrientation === 1)) {
+    const extracted = await extractOrientationFromBuffer(imageBuffer);
+    if (extracted) {
+      effectiveOrientation = extracted;
+      console.log(
+        '[Thumbnail] Extracted orientation from RAW buffer:',
+        extracted,
+      );
+    }
+  }
+
   // For RAW files, try multiple conversion methods
   if (isRaw) {
     let conversionSuccess = false;
@@ -453,7 +518,7 @@ export async function generateThumbnail(
           // CRITICAL FIX: Get rotated buffer first, then extract dimensions
           const rotatedResult = await applyExifOrientation(
             testImage,
-            orientation,
+            effectiveOrientation,
           ).toBuffer({ resolveWithObject: true });
           inputBuffer = rotatedResult.data;
           conversionSuccess = true;

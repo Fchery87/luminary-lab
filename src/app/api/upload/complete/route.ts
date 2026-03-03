@@ -125,13 +125,48 @@ export const POST = async (request: NextRequest) => {
     }
 
     // Generate thumbnails server-side
+    // Use exifr fallback for orientation if metadata extraction missed it (common for CR2)
+    let effectiveOrientation = metadata?.orientation;
+    try {
+      if (!effectiveOrientation) {
+        const { extractOrientationFromBuffer } =
+          await import('@/lib/thumbnail-generator');
+        const originalBuffer = await downloadImageFromS3(storageKey);
+        effectiveOrientation =
+          await extractOrientationFromBuffer(originalBuffer);
+        if (effectiveOrientation) {
+          console.log(
+            '[Upload] Extracted orientation via exifr fallback:',
+            effectiveOrientation,
+          );
+          // Update DB with correct oriented dimensions
+          if (metadata?.width && metadata?.height) {
+            const dims = getOrientedDimensions(
+              metadata.width,
+              metadata.height,
+              effectiveOrientation,
+            );
+            await db
+              .update(images)
+              .set({ width: dims.width, height: dims.height })
+              .where(eq(images.projectId, projectId));
+          }
+        }
+      }
+    } catch (orientError) {
+      console.warn(
+        '[Upload] Orientation fallback extraction failed:',
+        orientError,
+      );
+    }
+
     try {
       await generateAndSaveThumbnails(
         projectId,
         storageKey,
         mimeType || image.mimeType,
         userId,
-        metadata?.orientation,
+        effectiveOrientation,
       );
     } catch (thumbnailError) {
       console.error('Thumbnail generation failed:', thumbnailError);
@@ -147,7 +182,7 @@ export const POST = async (request: NextRequest) => {
         originalBuffer,
         detectedMimeType,
         { maxPreviewWidth: 1600, maxPreviewHeight: 1200, quality: 90 },
-        metadata?.orientation,
+        effectiveOrientation,
       );
 
       if (previewResult.hasPreview && previewResult.previewBuffer) {

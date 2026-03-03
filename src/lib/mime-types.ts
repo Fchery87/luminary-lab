@@ -9,53 +9,53 @@
  */
 const FILE_SIGNATURES: Record<string, string> = {
   // JPEG images
-  "\xff\xd8\xff": "image/jpeg",
+  '\xff\xd8\xff': 'image/jpeg',
 
   // PNG images
-  "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a": "image/png",
+  '\x89\x50\x4e\x47\x0d\x0a\x1a\x0a': 'image/png',
 
   // GIF images
-  GIF87a: "image/gif",
-  GIF89a: "image/gif",
+  GIF87a: 'image/gif',
+  GIF89a: 'image/gif',
 
   // WebP images
-  "RIFF\x00\x00\x00\x00WEBP": "image/webp",
+  'RIFF\x00\x00\x00\x00WEBP': 'image/webp',
 
   // BMP images
-  BM: "image/bmp",
+  BM: 'image/bmp',
 
   // TIFF images (little-endian and big-endian)
-  "II\x2a\x00": "image/tiff",
-  "MM\x00\x2a": "image/tiff",
+  'II\x2a\x00': 'image/tiff',
+  'MM\x00\x2a': 'image/tiff',
 
   // PDF documents
-  "%PDF": "application/pdf",
+  '%PDF': 'application/pdf',
 
   // RAW file signatures (camera-specific)
   // Canon CR2
-  "\x49\x49\x2a\x00\x10\x00\x00\x00CR": "image/x-canon-cr2",
+  '\x49\x49\x2a\x00\x10\x00\x00\x00CR': 'image/x-canon-cr2',
 
   // Nikon NEF
-  "\x4d\x4d\x00\x2a\x00\x00\x00\x08": "image/x-nikon-nef",
+  '\x4d\x4d\x00\x2a\x00\x00\x00\x08': 'image/x-nikon-nef',
 
   // Sony ARW
-  "\x00\x00\x00\x18ftypsony": "image/x-sony-arw",
+  '\x00\x00\x00\x18ftypsony': 'image/x-sony-arw',
 
   // Adobe DNG
-  "\x49\x49\x2a\x00\x08\x00\x00\x00": "image/x-adobe-dng",
+  '\x49\x49\x2a\x00\x08\x00\x00\x00': 'image/x-adobe-dng',
 
   // Fuji RAF
-  "FUJIFILMCCD-RAW": "image/x-fuji-raf",
+  'FUJIFILMCCD-RAW': 'image/x-fuji-raf',
 
   // Panasonic RW2
-  "II\x1c\x00\x00\x00\x10": "image/x-panasonic-rw2",
+  'II\x1c\x00\x00\x00\x10': 'image/x-panasonic-rw2',
 
   // Olympus ORF
-  "IIRO\x08\x00\x00\x00": "image/x-olympus-orf",
-  MMOR: "image/x-olympus-orf",
+  'IIRO\x08\x00\x00\x00': 'image/x-olympus-orf',
+  MMOR: 'image/x-olympus-orf',
 
   // Pentax PEF
-  "\x00\x00\x00\x18PENTAX": "image/x-pentax-pef",
+  '\x00\x00\x00\x18PENTAX': 'image/x-pentax-pef',
 };
 
 /**
@@ -64,64 +64,64 @@ const FILE_SIGNATURES: Record<string, string> = {
  */
 export const EXTENSION_TO_MIME: Record<string, string> = {
   // Common image formats
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".bmp": "image/bmp",
-  ".tiff": "image/tiff",
-  ".tif": "image/tiff",
-  ".svg": "image/svg+xml",
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.tiff': 'image/tiff',
+  '.tif': 'image/tiff',
+  '.svg': 'image/svg+xml',
 
   // RAW formats
-  ".cr2": "image/x-canon-cr2",
-  ".cr3": "image/x-canon-cr2",
-  ".nef": "image/x-nikon-nef",
-  ".nrw": "image/x-nikon-nef",
-  ".arw": "image/x-sony-arw",
-  ".srf": "image/x-sony-arw",
-  ".sr2": "image/x-sony-arw",
-  ".dng": "image/x-adobe-dng",
-  ".raf": "image/x-fuji-raf",
-  ".rw2": "image/x-panasonic-rw2",
-  ".orf": "image/x-olympus-orf",
-  ".pef": "image/x-pentax-pef",
-  ".ptx": "image/x-pentax-pef",
-  ".mos": "image/x-leaf-mos",
-  ".mrw": "image/x-minolta-mrw",
-  ".erf": "image/x-epson-erf",
-  ".3fr": "image/x-hasselblad-3fr",
-  ".fff": "image/x-hasselblad-fff",
-  ".kdc": "image/x-kodak-kdc",
-  ".dcr": "image/x-kodak-dcr",
-  ".k25": "image/x-kodak-k25",
-  ".rwl": "image/x-leica-rwl",
+  '.cr2': 'image/x-canon-cr2',
+  '.cr3': 'image/x-canon-cr2',
+  '.nef': 'image/x-nikon-nef',
+  '.nrw': 'image/x-nikon-nef',
+  '.arw': 'image/x-sony-arw',
+  '.srf': 'image/x-sony-arw',
+  '.sr2': 'image/x-sony-arw',
+  '.dng': 'image/x-adobe-dng',
+  '.raf': 'image/x-fuji-raf',
+  '.rw2': 'image/x-panasonic-rw2',
+  '.orf': 'image/x-olympus-orf',
+  '.pef': 'image/x-pentax-pef',
+  '.ptx': 'image/x-pentax-pef',
+  '.mos': 'image/x-leaf-mos',
+  '.mrw': 'image/x-minolta-mrw',
+  '.erf': 'image/x-epson-erf',
+  '.3fr': 'image/x-hasselblad-3fr',
+  '.fff': 'image/x-hasselblad-fff',
+  '.kdc': 'image/x-kodak-kdc',
+  '.dcr': 'image/x-kodak-dcr',
+  '.k25': 'image/x-kodak-k25',
+  '.rwl': 'image/x-leica-rwl',
 
   // Document formats
-  ".pdf": "application/pdf",
-  ".txt": "text/plain",
-  ".json": "application/json",
-  ".xml": "application/xml",
-  ".html": "text/html",
-  ".css": "text/css",
-  ".js": "application/javascript",
-  ".ts": "application/typescript",
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain',
+  '.json': 'application/json',
+  '.xml': 'application/xml',
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.ts': 'application/typescript',
 
   // Video formats
-  ".mp4": "video/mp4",
-  ".mov": "video/quicktime",
-  ".avi": "video/x-msvideo",
-  ".webm": "video/webm",
-  ".mkv": "video/x-matroska",
-  ".flv": "video/x-flv",
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.avi': 'video/x-msvideo',
+  '.webm': 'video/webm',
+  '.mkv': 'video/x-matroska',
+  '.flv': 'video/x-flv',
 
   // Audio formats
-  ".mp3": "audio/mpeg",
-  ".wav": "audio/wav",
-  ".ogg": "audio/ogg",
-  ".flac": "audio/flac",
-  ".aac": "audio/aac",
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
+  '.aac': 'audio/aac',
 };
 
 /**
@@ -143,7 +143,7 @@ export function detectMimeTypeFromBuffer(buffer: Buffer): string | null {
   }
 
   // Read first 32 bytes for signature detection
-  const header = buffer.subarray(0, 32).toString("binary");
+  const header = buffer.subarray(0, 32).toString('binary');
 
   // Check each signature
   for (const [signature, mimeType] of Object.entries(FILE_SIGNATURES)) {
@@ -162,11 +162,11 @@ export function detectMimeTypeFromBuffer(buffer: Buffer): string | null {
  */
 export function getMimeTypeFromExtension(filename: string): string {
   if (!filename) {
-    return "";
+    return '';
   }
 
-  const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
-  return EXTENSION_TO_MIME[ext] || "";
+  const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
+  return EXTENSION_TO_MIME[ext] || '';
 }
 
 /**
@@ -204,7 +204,7 @@ export function detectMimeType(
   }
 
   // Default to binary if nothing matches
-  return "application/octet-stream";
+  return 'application/octet-stream';
 }
 
 /**
@@ -213,7 +213,7 @@ export function detectMimeType(
  * @returns true if valid, false otherwise
  */
 export function isValidMimeType(mimeType: string): boolean {
-  if (!mimeType || typeof mimeType !== "string") {
+  if (!mimeType || typeof mimeType !== 'string') {
     return false;
   }
 
@@ -229,7 +229,7 @@ export function isValidMimeType(mimeType: string): boolean {
  * @returns true if image type, false otherwise
  */
 export function isImageMimeType(mimeType: string): boolean {
-  return mimeType.startsWith("image/");
+  return mimeType.startsWith('image/');
 }
 
 /**
@@ -239,14 +239,23 @@ export function isImageMimeType(mimeType: string): boolean {
  */
 export function isRawMimeType(mimeType: string): boolean {
   const rawMimeTypes = [
-    "image/x-canon-cr2",
-    "image/x-nikon-nef",
-    "image/x-sony-arw",
-    "image/x-adobe-dng",
-    "image/x-fuji-raf",
-    "image/x-panasonic-rw2",
-    "image/x-olympus-orf",
-    "image/x-pentax-pef",
+    'image/x-canon-cr2',
+    'image/x-nikon-nef',
+    'image/x-sony-arw',
+    'image/x-adobe-dng',
+    'image/x-fuji-raf',
+    'image/x-panasonic-rw2',
+    'image/x-olympus-orf',
+    'image/x-pentax-pef',
+    'image/x-leaf-mos',
+    'image/x-minolta-mrw',
+    'image/x-epson-erf',
+    'image/x-hasselblad-3fr',
+    'image/x-hasselblad-fff',
+    'image/x-kodak-kdc',
+    'image/x-kodak-dcr',
+    'image/x-kodak-k25',
+    'image/x-leica-rwl',
   ];
 
   return rawMimeTypes.includes(mimeType);
@@ -258,5 +267,5 @@ export function isRawMimeType(mimeType: string): boolean {
  * @returns File extension with leading dot, or empty string if not found
  */
 export function getExtensionFromMimeType(mimeType: string): string {
-  return MIME_TO_EXTENSION[mimeType] || "";
+  return MIME_TO_EXTENSION[mimeType] || '';
 }
