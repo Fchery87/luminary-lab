@@ -12,6 +12,7 @@ interface BlurHashImageProps {
   height?: number;
   fill?: boolean;
   className?: string;
+  onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }
 
 export function BlurHashImage({
@@ -22,6 +23,7 @@ export function BlurHashImage({
   height,
   fill = false,
   className,
+  onLoad,
 }: BlurHashImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [placeholderColor, setPlaceholderColor] = useState("#1a1a1a");
@@ -62,6 +64,7 @@ export function BlurHashImage({
         height={fill ? undefined : height}
         fill={fill}
         className={className}
+        onLoad={onLoad}
       />
     );
   }
@@ -92,7 +95,10 @@ export function BlurHashImage({
         className={`${className} transition-opacity duration-300 ${
           isLoaded ? "opacity-100" : "opacity-0"
         }`}
-        onLoad={() => setIsLoaded(true)}
+        onLoad={(e) => {
+          setIsLoaded(true);
+          onLoad?.(e);
+        }}
       />
     </div>
   );

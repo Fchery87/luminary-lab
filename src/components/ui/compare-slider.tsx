@@ -18,7 +18,7 @@ interface CompareSliderProps {
   beforeLabel?: string;
   afterLabel?: string;
   className?: string;
-  aspectRatio?: string; // e.g., "aspect-[4/3]" or "aspect-video"
+  aspectRatio?: string | number; // e.g., "aspect-[4/3]", "aspect-video", 0.75, or empty for responsive
 }
 
 export function CompareSlider({
@@ -27,7 +27,7 @@ export function CompareSlider({
   beforeLabel = "Original",
   afterLabel = "Processed",
   className,
-  aspectRatio = "aspect-[3/2]",
+  aspectRatio = "",
 }: CompareSliderProps) {
   const [isResizing, setIsResizing] = React.useState(false);
   const [sliderPosition, setSliderPosition] = React.useState(50);
@@ -87,9 +87,9 @@ export function CompareSlider({
       ref={containerRef}
       className={cn(
         "relative w-full overflow-hidden select-none touch-none group rounded-sm border border-border shadow-2xl bg-black",
-        aspectRatio,
         className,
       )}
+      style={aspectRatio ? { aspectRatio } : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onMouseDown={(e) => {

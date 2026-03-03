@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useState, useRef } from "react";
 import {
   MoreHorizontal,
   Play,
@@ -50,6 +51,8 @@ export function ProjectCard({
   isDeleting,
   viewMode = "grid",
 }: ProjectCardProps) {
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
   const statusConfig = {
     completed: {
       icon: <CheckCircle2 className="w-3 h-3" />,
@@ -93,9 +96,11 @@ export function ProjectCard({
           ${viewMode === "list" ? "flex flex-row gap-4" : "flex flex-col"}
         `}
       >
-        {/* Image Container */}
+        {/* Image Container - Preserves aspect ratio using CSS aspect-ratio */}
         <div
-          className={`relative overflow-hidden bg-secondary ${viewMode === "list" ? "w-48 h-32 flex-shrink-0" : "aspect-[3/2]"}`}
+          ref={imageContainerRef}
+          className={`relative overflow-hidden bg-secondary ${viewMode === "list" ? "w-48 flex-shrink-0" : "w-full"}`}
+          style={{ aspectRatio: String(imageAspectRatio) }}
         >
           <Image
             src={
@@ -107,6 +112,15 @@ export function ProjectCard({
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
             className="object-contain opacity-95 transition-all duration-400 group-hover:opacity-100 group-hover:translate-y-[-2px]"
+            onLoad={(e) => {
+              // Dynamically adjust aspect ratio based on loaded image dimensions
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) {
+                const ratio = img.naturalWidth / img.naturalHeight;
+                const clampedRatio = Math.max(0.3, Math.min(3.33, ratio));
+                setImageAspectRatio(clampedRatio);
+              }
+            }}
           />
 
           {/* Hover Overlay */}

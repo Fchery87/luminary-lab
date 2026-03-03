@@ -3,13 +3,14 @@
  * Extracts or generates preview images from uploads for real-time editing
  */
 
-import sharp from "sharp";
-import { encodeBlurHash } from "./blurhash";
+import sharp from 'sharp';
+import { encodeBlurHash } from './blurhash';
+import { applyExifOrientation } from './thumbnail-generator';
 
 export interface PreviewExtractionResult {
   hasPreview: boolean;
   previewBuffer: Buffer | null;
-  previewType: "embedded" | "generated" | null;
+  previewType: 'embedded' | 'generated' | null;
   method: string;
   originalBuffer: Buffer;
 }
@@ -33,30 +34,31 @@ const DEFAULT_OPTIONS: Required<PreviewExtractionOptions> = {
 export async function extractPreviewFromUpload(
   fileBuffer: Buffer,
   mimeType: string,
-  options: PreviewExtractionOptions = {}
+  options: PreviewExtractionOptions = {},
+  orientation?: number,
 ): Promise<PreviewExtractionResult> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  
-  const isRAW = mimeType.startsWith("image/x-");
-  const isJPEG = mimeType === "image/jpeg" || mimeType === "image/jpg";
-  
+
+  const isRAW = mimeType.startsWith('image/x-');
+  const isJPEG = mimeType === 'image/jpeg' || mimeType === 'image/jpg';
+
   try {
     if (isRAW) {
-      return await handleRAWPreview(fileBuffer, mimeType, opts);
+      return await handleRAWPreview(fileBuffer, mimeType, opts, orientation);
     }
-    
+
     if (isJPEG) {
-      return await handleJPEGPreview(fileBuffer, opts);
+      return await handleJPEGPreview(fileBuffer, opts, orientation);
     }
-    
-    return await handleOtherFormatPreview(fileBuffer, opts);
+
+    return await handleOtherFormatPreview(fileBuffer, opts, orientation);
   } catch (error) {
-    console.error("[Preview] Failed to extract preview:", error);
+    console.error('[Preview] Failed to extract preview:', error);
     return {
       hasPreview: false,
       previewBuffer: null,
       previewType: null,
-      method: "error",
+      method: 'error',
       originalBuffer: fileBuffer,
     };
   }
@@ -68,52 +70,57 @@ export async function extractPreviewFromUpload(
 async function handleRAWPreview(
   buffer: Buffer,
   mimeType: string,
-  opts: Required<PreviewExtractionOptions>
+  opts: Required<PreviewExtractionOptions>,
+  orientation?: number,
 ): Promise<PreviewExtractionResult> {
   // Try Sharp first - it supports many RAW formats via libvips
   try {
     const metadata = await sharp(buffer).metadata();
-    
+
     if (metadata.format && metadata.width && metadata.height) {
       console.log(`[Preview] Sharp can process RAW format: ${metadata.format}`);
-      
+
       // Check if we need to resize
-      const needsResize = 
+      const needsResize =
         (metadata.width && metadata.width > opts.maxPreviewWidth) ||
         (metadata.height && metadata.height > opts.maxPreviewHeight);
-      
-      let pipeline = sharp(buffer).rotate(); // Auto-rotate
-      
+
+      let pipeline = applyExifOrientation(sharp(buffer), orientation); // Auto-rotate with explicit EXIF
+
       if (needsResize) {
-        pipeline = pipeline.resize(opts.maxPreviewWidth, opts.maxPreviewHeight, {
-          fit: "inside",
-          withoutEnlargement: true,
-        });
+        pipeline = pipeline.resize(
+          opts.maxPreviewWidth,
+          opts.maxPreviewHeight,
+          {
+            fit: 'inside',
+            withoutEnlargement: true,
+          },
+        );
       }
-      
+
       const previewBuffer = await pipeline
         .jpeg({ quality: opts.quality })
         .toBuffer();
-      
+
       return {
         hasPreview: true,
         previewBuffer,
-        previewType: "generated",
-        method: "sharp-raw",
+        previewType: 'generated',
+        method: 'sharp-raw',
         originalBuffer: buffer,
       };
     }
   } catch (sharpError) {
-    console.warn("[Preview] Sharp RAW processing failed:", sharpError);
+    console.warn('[Preview] Sharp RAW processing failed:', sharpError);
   }
-  
+
   // Fallback: Try with specific RAW handling
   // For now, return error - in production would use dcraw/cr2-raw
   return {
     hasPreview: false,
     previewBuffer: null,
     previewType: null,
-    method: "sharp-failed",
+    method: 'sharp-failed',
     originalBuffer: buffer,
   };
 }
@@ -123,33 +130,43 @@ async function handleRAWPreview(
  */
 async function handleJPEGPreview(
   buffer: Buffer,
-  opts: Required<PreviewExtractionOptions>
+  opts: Required<PreviewExtractionOptions>,
+  orientation?: number,
 ): Promise<PreviewExtractionResult> {
   const metadata = await sharp(buffer).metadata();
-  
-  // If already suitable size, use as preview
-  if (metadata.width && metadata.width <= opts.maxPreviewWidth &&
-      metadata.height && metadata.height <= opts.maxPreviewHeight) {
+
+  // If already suitable size, still apply EXIF rotation to ensure correct orientation
+  if (
+    metadata.width &&
+    metadata.width <= opts.maxPreviewWidth &&
+    metadata.height &&
+    metadata.height <= opts.maxPreviewHeight
+  ) {
+    // Apply EXIF rotation even if resize isn't needed
+    const rotatedBuffer = await applyExifOrientation(sharp(buffer), orientation)
+      .jpeg({ quality: opts.quality })
+      .toBuffer();
+
     return {
       hasPreview: true,
-      previewBuffer: buffer,
-      previewType: "embedded",
-      method: "original",
+      previewBuffer: rotatedBuffer,
+      previewType: 'generated',
+      method: 'exif-rotated',
       originalBuffer: buffer,
     };
   }
-  
+
   // Resize for preview
-  const resized = await sharp(buffer)
-    .resize(opts.maxPreviewWidth, opts.maxPreviewHeight, { fit: "inside" })
+  const resized = await applyExifOrientation(sharp(buffer), orientation)
+    .resize(opts.maxPreviewWidth, opts.maxPreviewHeight, { fit: 'inside' })
     .jpeg({ quality: opts.quality })
     .toBuffer();
-  
+
   return {
     hasPreview: true,
     previewBuffer: resized,
-    previewType: "generated",
-    method: "resized",
+    previewType: 'generated',
+    method: 'resized',
     originalBuffer: buffer,
   };
 }
@@ -159,18 +176,19 @@ async function handleJPEGPreview(
  */
 async function handleOtherFormatPreview(
   buffer: Buffer,
-  opts: Required<PreviewExtractionOptions>
+  opts: Required<PreviewExtractionOptions>,
+  orientation?: number,
 ): Promise<PreviewExtractionResult> {
-  const converted = await sharp(buffer)
-    .resize(opts.maxPreviewWidth, opts.maxPreviewHeight, { fit: "inside" })
+  const converted = await applyExifOrientation(sharp(buffer), orientation)
+    .resize(opts.maxPreviewWidth, opts.maxPreviewHeight, { fit: 'inside' })
     .jpeg({ quality: opts.quality })
     .toBuffer();
-  
+
   return {
     hasPreview: true,
     previewBuffer: converted,
-    previewType: "generated",
-    method: "converted",
+    previewType: 'generated',
+    method: 'converted',
     originalBuffer: buffer,
   };
 }
@@ -179,18 +197,18 @@ async function handleOtherFormatPreview(
  * Generate blur hash from preview buffer
  */
 export async function generatePreviewBlurHash(
-  previewBuffer: Buffer
+  previewBuffer: Buffer,
 ): Promise<string | undefined> {
   try {
     const { data, info } = await sharp(previewBuffer)
-      .resize(32, 32, { fit: "inside" })
+      .resize(32, 32, { fit: 'inside' })
       .raw()
       .ensureAlpha()
       .toBuffer({ resolveWithObject: true });
-    
+
     return encodeBlurHash(info.width, info.height, new Uint8ClampedArray(data));
   } catch (error) {
-    console.warn("[Preview] Failed to generate blur hash:", error);
+    console.warn('[Preview] Failed to generate blur hash:', error);
     return undefined;
   }
 }

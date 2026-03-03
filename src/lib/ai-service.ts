@@ -1,4 +1,5 @@
-import sharp from "sharp";
+import sharp from 'sharp';
+import { applyExifOrientation } from './thumbnail-generator';
 
 export interface AIStyle {
   name: string;
@@ -54,6 +55,7 @@ export async function processWithAI(
   imageBuffer: Buffer,
   style: AIStyle,
   intensity: number,
+  orientation?: number,
 ): Promise<Buffer> {
   try {
     console.log(
@@ -61,8 +63,9 @@ export async function processWithAI(
     );
     console.log(`📝 AI Prompt: ${style.aiPrompt}`);
 
-    // Load image with Sharp
-    let image = sharp(imageBuffer);
+    // Load image with Sharp and auto-rotate based on EXIF orientation if possible
+    // CRITICAL: use applyExifOrientation to catch cases where libvips misses the EXIF logic
+    let image = applyExifOrientation(sharp(imageBuffer), orientation);
     const metadata = await image.metadata();
 
     // Apply blending parameters based on intensity
@@ -203,8 +206,8 @@ export async function processWithAI(
     // === BLACK & WHITE CONVERSION ===
     // Check if this is a B&W style by name or category
     const isBW =
-      style.name.toLowerCase().includes("b&w") ||
-      style.name.toLowerCase().includes("black and white");
+      style.name.toLowerCase().includes('b&w') ||
+      style.name.toLowerCase().includes('black and white');
 
     if (isBW) {
       console.log(`  ✓ Converting to black and white`);
@@ -222,17 +225,18 @@ export async function processWithAI(
     console.log(`✅ AI processing completed (${resultBuffer.length} bytes)`);
     return resultBuffer;
   } catch (error) {
-    console.error("❌ AI processing failed:", error);
-    throw new Error("AI service processing failed");
+    console.error('❌ AI processing failed:', error);
+    throw new Error('AI service processing failed');
   }
 }
 
 export async function generateThumbnail(imageBuffer: Buffer): Promise<Buffer> {
-  console.log("Generating thumbnail...");
+  console.log('Generating thumbnail...');
 
   const thumbnail = await sharp(imageBuffer)
+    .rotate()
     .resize(400, 300, {
-      fit: "cover",
+      fit: 'cover',
       kernel: sharp.kernel.lanczos3,
     })
     .jpeg({ quality: 80, progressive: true })
@@ -244,8 +248,8 @@ export async function generateThumbnail(imageBuffer: Buffer): Promise<Buffer> {
 
 // AI service configuration
 export const AI_CONFIG = {
-  apiUrl: process.env.AI_API_URL || "https://api.example.com",
-  apiKey: process.env.AI_API_KEY || "",
+  apiUrl: process.env.AI_API_URL || 'https://api.example.com',
+  apiKey: process.env.AI_API_KEY || '',
   timeout: 120000, // 2 minutes timeout
   maxRetries: 3,
 } as const;

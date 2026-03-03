@@ -59,6 +59,8 @@ export default function ComparePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [showAhaMoment, setShowAhaMoment] = useState(false);
+  // FIX: Store image aspect ratio to properly display portrait images
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
 
   // Show "Aha" moment celebration on mount if onboarding
   useEffect(() => {
@@ -126,6 +128,19 @@ export default function ComparePage() {
   const processedImageUrl = project?.images?.find(
     (img: any) => img.type === "processed",
   )?.url;
+
+  // Pre-initialize aspect ratio from DB-stored image dimensions (post-rotation)
+  useEffect(() => {
+    if (!project?.images) return;
+    const imgWithDims = (project.images as any[]).find(
+      (img) => (img.type === 'original' || img.type === 'thumbnail') && img.width && img.height,
+    );
+    if (imgWithDims?.width && imgWithDims?.height) {
+      const ratio = imgWithDims.width / imgWithDims.height;
+      const clamped = Math.max(0.3, Math.min(3.33, ratio));
+      setImageAspectRatio(clamped);
+    }
+  }, [project]);
 
   // Debug logging
   useEffect(() => {
@@ -367,7 +382,13 @@ export default function ComparePage() {
             <div
               id="comparison-container"
               className="relative w-full bg-black"
-              style={{ height: "600px" }}
+              style={{
+                // FIX: Use aspect-ratio instead of fixed height to support portrait images
+                aspectRatio: imageAspectRatio === "auto" ? undefined : String(imageAspectRatio),
+                maxWidth: "100%",
+                maxHeight: "80vh", // Prevent extreme ratios from overflowing viewport
+                minHeight: "400px", // Prevent collapse before image loads
+              }}
               onMouseMove={handleMouseMove}
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
@@ -383,10 +404,19 @@ export default function ComparePage() {
                           <Image
                             src={originalImageUrl}
                             alt="Original"
-                            width={1200}
-                            height={800}
-                            className="max-w-full max-h-full object-contain"
+                            fill
+                            sizes="100vw"
+                            className="object-contain"
                             style={{ transform: `scale(${zoomLevel / 100})` }}
+                            onLoad={(e) => {
+                              // FIX: Detect and set aspect ratio from loaded image
+                              const img = e.currentTarget;
+                              if (img.naturalWidth && img.naturalHeight) {
+                                const ratio = img.naturalWidth / img.naturalHeight;
+                                const clampedRatio = Math.max(0.3, Math.min(3.33, ratio));
+                                setImageAspectRatio(clampedRatio);
+                              }
+                            }}
                           />
                         ) : isRawFile && !anyThumbnail ? (
                           <div className="flex flex-col items-center justify-center py-8 space-y-3">
@@ -420,10 +450,19 @@ export default function ComparePage() {
                           <Image
                             src={originalImageUrl}
                             alt="Original"
-                            width={1200}
-                            height={800}
-                            className="max-w-full max-h-full object-contain"
+                            fill
+                            sizes="100vw"
+                            className="object-contain"
                             style={{ transform: `scale(${zoomLevel / 100})` }}
+                            onLoad={(e) => {
+                              // FIX: Detect and set aspect ratio from loaded image
+                              const img = e.currentTarget;
+                              if (img.naturalWidth && img.naturalHeight) {
+                                const ratio = img.naturalWidth / img.naturalHeight;
+                                const clampedRatio = Math.max(0.3, Math.min(3.33, ratio));
+                                setImageAspectRatio(clampedRatio);
+                              }
+                            }}
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center py-8 space-y-3">
@@ -463,9 +502,9 @@ export default function ComparePage() {
                           <Image
                             src={processedImageUrl}
                             alt="Processed"
-                            width={1200}
-                            height={800}
-                            className="max-w-full max-h-full object-contain"
+                            fill
+                            sizes="100vw"
+                            className="object-contain"
                             style={{ transform: `scale(${zoomLevel / 100})` }}
                           />
                         ) : (
@@ -524,8 +563,18 @@ export default function ComparePage() {
                       alt="Original"
                       fill
                       sizes="100vw"
-                      className="object-contain"
+                      className="object-contain object-center"
                       style={{ transform: `scale(${zoomLevel / 100})` }}
+                      onLoad={(e) => {
+                        // FIX: Detect and set aspect ratio from loaded image
+                        const img = e.currentTarget;
+                        if (img.naturalWidth && img.naturalHeight) {
+                          const ratio = img.naturalWidth / img.naturalHeight;
+                          // Clamp between 0.3 (1:3.33 portrait) and 3.33 (3.33:1 landscape)
+                          const clampedRatio = Math.max(0.3, Math.min(3.33, ratio));
+                          setImageAspectRatio(clampedRatio);
+                        }
+                      }}
                     />
                   </div>
 
@@ -542,7 +591,7 @@ export default function ComparePage() {
                       alt="Processed"
                       fill
                       sizes="100vw"
-                      className="object-contain"
+                      className="object-contain object-center"
                       style={{ transform: `scale(${zoomLevel / 100})` }}
                     />
                   </div>

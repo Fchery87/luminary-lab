@@ -84,6 +84,8 @@ export default function EditPage() {
     null,
   );
   const [popularPresets, setPopularPresets] = useState<Preset[]>([]);
+  // FIX: Store image aspect ratio to properly display portrait images
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
 
   // Initialize hook with empty URL - will update when URL is available
   const {
@@ -163,6 +165,20 @@ export default function EditPage() {
       return res.json();
     },
   });
+
+  // Pre-initialize aspect ratio from DB-stored image dimensions (post-rotation)
+  useEffect(() => {
+    if (!project?.images) return;
+    // Find the original or thumbnail image with stored dimensions
+    const imgWithDims = project.images.find(
+      (img: any) => (img.type === 'original' || img.type === 'thumbnail') && img.width && img.height,
+    );
+    if (imgWithDims?.width && imgWithDims?.height) {
+      const ratio = imgWithDims.width / imgWithDims.height;
+      const clamped = Math.max(0.3, Math.min(3.33, ratio));
+      setImageAspectRatio(clamped);
+    }
+  }, [project]);
 
   // Initialize smart defaults when presets are loaded
   useEffect(() => {
@@ -494,13 +510,13 @@ export default function EditPage() {
             </div>
 
             {/* Viewport */}
-            <div className="flex-1 relative rounded-md border border-border bg-secondary/20 overflow-hidden shadow-2xl">
+            <div className="flex-1 relative rounded-md border border-border bg-secondary/20 overflow-hidden shadow-2xl flex items-center justify-center">
               {hasProcessed ? (
                 <CompareSlider
                   beforeImage={originalImage}
                   afterImage={processedImage}
-                  className="h-full w-full absolute inset-0"
-                  aspectRatio="h-full" // Override aspect
+                  className="h-full w-full"
+                  aspectRatio={imageAspectRatio === "auto" ? undefined : imageAspectRatio}
                 />
               ) : isRawFile && !anyThumbnail ? (
                 // RAW file without thumbnail - show placeholder
@@ -536,11 +552,11 @@ export default function EditPage() {
                   </div>
                 </div>
               ) : (
-                <div className="h-full w-full relative">
+                <div className="h-full w-full flex items-center justify-center relative">
                   {selectedPreset ? (
                     // Real-time filter preview with CSS filters
-                    <div 
-                      className="h-full w-full relative"
+                    <div
+                      className="relative w-full h-full flex items-center justify-center"
                       style={previewStyle}
                     >
                       <BlurHashImage
@@ -549,6 +565,14 @@ export default function EditPage() {
                         alt="Real-time Preview"
                         fill
                         className="object-contain"
+                        onLoad={(e) => {
+                          // FIX: Detect and set aspect ratio from loaded image
+                          const img = e.currentTarget;
+                          if (img.naturalWidth && img.naturalHeight) {
+                            const ratio = img.naturalWidth / img.naturalHeight;
+                            setImageAspectRatio(ratio);
+                          }
+                        }}
                       />
                       {isProcessing && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50">
@@ -569,6 +593,14 @@ export default function EditPage() {
                       alt="Preview"
                       fill
                       className="object-contain"
+                      onLoad={(e) => {
+                        // FIX: Detect and set aspect ratio from loaded image
+                        const img = e.currentTarget;
+                        if (img.naturalWidth && img.naturalHeight) {
+                          const ratio = img.naturalWidth / img.naturalHeight;
+                          setImageAspectRatio(ratio);
+                        }
+                      }}
                     />
                   )}
                   {isProcessing && !selectedPreset && (
