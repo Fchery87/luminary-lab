@@ -1,20 +1,34 @@
-import { pgTable, text, timestamp, boolean, uuid, integer, decimal, jsonb } from 'drizzle-orm/pg-core';
-import { v7 as uuidv7 } from 'uuid';
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  uuid,
+  integer,
+  decimal,
+  jsonb,
+} from "drizzle-orm/pg-core";
+import { v7 as uuidv7 } from "uuid";
 
 // Users table
 export const users = pgTable("users", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false),
   name: text("name"),
   image: text("image"),
+  role: text("role").default("user").notNull(), // 'admin' | 'user'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Sessions table for Better Auth
 export const sessions = pgTable("sessions", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   expiresAt: timestamp("expires_at").notNull(),
   token: text("token").notNull().unique(),
   createdAt: timestamp("created_at").notNull(),
@@ -28,7 +42,9 @@ export const sessions = pgTable("sessions", {
 
 // Accounts table for OAuth providers
 export const accounts = pgTable("accounts", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
   userId: uuid("user_id")
@@ -47,7 +63,9 @@ export const accounts = pgTable("accounts", {
 
 // Verifications table for email verification, password reset, etc.
 export const verifications = pgTable("verifications", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
@@ -57,7 +75,9 @@ export const verifications = pgTable("verifications", {
 
 // Subscription plans table
 export const subscriptionPlans = pgTable("subscription_plans", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   name: text("name").notNull().unique(),
   stripePriceId: text("stripe_price_id").unique(),
   monthlyUploadLimit: integer("monthly_upload_limit").notNull(),
@@ -69,7 +89,9 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 
 // User subscriptions table
 export const userSubscriptions = pgTable("user_subscriptions", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -87,7 +109,9 @@ export const userSubscriptions = pgTable("user_subscriptions", {
 
 // Projects table
 export const projects = pgTable("projects", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -99,7 +123,9 @@ export const projects = pgTable("projects", {
 
 // Images table
 export const images = pgTable("images", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   projectId: uuid("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
@@ -112,12 +138,16 @@ export const images = pgTable("images", {
   height: integer("height"),
   metadata: jsonb("metadata"), // RAW metadata: camera, lens, ISO, aperture, etc.
   blurHash: text("blurHash"),
+  isPreview: boolean("is_preview").default(false).notNull(), // true for preview images
+  previewImageType: text("preview_image_type"), // 'embedded' | 'generated' | null
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // System styles/presets table
 export const systemStyles = pgTable("system_styles", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   name: text("name").notNull(),
   category: text("category"), // Category for organizing presets: portrait, film, cinematic, moody, creative, b&w, vintage, ai, specialized
   description: text("description"),
@@ -148,18 +178,24 @@ export const batches = pgTable("batches", {
 
 // Processing jobs table
 export const processingJobs = pgTable("processing_jobs", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   projectId: uuid("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  batchId: text("batch_id").references(() => batches.id, { onDelete: "cascade" }),
+  batchId: text("batch_id").references(() => batches.id, {
+    onDelete: "cascade",
+  }),
   styleId: uuid("style_id")
     .notNull()
     .references(() => systemStyles.id),
-  intensity: decimal("intensity", { precision: 5, scale: 2 }).default("1.00").notNull(),
+  intensity: decimal("intensity", { precision: 5, scale: 2 })
+    .default("1.00")
+    .notNull(),
   status: text("status").notNull().default("queued"), // queued, processing, completed, failed
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
@@ -172,7 +208,9 @@ export const processingJobs = pgTable("processing_jobs", {
 
 // Usage tracking table
 export const usageTracking = pgTable("usage_tracking", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -185,7 +223,9 @@ export const usageTracking = pgTable("usage_tracking", {
 
 // Audit logging table
 export const auditLogs = pgTable("audit_logs", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   action: text("action").notNull(),
   resource: text("resource").notNull(),
@@ -200,7 +240,9 @@ export const auditLogs = pgTable("audit_logs", {
 
 // Upload parts table for tracking chunked/resumable uploads
 export const uploadParts = pgTable("upload_parts", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   uploadId: text("upload_id").notNull(), // AWS multipart upload ID
   projectId: uuid("project_id")
     .notNull()
@@ -215,7 +257,9 @@ export const uploadParts = pgTable("upload_parts", {
 
 // Multipart uploads table for tracking active multipart upload sessions
 export const multipartUploads = pgTable("multipart_uploads", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   uploadId: text("upload_id").notNull().unique(), // AWS multipart upload ID
   projectId: uuid("project_id")
     .notNull()
@@ -237,7 +281,9 @@ export const multipartUploads = pgTable("multipart_uploads", {
 
 // Tags table
 export const tags = pgTable("tags", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -248,7 +294,9 @@ export const tags = pgTable("tags", {
 
 // Project tags junction table
 export const projectTags = pgTable("project_tags", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   projectId: uuid("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
@@ -260,13 +308,19 @@ export const projectTags = pgTable("project_tags", {
 
 // User preferences table for smart defaults
 export const userPreferences = pgTable("user_preferences", {
-  id: uuid("id").primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   userId: uuid("user_id")
     .notNull()
     .unique()
     .references(() => users.id, { onDelete: "cascade" }),
-  lastUsedPresetId: uuid("last_used_preset_id").references(() => systemStyles.id),
-  preferredIntensity: decimal("preferred_intensity", { precision: 5, scale: 2 }).default("0.70").notNull(),
+  lastUsedPresetId: uuid("last_used_preset_id").references(
+    () => systemStyles.id,
+  ),
+  preferredIntensity: decimal("preferred_intensity", { precision: 5, scale: 2 })
+    .default("0.70")
+    .notNull(),
   preferredViewMode: text("preferred_view_mode").default("split"), // split, before, after
   dismissedWhatNext: boolean("dismissed_what_next").default(false).notNull(),
   preferences: jsonb("preferences"), // Additional flexible preferences

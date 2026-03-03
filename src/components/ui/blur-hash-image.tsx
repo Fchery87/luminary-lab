@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { decodeBlurHashToPixels } from '@/lib/blurhash';
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { decodeBlurHashToPixels } from "@/lib/blurhash";
 
 interface BlurHashImageProps {
   src: string;
@@ -24,7 +24,7 @@ export function BlurHashImage({
   className,
 }: BlurHashImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [placeholderColor, setPlaceholderColor] = useState('#1a1a1a');
+  const [placeholderColor, setPlaceholderColor] = useState("#1a1a1a");
 
   // Generate placeholder color from blurhash on mount
   useEffect(() => {
@@ -45,7 +45,7 @@ export function BlurHashImage({
       } catch {
         // Use fallback color if decode fails - defer to avoid cascading renders
         const timer = setTimeout(() => {
-          setPlaceholderColor('#1a1a1a');
+          setPlaceholderColor("#1a1a1a");
         }, 0);
         return () => clearTimeout(timer);
       }
@@ -56,7 +56,7 @@ export function BlurHashImage({
     // No blurhash - render normal image
     return (
       <Image
-        src={src || '/placeholder.svg'}
+        src={src || "/placeholder.svg"}
         alt={alt}
         width={fill ? undefined : width}
         height={fill ? undefined : height}
@@ -67,7 +67,7 @@ export function BlurHashImage({
   }
 
   const containerStyle = fill
-    ? { position: 'relative' as const, width: '100%', height: '100%' }
+    ? { position: "relative" as const, width: "100%", height: "100%" }
     : { width, height };
 
   return (
@@ -90,7 +90,7 @@ export function BlurHashImage({
         height={fill ? undefined : height}
         fill={fill}
         className={`${className} transition-opacity duration-300 ${
-          isLoaded ? 'opacity-100' : 'opacity-0'
+          isLoaded ? "opacity-100" : "opacity-0"
         }`}
         onLoad={() => setIsLoaded(true)}
       />

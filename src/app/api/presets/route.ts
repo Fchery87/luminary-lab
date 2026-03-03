@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db, systemStyles } from '@/db';
-import { eq } from 'drizzle-orm';
+import { NextRequest, NextResponse } from "next/server";
+import { db, systemStyles } from "@/db";
+import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      presets: presets.map(preset => ({
+      presets: presets.map((preset) => ({
         id: preset.id,
         name: preset.name,
         description: preset.description,
@@ -24,10 +24,10 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('Error fetching presets:', error);
+    console.error("Error fetching presets:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch presets' },
-      { status: 500 }
+      { error: "Failed to fetch presets" },
+      { status: 500 },
     );
   }
 }

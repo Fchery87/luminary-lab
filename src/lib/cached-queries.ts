@@ -2,15 +2,20 @@
  * Cached database query functions for frequently-accessed data
  */
 
-import { getOrSet, invalidateTag } from './cache';
-import { db } from '@/db';
-import { systemStyles, userSubscriptions, userPreferences, subscriptionPlans } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { getOrSet, invalidateTag } from "./cache";
+import { db } from "@/db";
+import {
+  systemStyles,
+  userSubscriptions,
+  userPreferences,
+  subscriptionPlans,
+} from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const CACHE_DURATIONS = {
-  PRESETS: 3600,        // 1 hour (rarely change)
-  SUBSCRIPTIONS: 1800,  // 30 minutes
-  PREFERENCES: 1800,    // 30 minutes
+  PRESETS: 3600, // 1 hour (rarely change)
+  SUBSCRIPTIONS: 1800, // 30 minutes
+  PREFERENCES: 1800, // 30 minutes
 } as const;
 
 /**
@@ -18,14 +23,17 @@ const CACHE_DURATIONS = {
  */
 export async function getCachedPresets() {
   return getOrSet(
-    'system:presets:all',
+    "system:presets:all",
     async () => {
-      return await db.select().from(systemStyles).where(eq(systemStyles.isActive, true));
+      return await db
+        .select()
+        .from(systemStyles)
+        .where(eq(systemStyles.isActive, true));
     },
     {
       ttl: CACHE_DURATIONS.PRESETS,
-      tags: ['presets']
-    }
+      tags: ["presets"],
+    },
   );
 }
 
@@ -41,13 +49,13 @@ export async function getCachedUserSubscription(userId: string) {
         .from(userSubscriptions)
         .where(eq(userSubscriptions.userId, userId))
         .limit(1);
-      
+
       return subscription || null;
     },
     {
       ttl: CACHE_DURATIONS.SUBSCRIPTIONS,
-      tags: [userId, 'subscription']
-    }
+      tags: [userId, "subscription"],
+    },
   );
 }
 
@@ -63,13 +71,13 @@ export async function getCachedUserPreferences(userId: string) {
         .from(userPreferences)
         .where(eq(userPreferences.userId, userId))
         .limit(1);
-      
+
       return prefs || null;
     },
     {
       ttl: CACHE_DURATIONS.PREFERENCES,
-      tags: [userId, 'preferences']
-    }
+      tags: [userId, "preferences"],
+    },
   );
 }
 
@@ -78,7 +86,7 @@ export async function getCachedUserPreferences(userId: string) {
  */
 export async function getCachedSubscriptionPlans() {
   return getOrSet(
-    'system:subscription-plans:all',
+    "system:subscription-plans:all",
     async () => {
       return await db
         .select()
@@ -87,8 +95,8 @@ export async function getCachedSubscriptionPlans() {
     },
     {
       ttl: CACHE_DURATIONS.PRESETS,
-      tags: ['subscription-plans']
-    }
+      tags: ["subscription-plans"],
+    },
   );
 }
 
@@ -104,12 +112,12 @@ export async function invalidateUserCache(userId: string) {
  * Invalidate all presets when system styles change
  */
 export async function invalidatePresetsCache() {
-  await invalidateTag('presets');
+  await invalidateTag("presets");
 }
 
 /**
  * Invalidate all subscription plan caches
  */
 export async function invalidateSubscriptionPlansCache() {
-  await invalidateTag('subscription-plans');
+  await invalidateTag("subscription-plans");
 }

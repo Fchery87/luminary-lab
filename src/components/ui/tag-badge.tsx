@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+import { Badge } from "@/components/ui/badge";
 
 interface TagBadgeProps {
   name: string;
@@ -6,38 +6,39 @@ interface TagBadgeProps {
   onRemove?: () => void;
 }
 
-const tagColors: Record<string, { bg: string; text: string; border: string }> = {
-  camera: {
-    bg: 'bg-blue-500/10',
-    text: 'text-blue-400',
-    border: 'border-blue-500/20',
-  },
-  lens: {
-    bg: 'bg-purple-500/10',
-    text: 'text-purple-400',
-    border: 'border-purple-500/20',
-  },
-  date_range: {
-    bg: 'bg-green-500/10',
-    text: 'text-green-400',
-    border: 'border-green-500/20',
-  },
-  iso_range: {
-    bg: 'bg-amber-500/10',
-    text: 'text-amber-400',
-    border: 'border-amber-500/20',
-  },
-  focal_length: {
-    bg: 'bg-rose-500/10',
-    text: 'text-rose-400',
-    border: 'border-rose-500/20',
-  },
-  custom: {
-    bg: 'bg-gray-500/10',
-    text: 'text-gray-400',
-    border: 'border-gray-500/20',
-  },
-};
+const tagColors: Record<string, { bg: string; text: string; border: string }> =
+  {
+    camera: {
+      bg: "bg-blue-500/10",
+      text: "text-blue-400",
+      border: "border-blue-500/20",
+    },
+    lens: {
+      bg: "bg-purple-500/10",
+      text: "text-purple-400",
+      border: "border-purple-500/20",
+    },
+    date_range: {
+      bg: "bg-green-500/10",
+      text: "text-green-400",
+      border: "border-green-500/20",
+    },
+    iso_range: {
+      bg: "bg-amber-500/10",
+      text: "text-amber-400",
+      border: "border-amber-500/20",
+    },
+    focal_length: {
+      bg: "bg-rose-500/10",
+      text: "text-rose-400",
+      border: "border-rose-500/20",
+    },
+    custom: {
+      bg: "bg-gray-500/10",
+      text: "text-gray-400",
+      border: "border-gray-500/20",
+    },
+  };
 
 export function TagBadge({ name, type, onRemove }: TagBadgeProps) {
   const colors = tagColors[type] || tagColors.custom;
@@ -92,7 +93,10 @@ export function ProjectTags({ tags, maxTags = 3 }: ProjectTagsProps) {
         <TagBadge key={index} name={tag.name} type={tag.type} />
       ))}
       {remainingTags > 0 && (
-        <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 backdrop-blur-sm">
+        <Badge
+          variant="outline"
+          className="bg-gray-500/10 text-gray-400 border-gray-500/20 backdrop-blur-sm"
+        >
           +{remainingTags}
         </Badge>
       )}

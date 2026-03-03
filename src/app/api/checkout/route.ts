@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getStripeServer } from '@/lib/stripe';
-import { auth } from '@/lib/auth';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { getStripeServer } from "@/lib/stripe";
+import { auth } from "@/lib/auth";
+import { z } from "zod";
 
 const checkoutSchema = z.object({
   priceId: z.string().min(1),
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!userSession) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validated.error },
-        { status: 400 }
+        { error: "Invalid request data", details: validated.error },
+        { status: 400 },
       );
     }
 
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
     try {
       const stripe = getStripeServer();
       const stripeSession = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        payment_method_types: ['card'],
+        mode: "subscription",
+        payment_method_types: ["card"],
         line_items: [
           {
             price: priceId,
@@ -50,17 +50,17 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ sessionId: stripeSession.id });
     } catch (error) {
-      console.error('Error creating checkout session:', error);
+      console.error("Error creating checkout session:", error);
       return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 }
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
   } catch (error) {
-    console.error('Checkout error:', error);
+    console.error("Checkout error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

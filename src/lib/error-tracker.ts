@@ -2,8 +2,8 @@
  * Error tracking and categorization
  */
 
-import { logger } from './logger';
-import { metricsCollector } from './metrics';
+import { logger } from "./logger";
+import { metricsCollector } from "./metrics";
 
 export interface ErrorEvent {
   type: string;
@@ -13,7 +13,7 @@ export interface ErrorEvent {
   firstOccurred: number;
   endpoint?: string;
   userId?: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: "low" | "medium" | "high" | "critical";
 }
 
 class ErrorTracker {
@@ -29,12 +29,12 @@ class ErrorTracker {
     metadata: {
       endpoint?: string;
       userId?: string;
-      severity?: 'low' | 'medium' | 'high' | 'critical';
-    } = {}
+      severity?: "low" | "medium" | "high" | "critical";
+    } = {},
   ): void {
     const key = `${type}:${message}`;
     const now = Date.now();
-    const severity = metadata.severity || 'medium';
+    const severity = metadata.severity || "medium";
 
     const existing = this.errors.get(key);
     if (existing) {
@@ -60,7 +60,7 @@ class ErrorTracker {
     }
 
     // Alert on critical errors
-    if (severity === 'critical') {
+    if (severity === "critical") {
       logger.error(`CRITICAL ERROR: ${type}`, new Error(message), {
         severity,
         endpoint: metadata.endpoint,
@@ -69,10 +69,10 @@ class ErrorTracker {
     }
 
     // Record metric
-    metricsCollector.record('error.tracked', 1, 'count', {
+    metricsCollector.record("error.tracked", 1, "count", {
       type,
       severity,
-      endpoint: metadata.endpoint || 'unknown',
+      endpoint: metadata.endpoint || "unknown",
     });
   }
 
@@ -90,7 +90,9 @@ class ErrorTracker {
     const now = Date.now();
     const oneMinuteAgo = now - 60000;
 
-    const recentErrors = this.errorRates.filter((e) => e.timestamp > oneMinuteAgo);
+    const recentErrors = this.errorRates.filter(
+      (e) => e.timestamp > oneMinuteAgo,
+    );
     const errorRate = recentErrors.length > 0 ? recentErrors.length : 0;
 
     const byType: Record<string, number> = {};
@@ -98,7 +100,8 @@ class ErrorTracker {
 
     for (const error of allErrors) {
       byType[error.type] = (byType[error.type] || 0) + error.count;
-      bySeverity[error.severity] = (bySeverity[error.severity] || 0) + error.count;
+      bySeverity[error.severity] =
+        (bySeverity[error.severity] || 0) + error.count;
     }
 
     return {
@@ -123,7 +126,7 @@ class ErrorTracker {
    * Get errors by severity
    */
   getErrorsBySeverity(
-    severity: 'low' | 'medium' | 'high' | 'critical'
+    severity: "low" | "medium" | "high" | "critical",
   ): ErrorEvent[] {
     return Array.from(this.errors.values())
       .filter((e) => e.severity === severity)

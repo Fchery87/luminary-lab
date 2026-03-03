@@ -1,12 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Download,
   ArrowLeft,
@@ -18,12 +24,12 @@ import {
   Maximize2,
   Sparkles,
   X,
-} from 'lucide-react';
-import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Header } from '@/components/ui/header';
+} from "lucide-react";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { Header } from "@/components/ui/header";
 
 interface ProjectData {
   id: string;
@@ -32,7 +38,7 @@ interface ProjectData {
   createdAt: string;
   images?: Array<{
     id: string;
-    type: 'original' | 'processed' | 'thumbnail';
+    type: "original" | "processed" | "thumbnail";
     url: string;
     filename: string;
     mimeType: string;
@@ -46,7 +52,7 @@ export default function ComparePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
-  const isOnboarding = searchParams.get('onboarding') === 'true';
+  const isOnboarding = searchParams.get("onboarding") === "true";
 
   const [zoomLevel, setZoomLevel] = useState(100);
   const [dividerPosition, setDividerPosition] = useState(50);
@@ -66,65 +72,89 @@ export default function ComparePage() {
   }, [isOnboarding]);
 
   // Fetch project data from API
-  const { data: project, isLoading, error } = useQuery({
-    queryKey: ['project', projectId],
+  const {
+    data: project,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["project", projectId],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
+      const res = await fetch(`/api/projects/${projectId}`, {
+        credentials: "include",
+      });
       if (!res.ok) {
-        if (res.status === 404) throw new Error('Project not found');
-        throw new Error('Failed to fetch project');
+        if (res.status === 404) throw new Error("Project not found");
+        throw new Error("Failed to fetch project");
       }
       return res.json() as Promise<ProjectData>;
     },
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return (status === 'processing' || status === 'queued') ? 2000 : false;
-    }
+      return status === "processing" || status === "queued" ? 2000 : false;
+    },
   });
 
   // Extract image URLs from project images array
   // For RAW files, we need to use the thumbnail since browsers can't display RAW
   // Priority: large thumbnail > medium thumbnail > small thumbnail > original (for non-RAW)
-  const largeThumbnail = project?.images?.find((img: any) => img.type === 'thumbnail' && img.filename?.includes('thumb_large'))?.url;
-  const mediumThumbnail = project?.images?.find((img: any) => img.type === 'thumbnail' && img.filename?.includes('thumb_medium'))?.url;
-  const anyThumbnail = project?.images?.find((img: any) => img.type === 'thumbnail')?.url;
-  const originalImageObj = project?.images?.find((img: any) => img.type === 'original');
-  const isRawFile = originalImageObj?.mimeType?.startsWith('image/x-');
-  
+  const largeThumbnail = project?.images?.find(
+    (img: any) =>
+      img.type === "thumbnail" && img.filename?.includes("thumb_large"),
+  )?.url;
+  const mediumThumbnail = project?.images?.find(
+    (img: any) =>
+      img.type === "thumbnail" && img.filename?.includes("thumb_medium"),
+  )?.url;
+  const anyThumbnail = project?.images?.find(
+    (img: any) => img.type === "thumbnail",
+  )?.url;
+  const originalImageObj = project?.images?.find(
+    (img: any) => img.type === "original",
+  );
+  const isRawFile = originalImageObj?.mimeType?.startsWith("image/x-");
+
   // Use large thumbnail for RAW files, otherwise use original
-  const originalImageUrl = (isRawFile ? (largeThumbnail || mediumThumbnail || anyThumbnail) : originalImageObj?.url)
-    || largeThumbnail   // Fallback to large thumbnail
-    || mediumThumbnail  // Then medium
-    || anyThumbnail     // Then any thumbnail
-    || originalImageObj?.url;  // Try original anyway
-    
-  const processedImageUrl = project?.images?.find((img: any) => img.type === 'processed')?.url;
+  const originalImageUrl =
+    (isRawFile
+      ? largeThumbnail || mediumThumbnail || anyThumbnail
+      : originalImageObj?.url) ||
+    largeThumbnail || // Fallback to large thumbnail
+    mediumThumbnail || // Then medium
+    anyThumbnail || // Then any thumbnail
+    originalImageObj?.url; // Try original anyway
+
+  const processedImageUrl = project?.images?.find(
+    (img: any) => img.type === "processed",
+  )?.url;
 
   // Debug logging
   useEffect(() => {
     if (project) {
-      console.log('[Compare] Project data loaded:', {
+      console.log("[Compare] Project data loaded:", {
         projectId: project.id,
         status: project.status,
         imagesCount: project.images?.length || 0,
         images: project.images?.map((img: any) => ({
           type: img.type,
           hasUrl: !!img.url,
-          filename: img.filename
-        }))
+          filename: img.filename,
+        })),
       });
-      
+
       if (!originalImageUrl) {
-        console.warn('[Compare] No original image URL found. Images:', project.images);
+        console.warn(
+          "[Compare] No original image URL found. Images:",
+          project.images,
+        );
       } else {
-        console.log('[Compare] Original image URL:', originalImageUrl);
+        console.log("[Compare] Original image URL:", originalImageUrl);
       }
     }
   }, [project, originalImageUrl]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    
+
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const position = (x / rect.width) * 100;
@@ -143,45 +173,47 @@ export default function ComparePage() {
     const handleGlobalMouseUp = () => setIsDragging(false);
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
-      
-      const rect = document.getElementById('comparison-container')?.getBoundingClientRect();
+
+      const rect = document
+        .getElementById("comparison-container")
+        ?.getBoundingClientRect();
       if (!rect) return;
-      
+
       const x = e.clientX - rect.left;
       const position = (x / rect.width) * 100;
       setDividerPosition(Math.min(100, Math.max(0, position)));
     };
 
     if (isDragging) {
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener("mouseup", handleGlobalMouseUp);
+      document.addEventListener("mousemove", handleGlobalMouseMove);
     }
 
     return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener("mouseup", handleGlobalMouseUp);
+      document.removeEventListener("mousemove", handleGlobalMouseMove);
     };
   }, [isDragging]);
 
-  const handleZoom = (direction: 'in' | 'out') => {
-    if (direction === 'in') {
-      setZoomLevel(prev => Math.min(200, prev + 25));
+  const handleZoom = (direction: "in" | "out") => {
+    if (direction === "in") {
+      setZoomLevel((prev) => Math.min(200, prev + 25));
     } else {
-      setZoomLevel(prev => Math.max(50, prev - 25));
+      setZoomLevel((prev) => Math.max(50, prev - 25));
     }
   };
 
-  const handleExport = async (format: 'jpg' | 'tiff' | 'png') => {
+  const handleExport = async (format: "jpg" | "tiff" | "png") => {
     toast.success(`Exporting ${format.toUpperCase()} file...`);
     // Mock export - would call actual export API
     setTimeout(() => {
-      toast.success('Export completed successfully!');
+      toast.success("Export completed successfully!");
     }, 2000);
   };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
-    toast.success('Link copied to clipboard!');
+    toast.success("Link copied to clipboard!");
   };
 
   if (isLoading) {
@@ -196,9 +228,13 @@ export default function ComparePage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4 text-destructive">Error Loading Project</h2>
+          <h2 className="text-2xl font-bold mb-4 text-destructive">
+            Error Loading Project
+          </h2>
           <p className="text-muted-foreground mb-6">
-            {error instanceof Error ? error.message : 'An error occurred while loading the project.'}
+            {error instanceof Error
+              ? error.message
+              : "An error occurred while loading the project."}
           </p>
           <Button asChild>
             <Link href="/dashboard">Back to Dashboard</Link>
@@ -214,7 +250,8 @@ export default function ComparePage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">Project Not Found</h2>
           <p className="text-muted-foreground mb-6">
-            The project you&apos;re looking for doesn&apos;t exist or you don&apos;t have access.
+            The project you&apos;re looking for doesn&apos;t exist or you
+            don&apos;t have access.
           </p>
           <Button asChild>
             <Link href="/dashboard">Back to Dashboard</Link>
@@ -226,10 +263,7 @@ export default function ComparePage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header
-        variant="minimal"
-        showUserMenu={true}
-      />
+      <Header variant="minimal" showUserMenu={true} />
 
       <main className="flex-1 container mx-auto px-4 py-6">
         {/* Project Header */}
@@ -238,15 +272,13 @@ export default function ComparePage() {
             <div>
               <h1 className="text-2xl font-bold">{project.name}</h1>
               <div className="flex items-center gap-4 mt-2">
-                <Badge variant="secondary">
-                  {project.styleName}
-                </Badge>
+                <Badge variant="secondary">{project.styleName}</Badge>
                 <Badge variant="outline">
                   {Math.round((project.intensity || 0) * 100)}% intensity
                 </Badge>
               </div>
             </div>
-            
+
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleShare}>
                 <Share2 className="mr-2 h-4 w-4" />
@@ -300,7 +332,7 @@ export default function ComparePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleZoom('out')}
+                    onClick={() => handleZoom("out")}
                     disabled={zoomLevel <= 50}
                   >
                     <ZoomOut className="h-4 w-4" />
@@ -311,7 +343,7 @@ export default function ComparePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleZoom('in')}
+                    onClick={() => handleZoom("in")}
                     disabled={zoomLevel >= 200}
                   >
                     <ZoomIn className="h-4 w-4" />
@@ -335,7 +367,7 @@ export default function ComparePage() {
             <div
               id="comparison-container"
               className="relative w-full bg-black"
-              style={{ height: '600px' }}
+              style={{ height: "600px" }}
               onMouseMove={handleMouseMove}
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
@@ -345,57 +377,87 @@ export default function ComparePage() {
                 <div className="w-full h-full flex items-center justify-center">
                   {showOriginal ? (
                     <div className="text-white text-center">
-                    <p className="text-lg font-medium mb-2">Original Image</p>
-                    <div className="text-sm text-muted">
-                      {originalImageUrl && !isRawFile ? (
-                        <Image
-                          src={originalImageUrl}
-                          alt="Original"
-                          width={1200}
-                          height={800}
-                          className="max-w-full max-h-full object-contain"
-                          style={{ transform: `scale(${zoomLevel / 100})` }}
-                        />
-                      ) : isRawFile && !anyThumbnail ? (
-                        <div className="flex flex-col items-center justify-center py-8 space-y-3">
-                          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                            <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                      <p className="text-lg font-medium mb-2">Original Image</p>
+                      <div className="text-sm text-muted">
+                        {originalImageUrl && !isRawFile ? (
+                          <Image
+                            src={originalImageUrl}
+                            alt="Original"
+                            width={1200}
+                            height={800}
+                            className="max-w-full max-h-full object-contain"
+                            style={{ transform: `scale(${zoomLevel / 100})` }}
+                          />
+                        ) : isRawFile && !anyThumbnail ? (
+                          <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                              <svg
+                                className="w-8 h-8 text-primary"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={1.5}
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </div>
+                            <p className="text-base font-medium">
+                              RAW File Uploaded
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {originalImageObj?.filename || "Unknown file"}
+                            </p>
+                            <p className="text-xs text-muted-foreground max-w-xs">
+                              Preview not available. Process your image to see
+                              the result.
+                            </p>
                           </div>
-                          <p className="text-base font-medium">RAW File Uploaded</p>
-                          <p className="text-sm text-muted-foreground">{originalImageObj?.filename || 'Unknown file'}</p>
-                          <p className="text-xs text-muted-foreground max-w-xs">
-                            Preview not available. Process your image to see the result.
-                          </p>
-                        </div>
-                      ) : originalImageUrl ? (
-                        <Image
-                          src={originalImageUrl}
-                          alt="Original"
-                          width={1200}
-                          height={800}
-                          className="max-w-full max-h-full object-contain"
-                          style={{ transform: `scale(${zoomLevel / 100})` }}
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-8 space-y-3">
-                          <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center">
-                            <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                        ) : originalImageUrl ? (
+                          <Image
+                            src={originalImageUrl}
+                            alt="Original"
+                            width={1200}
+                            height={800}
+                            className="max-w-full max-h-full object-contain"
+                            style={{ transform: `scale(${zoomLevel / 100})` }}
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                            <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center">
+                              <svg
+                                className="w-6 h-6 text-muted-foreground"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </div>
+                            <p className="text-base">
+                              Original image not available
+                            </p>
+                            <p className="text-xs text-muted-foreground max-w-xs">
+                              The original image for this project could not be
+                              found.
+                            </p>
                           </div>
-                          <p className="text-base">Original image not available</p>
-                          <p className="text-xs text-muted-foreground max-w-xs">
-                            The original image for this project could not be found.
-                          </p>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
                   ) : (
                     <div className="text-white text-center">
-                      <p className="text-lg font-medium mb-2">Processed Image</p>
+                      <p className="text-lg font-medium mb-2">
+                        Processed Image
+                      </p>
                       <div className="text-sm text-muted">
                         {processedImageUrl ? (
                           <Image
@@ -408,22 +470,24 @@ export default function ComparePage() {
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center py-8 space-y-3">
-                            {project.status === 'pending' || project.status === 'processing' || project.status === 'queued' ? (
+                            {project.status === "pending" ||
+                            project.status === "processing" ||
+                            project.status === "queued" ? (
                               <>
                                 <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                                 <p className="text-base">
-                                  {project.status === 'processing'
-                                    ? 'Processing your image...'
-                                    : project.status === 'queued'
-                                    ? 'Waiting to process...'
-                                    : 'Processing not started'}
+                                  {project.status === "processing"
+                                    ? "Processing your image..."
+                                    : project.status === "queued"
+                                      ? "Waiting to process..."
+                                      : "Processing not started"}
                                 </p>
                                 <p className="text-xs text-muted-foreground max-w-xs mb-4">
-                                  {project.status === 'pending'
-                                    ? 'Go to the editor to start processing your image.'
-                                    : 'This may take 2-3 minutes. You can come back later or refresh the page.'}
+                                  {project.status === "pending"
+                                    ? "Go to the editor to start processing your image."
+                                    : "This may take 2-3 minutes. You can come back later or refresh the page."}
                                 </p>
-                                {project.status === 'pending' && (
+                                {project.status === "pending" && (
                                   <Button asChild>
                                     <Link href={`/edit/${projectId}`}>
                                       <Sparkles className="mr-2 h-4 w-4" />
@@ -434,7 +498,9 @@ export default function ComparePage() {
                               </>
                             ) : (
                               <>
-                                <p className="text-base">Processing not completed</p>
+                                <p className="text-base">
+                                  Processing not completed
+                                </p>
                                 <p className="text-xs text-muted-foreground max-w-xs">
                                   The processed image is not available yet.
                                 </p>
@@ -448,43 +514,43 @@ export default function ComparePage() {
                 </div>
               ) : (
                 <>
-                   {/* Original Image (Left Side) */}
-                   <div
-                     className="absolute inset-0 overflow-hidden"
-                     style={{ width: `${dividerPosition}%` }}
-                   >
-                     <Image
-                       src={originalImageUrl!}
-                       alt="Original"
-                       fill
-                       sizes="100vw"
-                       className="object-contain"
-                       style={{ transform: `scale(${zoomLevel / 100})` }}
-                     />
-                   </div>
+                  {/* Original Image (Left Side) */}
+                  <div
+                    className="absolute inset-0 overflow-hidden"
+                    style={{ width: `${dividerPosition}%` }}
+                  >
+                    <Image
+                      src={originalImageUrl!}
+                      alt="Original"
+                      fill
+                      sizes="100vw"
+                      className="object-contain"
+                      style={{ transform: `scale(${zoomLevel / 100})` }}
+                    />
+                  </div>
 
-                   {/* Processed Image (Right Side) */}
-                   <div
-                     className="absolute inset-0 overflow-hidden"
-                     style={{
-                       left: `${dividerPosition}%`,
-                       width: `${100 - dividerPosition}%`
-                     }}
-                   >
-                     <Image
-                       src={processedImageUrl!}
-                       alt="Processed"
-                       fill
-                       sizes="100vw"
-                       className="object-contain"
-                       style={{ transform: `scale(${zoomLevel / 100})` }}
-                     />
-                   </div>
+                  {/* Processed Image (Right Side) */}
+                  <div
+                    className="absolute inset-0 overflow-hidden"
+                    style={{
+                      left: `${dividerPosition}%`,
+                      width: `${100 - dividerPosition}%`,
+                    }}
+                  >
+                    <Image
+                      src={processedImageUrl!}
+                      alt="Processed"
+                      fill
+                      sizes="100vw"
+                      className="object-contain"
+                      style={{ transform: `scale(${zoomLevel / 100})` }}
+                    />
+                  </div>
 
                   {/* Divider Line */}
                   <div
                     className={`absolute top-0 bottom-0 w-0.5 bg-white cursor-ew-resize ${
-                      isDragging ? 'opacity-100' : 'opacity-60'
+                      isDragging ? "opacity-100" : "opacity-60"
                     }`}
                     style={{ left: `${dividerPosition}%` }}
                     onMouseDown={handleMouseDown}
@@ -514,7 +580,7 @@ export default function ComparePage() {
               initial={{ opacity: 0, scale: 0.8, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: -10 }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               className="relative"
             >
               <Card className="mb-6 border-2 border-[hsl(var(--gold))] bg-gradient-to-br from-[hsl(var(--gold))]/10 to-[hsl(var(--gold-light))]/5 overflow-hidden">
@@ -522,7 +588,11 @@ export default function ComparePage() {
                 <div className="absolute top-0 right-0 w-32 h-32 opacity-30">
                   <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                   >
                     <Sparkles className="w-full h-full text-[hsl(var(--gold))]" />
                   </motion.div>
@@ -530,7 +600,11 @@ export default function ComparePage() {
                 <div className="absolute bottom-0 left-0 w-24 h-24 opacity-20">
                   <motion.div
                     animate={{ rotate: -360 }}
-                    transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+                    transition={{
+                      duration: 10,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                   >
                     <Sparkles className="w-full h-full text-[hsl(var(--gold-light))]" />
                   </motion.div>
@@ -558,7 +632,10 @@ export default function ComparePage() {
                           🎉 Your First Aha Moment!
                         </h3>
                         <p className="font-body text-[hsl(var(--foreground))] mb-4 leading-relaxed">
-                          Compare the <strong>Original</strong> and <strong>Processed</strong> images above to see the magic of AI photo enhancement. Drag the divider to reveal the stunning improvements!
+                          Compare the <strong>Original</strong> and{" "}
+                          <strong>Processed</strong> images above to see the
+                          magic of AI photo enhancement. Drag the divider to
+                          reveal the stunning improvements!
                         </p>
 
                         <div className="flex flex-wrap gap-3">
@@ -602,7 +679,7 @@ export default function ComparePage() {
               <Button
                 variant="outline"
                 className="h-20 flex-col"
-                onClick={() => handleExport('jpg')}
+                onClick={() => handleExport("jpg")}
               >
                 <Download className="mb-2 h-6 w-6" />
                 <div className="text-left">
@@ -612,11 +689,11 @@ export default function ComparePage() {
                   </div>
                 </div>
               </Button>
-              
+
               <Button
                 variant="outline"
                 className="h-20 flex-col"
-                onClick={() => handleExport('tiff')}
+                onClick={() => handleExport("tiff")}
               >
                 <Download className="mb-2 h-6 w-6" />
                 <div className="text-left">
@@ -626,11 +703,11 @@ export default function ComparePage() {
                   </div>
                 </div>
               </Button>
-              
+
               <Button
                 variant="outline"
                 className="h-20 flex-col"
-                onClick={() => handleExport('png')}
+                onClick={() => handleExport("png")}
               >
                 <Download className="mb-2 h-6 w-6" />
                 <div className="text-left">
@@ -641,7 +718,7 @@ export default function ComparePage() {
                 </div>
               </Button>
             </div>
-            
+
             <div className="mt-6 pt-6 border-t">
               <div className="flex justify-between items-center">
                 <Button asChild variant="outline">
@@ -650,7 +727,7 @@ export default function ComparePage() {
                     Back to Edit
                   </Link>
                 </Button>
-                
+
                 <div className="flex gap-2">
                   <Button variant="outline">
                     <Save className="mr-2 h-4 w-4" />

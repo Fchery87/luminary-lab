@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+import React, { useState, useRef, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 // Note: Using <img> instead of next/image because this component
 // uses native browser lazy loading with fallback functionality,
@@ -14,15 +14,7 @@ interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 }
 
 const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
-  ({ 
-    className, 
-    src, 
-    alt, 
-    fallback, 
-    onLoad, 
-    onError, 
-    ...props 
-  }, ref) => {
+  ({ className, src, alt, fallback, onLoad, onError, ...props }, ref) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
     const [isInView, setIsInView] = useState(false);
@@ -38,7 +30,7 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
         },
         {
           threshold: 0.1,
-        }
+        },
       );
 
       if (imageRef.current) {
@@ -61,11 +53,11 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
     };
 
     return (
-      <div 
+      <div
         className={cn(
-          'relative overflow-hidden',
-          !isLoaded && !hasError && 'bg-muted animate-pulse',
-          className
+          "relative overflow-hidden",
+          !isLoaded && !hasError && "bg-muted animate-pulse",
+          className,
         )}
         ref={imageRef}
       >
@@ -77,20 +69,20 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
             onLoad={handleLoad}
             onError={handleError}
             className={cn(
-              'transition-opacity duration-300',
-              isLoaded ? 'opacity-100' : 'opacity-0'
+              "transition-opacity duration-300",
+              isLoaded ? "opacity-100" : "opacity-0",
             )}
             loading="lazy"
             {...props}
           />
         )}
-        
+
         {!isLoaded && !hasError && fallback && (
           <div className="absolute inset-0 flex items-center justify-center">
             {fallback}
           </div>
         )}
-        
+
         {hasError && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
             <span className="text-sm">Failed to load image</span>
@@ -98,8 +90,8 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
         )}
       </div>
     );
-  }
+  },
 );
-LazyImage.displayName = 'LazyImage';
+LazyImage.displayName = "LazyImage";
 
 export { LazyImage };

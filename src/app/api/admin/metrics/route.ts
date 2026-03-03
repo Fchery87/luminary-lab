@@ -3,13 +3,13 @@
  * Returns aggregated system health and performance data
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { logger } from '@/lib/logger';
-import { metricsCollector } from '@/lib/metrics';
-import { queryMonitor } from '@/lib/query-monitor';
-import { errorTracker } from '@/lib/error-tracker';
-import { queueMonitor } from '@/lib/queue-monitor';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
+import { metricsCollector } from "@/lib/metrics";
+import { queryMonitor } from "@/lib/query-monitor";
+import { errorTracker } from "@/lib/error-tracker";
+import { queueMonitor } from "@/lib/queue-monitor";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     // }
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const metrics = metricsCollector.getSummary();
@@ -54,16 +54,16 @@ export async function GET(request: NextRequest) {
       recentLogs: logger.getRecentLogs(50),
     };
 
-    logger.info('Admin metrics accessed', {
+    logger.info("Admin metrics accessed", {
       userId: session.user.id,
     });
 
     return NextResponse.json(dashboard);
   } catch (error) {
-    logger.error('Failed to fetch admin metrics', error as Error);
+    logger.error("Failed to fetch admin metrics", error as Error);
     return NextResponse.json(
-      { error: 'Failed to fetch metrics' },
-      { status: 500 }
+      { error: "Failed to fetch metrics" },
+      { status: 500 },
     );
   }
 }

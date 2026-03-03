@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface Batch {
   id: string;
@@ -19,20 +25,20 @@ interface Batch {
 }
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  partial_failure: 'bg-orange-100 text-orange-800',
-  failed: 'bg-red-100 text-red-800',
-  cancelled: 'bg-gray-100 text-gray-800',
+  pending: "bg-yellow-100 text-yellow-800",
+  processing: "bg-blue-100 text-blue-800",
+  completed: "bg-green-100 text-green-800",
+  partial_failure: "bg-orange-100 text-orange-800",
+  failed: "bg-red-100 text-red-800",
+  cancelled: "bg-gray-100 text-gray-800",
 };
 
 const jobStatusColors: Record<string, string> = {
-  queued: 'bg-gray-100',
-  processing: 'bg-blue-100',
-  completed: 'bg-green-100',
-  failed: 'bg-red-100',
-  cancelled: 'bg-gray-100',
+  queued: "bg-gray-100",
+  processing: "bg-blue-100",
+  completed: "bg-green-100",
+  failed: "bg-red-100",
+  cancelled: "bg-gray-100",
 };
 
 export default function BatchStatusPage() {
@@ -46,24 +52,26 @@ export default function BatchStatusPage() {
   const [isTerminal, setIsTerminal] = useState(false);
 
   const isTerminalStatus = (status: string) => {
-    return ['completed', 'failed', 'partial_failure', 'cancelled'].includes(status);
+    return ["completed", "failed", "partial_failure", "cancelled"].includes(
+      status,
+    );
   };
 
   const fetchBatch = useCallback(async () => {
     try {
       const response = await fetch(`/api/batches/${batchId}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch batch');
+        throw new Error("Failed to fetch batch");
       }
       const data = await response.json();
       setBatch(data);
-      
+
       if (isTerminalStatus(data.status)) {
         setIsTerminal(true);
       }
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading batch');
+      setError(err instanceof Error ? err.message : "Error loading batch");
     } finally {
       setIsLoading(false);
     }
@@ -84,24 +92,24 @@ export default function BatchStatusPage() {
   const handleRetry = async () => {
     try {
       const response = await fetch(`/api/batches/${batchId}/retry`, {
-        method: 'POST',
+        method: "POST",
       });
-      if (!response.ok) throw new Error('Retry failed');
+      if (!response.ok) throw new Error("Retry failed");
       await fetchBatch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Retry failed');
+      setError(err instanceof Error ? err.message : "Retry failed");
     }
   };
 
   const handleCancel = async () => {
     try {
       const response = await fetch(`/api/batches/${batchId}`, {
-        method: 'POST',
+        method: "POST",
       });
-      if (!response.ok) throw new Error('Cancel failed');
+      if (!response.ok) throw new Error("Cancel failed");
       await fetchBatch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Cancel failed');
+      setError(err instanceof Error ? err.message : "Cancel failed");
     }
   };
 
@@ -122,8 +130,8 @@ export default function BatchStatusPage() {
               <CardTitle>Error</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-destructive">{error || 'Batch not found'}</p>
-              <Button onClick={() => router.push('/batches')} className="mt-4">
+              <p className="text-destructive">{error || "Batch not found"}</p>
+              <Button onClick={() => router.push("/batches")} className="mt-4">
                 Back to Batches
               </Button>
             </CardContent>
@@ -133,7 +141,8 @@ export default function BatchStatusPage() {
     );
   }
 
-  const progress = batch.totalJobs > 0 ? (batch.completedJobs / batch.totalJobs) * 100 : 0;
+  const progress =
+    batch.totalJobs > 0 ? (batch.completedJobs / batch.totalJobs) * 100 : 0;
   const inProgress = batch.totalJobs - batch.completedJobs - batch.failedJobs;
 
   return (
@@ -149,7 +158,7 @@ export default function BatchStatusPage() {
                   Created: {new Date(batch.createdAt).toLocaleString()}
                 </CardDescription>
               </div>
-              <Badge className={statusColors[batch.status] || 'bg-gray-100'}>
+              <Badge className={statusColors[batch.status] || "bg-gray-100"}>
                 {batch.status}
               </Badge>
             </div>
@@ -180,27 +189,31 @@ export default function BatchStatusPage() {
               </div>
               <div className="p-3 bg-green-50 rounded">
                 <p className="text-xs text-green-600">Completed</p>
-                <p className="text-lg font-semibold text-green-700">{batch.completedJobs}</p>
+                <p className="text-lg font-semibold text-green-700">
+                  {batch.completedJobs}
+                </p>
               </div>
               <div className="p-3 bg-red-50 rounded">
                 <p className="text-xs text-red-600">Failed</p>
-                <p className="text-lg font-semibold text-red-700">{batch.failedJobs}</p>
+                <p className="text-lg font-semibold text-red-700">
+                  {batch.failedJobs}
+                </p>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex gap-2 pt-4">
-              {batch.status === 'processing' && (
+              {batch.status === "processing" && (
                 <Button variant="destructive" onClick={handleCancel}>
                   Cancel Batch
                 </Button>
               )}
-              {batch.failedJobs > 0 && batch.status !== 'processing' && (
+              {batch.failedJobs > 0 && batch.status !== "processing" && (
                 <Button onClick={handleRetry}>
                   Retry {batch.failedJobs} Failed
                 </Button>
               )}
-              <Button variant="outline" onClick={() => router.push('/batches')}>
+              <Button variant="outline" onClick={() => router.push("/batches")}>
                 Back to List
               </Button>
             </div>
@@ -219,14 +232,16 @@ export default function BatchStatusPage() {
                   <div
                     key={job.id}
                     className={`p-3 rounded flex items-start justify-between ${
-                      jobStatusColors[job.status] || 'bg-gray-50'
+                      jobStatusColors[job.status] || "bg-gray-50"
                     }`}
                   >
                     <div className="flex-1">
                       <p className="font-mono text-xs">{job.id}</p>
                       <p className="text-sm capitalize mt-1">{job.status}</p>
                       {job.error && (
-                        <p className="text-xs text-destructive mt-1">{job.error}</p>
+                        <p className="text-xs text-destructive mt-1">
+                          {job.error}
+                        </p>
                       )}
                     </div>
                   </div>

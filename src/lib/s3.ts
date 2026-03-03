@@ -1,6 +1,16 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, ListPartsCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import crypto from 'crypto';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+  ListPartsCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import crypto from "crypto";
 
 let s3ClientSingleton: S3Client | null = null;
 
@@ -31,19 +41,23 @@ function getS3Client(): S3Client {
     const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME;
 
     if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
-      throw new Error('Cloudflare R2 environment variables are not set. Please set: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME');
+      throw new Error(
+        "Cloudflare R2 environment variables are not set. Please set: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME",
+      );
     }
 
     s3ClientSingleton = new S3Client({
-      region: 'auto', // R2 always uses 'auto' for region
-      endpoint: process.env.CLOUDFLARE_R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`,
+      region: "auto", // R2 always uses 'auto' for region
+      endpoint:
+        process.env.CLOUDFLARE_R2_ENDPOINT ||
+        `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId,
         secretAccessKey,
       },
     });
 
-    console.log('[S3/R2] Using Cloudflare R2 storage');
+    console.log("[S3/R2] Using Cloudflare R2 storage");
   } else {
     // AWS S3 Configuration (legacy)
     const region = process.env.AWS_REGION;
@@ -51,7 +65,9 @@ function getS3Client(): S3Client {
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
     if (!region || !accessKeyId || !secretAccessKey) {
-      throw new Error('AWS S3 environment variables are not set. Please set: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET');
+      throw new Error(
+        "AWS S3 environment variables are not set. Please set: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET",
+      );
     }
 
     s3ClientSingleton = new S3Client({
@@ -62,45 +78,45 @@ function getS3Client(): S3Client {
       },
     });
 
-    console.log('[S3/R2] Using AWS S3 storage');
+    console.log("[S3/R2] Using AWS S3 storage");
   }
 
   return s3ClientSingleton;
 }
 
 export async function generateUploadUrl(
-  key: string, 
-  contentType: string, 
-  expiresIn: number = 3600
+  key: string,
+  contentType: string,
+  expiresIn: number = 3600,
 ): Promise<string> {
   const s3Client = getS3Client();
   const command = new PutObjectCommand({
     Bucket: getBucketName(),
     Key: key,
     ContentType: contentType,
-    CacheControl: 'max-age=31536000', // 1 year
+    CacheControl: "max-age=31536000", // 1 year
   });
-  
+
   return await getSignedUrl(s3Client, command, { expiresIn });
 }
 
 export async function generateDownloadUrl(
-  key: string, 
-  expiresIn: number = 3600
+  key: string,
+  expiresIn: number = 3600,
 ): Promise<string> {
   const s3Client = getS3Client();
   const command = new GetObjectCommand({
     Bucket: getBucketName(),
     Key: key,
   });
-  
+
   return await getSignedUrl(s3Client, command, { expiresIn });
 }
 
 export async function uploadFile(
-  key: string, 
-  buffer: Buffer, 
-  contentType: string
+  key: string,
+  buffer: Buffer,
+  contentType: string,
 ): Promise<void> {
   const s3Client = getS3Client();
   const command = new PutObjectCommand({
@@ -108,7 +124,7 @@ export async function uploadFile(
     Key: key,
     Body: buffer,
     ContentType: contentType,
-    CacheControl: 'max-age=31536000',
+    CacheControl: "max-age=31536000",
   });
 
   await s3Client.send(command);
@@ -126,38 +142,38 @@ export async function deleteFile(key: string): Promise<void> {
 
 // Generate unique file key for storage
 export function generateFileKey(
-  userId: string, 
-  projectId: string, 
-  filename: string, 
-  type: 'original' | 'processed' | 'thumbnail'
+  userId: string,
+  projectId: string,
+  filename: string,
+  type: "original" | "processed" | "thumbnail",
 ): string {
   const timestamp = Date.now();
-  const hash = crypto.createHash('md5').update(filename).digest('hex');
+  const hash = crypto.createHash("md5").update(filename).digest("hex");
   return `users/${userId}/projects/${projectId}/${type}/${timestamp}-${hash}`;
 }
 
 // Validate file type (RAW formats)
 export const RAW_MIME_TYPES = {
-  'image/x-canon-cr2': '.cr2',
-  'image/x-nikon-nef': '.nef',
-  'image/x-sony-arw': '.arw',
-  'image/x-adobe-dng': '.dng',
-  'image/x-fuji-raf': '.raf',
-  'image/x-panasonic-rw2': '.rw2',
-  'image/x-olympus-orf': '.orf',
-  'image/x-pentax-pef': '.pef',
+  "image/x-canon-cr2": ".cr2",
+  "image/x-nikon-nef": ".nef",
+  "image/x-sony-arw": ".arw",
+  "image/x-adobe-dng": ".dng",
+  "image/x-fuji-raf": ".raf",
+  "image/x-panasonic-rw2": ".rw2",
+  "image/x-olympus-orf": ".orf",
+  "image/x-pentax-pef": ".pef",
 } as const;
 
 // Extension to MIME type mapping for RAW files
 export const RAW_EXTENSIONS_TO_MIME: Record<string, string> = {
-  '.cr2': 'image/x-canon-cr2',
-  '.nef': 'image/x-nikon-nef',
-  '.arw': 'image/x-sony-arw',
-  '.dng': 'image/x-adobe-dng',
-  '.raf': 'image/x-fuji-raf',
-  '.rw2': 'image/x-panasonic-rw2',
-  '.orf': 'image/x-olympus-orf',
-  '.pef': 'image/x-pentax-pef',
+  ".cr2": "image/x-canon-cr2",
+  ".nef": "image/x-nikon-nef",
+  ".arw": "image/x-sony-arw",
+  ".dng": "image/x-adobe-dng",
+  ".raf": "image/x-fuji-raf",
+  ".rw2": "image/x-panasonic-rw2",
+  ".orf": "image/x-olympus-orf",
+  ".pef": "image/x-pentax-pef",
 };
 
 export function isValidRawFile(mimeType: string): boolean {
@@ -166,8 +182,8 @@ export function isValidRawFile(mimeType: string): boolean {
 
 // Determine MIME type from file extension (for RAW files where file.type is empty)
 export function getMimeTypeFromExtension(filename: string): string {
-  const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
-  return RAW_EXTENSIONS_TO_MIME[ext] || '';
+  const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
+  return RAW_EXTENSIONS_TO_MIME[ext] || "";
 }
 
 // ==================== Multipart Upload Support ====================
@@ -191,7 +207,10 @@ export const DEFAULT_MULTIPART_CONFIG: MultipartUploadConfig = {
  * @param config - Multipart upload configuration
  * @returns Number of parts
  */
-export function calculatePartCount(fileSize: number, config: MultipartUploadConfig = DEFAULT_MULTIPART_CONFIG): number {
+export function calculatePartCount(
+  fileSize: number,
+  config: MultipartUploadConfig = DEFAULT_MULTIPART_CONFIG,
+): number {
   return Math.ceil(fileSize / config.chunkSize);
 }
 
@@ -203,20 +222,20 @@ export function calculatePartCount(fileSize: number, config: MultipartUploadConf
  */
 export async function createMultipartUpload(
   key: string,
-  contentType: string
+  contentType: string,
 ): Promise<{ uploadId: string; key: string }> {
   const s3Client = getS3Client();
   const command = new CreateMultipartUploadCommand({
     Bucket: getBucketName(),
     Key: key,
     ContentType: contentType,
-    CacheControl: 'max-age=31536000', // 1 year
+    CacheControl: "max-age=31536000", // 1 year
   });
 
   const response = await s3Client.send(command);
 
   if (!response.UploadId) {
-    throw new Error('Failed to create multipart upload: No upload ID returned');
+    throw new Error("Failed to create multipart upload: No upload ID returned");
   }
 
   return {
@@ -237,7 +256,7 @@ export async function generatePartUploadUrl(
   key: string,
   uploadId: string,
   partNumber: number,
-  expiresIn: number = 3600
+  expiresIn: number = 3600,
 ): Promise<string> {
   const s3Client = getS3Client();
   const command = new UploadPartCommand({
@@ -262,7 +281,7 @@ export async function uploadPart(
   key: string,
   uploadId: string,
   partNumber: number,
-  buffer: Buffer
+  buffer: Buffer,
 ): Promise<string> {
   const s3Client = getS3Client();
   const command = new UploadPartCommand({
@@ -290,7 +309,7 @@ export async function uploadPart(
  */
 export async function listParts(
   key: string,
-  uploadId: string
+  uploadId: string,
 ): Promise<Array<{ partNumber: number; etag: string; size: number }>> {
   const s3Client = getS3Client();
   const command = new ListPartsCommand({
@@ -319,7 +338,7 @@ export async function listParts(
 export async function completeMultipartUpload(
   key: string,
   uploadId: string,
-  parts: Array<{ partNumber: number; etag: string }>
+  parts: Array<{ partNumber: number; etag: string }>,
 ): Promise<{ location: string; etag: string }> {
   const s3Client = getS3Client();
   const command = new CompleteMultipartUploadCommand({
@@ -336,7 +355,7 @@ export async function completeMultipartUpload(
 
   try {
     const response = await s3Client.send(command);
-    console.log('Multipart upload completed:', {
+    console.log("Multipart upload completed:", {
       key,
       uploadId,
       location: response.Location,
@@ -344,16 +363,16 @@ export async function completeMultipartUpload(
     });
 
     return {
-      location: response.Location || '',
-      etag: response.ETag || '',
+      location: response.Location || "",
+      etag: response.ETag || "",
     };
   } catch (error) {
-    console.error('Failed to complete multipart upload:', {
+    console.error("Failed to complete multipart upload:", {
       key,
       uploadId,
       error,
       errorMessage: error instanceof Error ? error.message : String(error),
-      partsCount: parts.length
+      partsCount: parts.length,
     });
     throw error;
   }
@@ -366,7 +385,7 @@ export async function completeMultipartUpload(
  */
 export async function abortMultipartUpload(
   key: string,
-  uploadId: string
+  uploadId: string,
 ): Promise<void> {
   const s3Client = getS3Client();
   const command = new AbortMultipartUploadCommand({
@@ -386,7 +405,7 @@ export async function abortMultipartUpload(
  */
 export function shouldUseMultipartUpload(
   fileSize: number,
-  threshold: number = 10 * 1024 * 1024
+  threshold: number = 10 * 1024 * 1024,
 ): boolean {
   return fileSize > threshold;
 }

@@ -1,16 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db, projects, images } from '@/db';
-import { generateDownloadUrl } from '@/lib/s3';
-import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
-import { v7 as uuidv7 } from 'uuid';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { db, projects, images } from "@/db";
+import { generateDownloadUrl } from "@/lib/s3";
+import { z } from "zod";
+import { eq, and } from "drizzle-orm";
+import { v7 as uuidv7 } from "uuid";
 
 const exportSchema = z.object({
   projectId: z.string().min(1),
-  format: z.enum(['jpg', 'tiff', 'png']),
-  quality: z.enum(['standard', 'high', 'ultra']).default('high'),
-  size: z.enum(['original', 'web', 'print']).default('web'),
+  format: z.enum(["jpg", "tiff", "png"]),
+  quality: z.enum(["standard", "high", "ultra"]).default("high"),
+  size: z.enum(["original", "web", "print"]).default("web"),
 });
 
 export async function POST(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validated.error },
-        { status: 400 }
+        { error: "Invalid request data", details: validated.error },
+        { status: 400 },
       );
     }
 
@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
 
     if (!project || project.userId !== session.user.id) {
       return NextResponse.json(
-        { error: 'Project not found or access denied' },
-        { status: 404 }
+        { error: "Project not found or access denied" },
+        { status: 404 },
       );
     }
 
@@ -52,15 +52,14 @@ export async function POST(request: NextRequest) {
     const [processedImage] = await db
       .select()
       .from(images)
-      .where(and(
-        eq(images.projectId, projectId),
-        eq(images.type, 'processed')
-      ));
+      .where(
+        and(eq(images.projectId, projectId), eq(images.type, "processed")),
+      );
 
     if (!processedImage) {
       return NextResponse.json(
-        { error: 'Processed image not found' },
-        { status: 404 }
+        { error: "Processed image not found" },
+        { status: 404 },
       );
     }
 
@@ -81,13 +80,16 @@ export async function POST(request: NextRequest) {
     // 4. Return a download URL
 
     // For this demo, we'll just return the processed image download URL
-    const downloadUrl = await generateDownloadUrl(processedImage.storageKey, 3600); // 1 hour expiry
+    const downloadUrl = await generateDownloadUrl(
+      processedImage.storageKey,
+      3600,
+    ); // 1 hour expiry
 
     // Determine file extension based on format
     const fileExtensions = {
-      jpg: '.jpg',
-      tiff: '.tif',
-      png: '.png',
+      jpg: ".jpg",
+      tiff: ".tif",
+      png: ".png",
     };
 
     const qualitySettings = {
@@ -97,13 +99,13 @@ export async function POST(request: NextRequest) {
     };
 
     const sizeSettings = {
-      original: 'Original size',
-      web: '2048px (web)',
-      print: '4000px (print)',
+      original: "Original size",
+      web: "2048px (web)",
+      print: "4000px (print)",
     };
 
     // Simulate export processing time
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return NextResponse.json({
       success: true,
@@ -117,12 +119,11 @@ export async function POST(request: NextRequest) {
       qualitySettings: qualitySettings[quality],
       expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour
     });
-
   } catch (error) {
-    console.error('Export error:', error);
+    console.error("Export error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

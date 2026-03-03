@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Header } from '@/components/ui/header';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { LoadingSkeleton } from '@/components/ui/loading-skeleton';
-import { Input } from '@/components/ui/input';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Header } from "@/components/ui/header";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { Input } from "@/components/ui/input";
 import {
   Search,
   Plus,
@@ -27,43 +27,56 @@ import {
   Activity,
   TrendingUp,
   Hourglass,
-} from 'lucide-react';
-import Link from 'next/link';
-import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+} from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 
-import { ProjectCard, type Project } from './project-card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { ProjectTags } from '@/components/ui/tag-badge';
-import { ActivityTimeline, type ActivityItem } from '@/components/ui/activity-timeline';
+import { ProjectCard, type Project } from "./project-card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { ProjectTags } from "@/components/ui/tag-badge";
+import {
+  ActivityTimeline,
+  type ActivityItem,
+} from "@/components/ui/activity-timeline";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'date' | 'name' | 'status'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [dateRange, setDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"date" | "name" | "status">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [dateRange, setDateRange] = useState<
+    "all" | "today" | "week" | "month"
+  >("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Metadata filters
   const [showMetadataFilters, setShowMetadataFilters] = useState(false);
-  const [cameraMake, setCameraMake] = useState<string>('');
-  const [cameraModel, setCameraModel] = useState<string>('');
-  const [lensModel, setLensModel] = useState<string>('');
+  const [cameraMake, setCameraMake] = useState<string>("");
+  const [cameraModel, setCameraModel] = useState<string>("");
+  const [lensModel, setLensModel] = useState<string>("");
   const [isoRange, setIsoRange] = useState<[number, number]>([100, 6400]);
-  const [selectedTag, setSelectedTag] = useState<string>('');
+  const [selectedTag, setSelectedTag] = useState<string>("");
 
   const queryClient = useQueryClient();
 
   // Fetch dashboard stats
   const { data: stats } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const res = await fetch('/api/dashboard/stats', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch stats');
+      const res = await fetch("/api/dashboard/stats", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
     refetchInterval: 30000, // Refresh stats every 30 seconds
@@ -71,70 +84,93 @@ export default function DashboardPage() {
 
   // Fetch recent activity
   const { data: activities = [], isLoading: isLoadingActivities } = useQuery({
-    queryKey: ['dashboard-activity'],
+    queryKey: ["dashboard-activity"],
     queryFn: async () => {
-      const res = await fetch('/api/dashboard/activity?limit=8', { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch activity');
+      const res = await fetch("/api/dashboard/activity?limit=8", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch activity");
       return res.json() as Promise<ActivityItem[]>;
     },
   });
 
-  const { data: projects = [], isLoading, error } = useQuery({
-    queryKey: ['projects', searchQuery, filterStatus, dateRange, cameraMake, cameraModel, lensModel, isoRange, selectedTag],
+  const {
+    data: projectsResponse,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: [
+      "projects",
+      searchQuery,
+      filterStatus,
+      dateRange,
+      cameraMake,
+      cameraModel,
+      lensModel,
+      isoRange,
+      selectedTag,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchQuery) params.set('search', searchQuery);
-      if (filterStatus !== 'all') params.set('status', filterStatus);
-      if (cameraMake) params.set('cameraMake', cameraMake);
-      if (cameraModel) params.set('cameraModel', cameraModel);
-      if (lensModel) params.set('lensModel', lensModel);
-      if (selectedTag) params.set('tag', selectedTag);
-      if (isoRange[0] > 100) params.set('isoMin', isoRange[0].toString());
-      if (isoRange[1] < 6400) params.set('isoMax', isoRange[1].toString());
+      if (searchQuery) params.set("search", searchQuery);
+      if (filterStatus !== "all") params.set("status", filterStatus);
+      if (cameraMake) params.set("cameraMake", cameraMake);
+      if (cameraModel) params.set("cameraModel", cameraModel);
+      if (lensModel) params.set("lensModel", lensModel);
+      if (selectedTag) params.set("tag", selectedTag);
+      if (isoRange[0] > 100) params.set("isoMin", isoRange[0].toString());
+      if (isoRange[1] < 6400) params.set("isoMax", isoRange[1].toString());
 
-      const res = await fetch(`/api/projects?${params.toString()}`, { credentials: 'include' });
+      const res = await fetch(`/api/projects?${params.toString()}`, {
+        credentials: "include",
+      });
       if (res.status === 401) {
-        router.push('/login');
-        throw new Error('Unauthorized');
+        router.push("/login");
+        throw new Error("Unauthorized");
       }
-      if (!res.ok) throw new Error('Failed to fetch projects');
-      return res.json() as Promise<Project[]>;
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      return res.json() as Promise<{ data: Project[]; meta: unknown }>;
     },
   });
 
+  const projects = projectsResponse?.data ?? [];
+
   const createProjectMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/projects', { 
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Untitled Project' })
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Untitled Project" }),
       });
-      if (!res.ok) throw new Error('Failed to create project');
+      if (!res.ok) throw new Error("Failed to create project");
       return res.json();
     },
     onSuccess: (newProject) => {
-      toast.success('New project created');
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success("New project created");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       window.location.href = `/edit/${newProject.id}`;
     },
     onError: () => {
-      toast.error('Failed to create project');
+      toast.error("Failed to create project");
     },
   });
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to delete project');
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete project");
       return projectId;
     },
     onSuccess: () => {
-      toast.success('Project deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success("Project deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
     onError: () => {
-      toast.error('Failed to delete project');
+      toast.error("Failed to delete project");
     },
   });
 
@@ -143,43 +179,44 @@ export default function DashboardPage() {
     let comparison = 0;
 
     switch (sortBy) {
-      case 'name':
+      case "name":
         comparison = a.name.localeCompare(b.name);
         break;
-      case 'status':
-        comparison = (a.status || '').localeCompare(b.status || '');
+      case "status":
+        comparison = (a.status || "").localeCompare(b.status || "");
         break;
-      case 'date':
+      case "date":
       default:
-        comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        comparison =
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         break;
     }
 
-    return sortOrder === 'asc' ? comparison : -comparison;
+    return sortOrder === "asc" ? comparison : -comparison;
   });
 
   // Clear all filters
   const clearFilters = () => {
-    setSearchQuery('');
-    setFilterStatus('all');
-    setDateRange('all');
-    setCameraMake('');
-    setCameraModel('');
-    setLensModel('');
+    setSearchQuery("");
+    setFilterStatus("all");
+    setDateRange("all");
+    setCameraMake("");
+    setCameraModel("");
+    setLensModel("");
     setIsoRange([100, 6400]);
-    setSelectedTag('');
+    setSelectedTag("");
     setShowMetadataFilters(false);
   };
 
   // Check if any filters are active
   const hasActiveFilters =
-    searchQuery !== '' ||
-    filterStatus !== 'all' ||
-    dateRange !== 'all' ||
-    cameraMake !== '' ||
-    cameraModel !== '' ||
-    lensModel !== '' ||
-    selectedTag !== '' ||
+    searchQuery !== "" ||
+    filterStatus !== "all" ||
+    dateRange !== "all" ||
+    cameraMake !== "" ||
+    cameraModel !== "" ||
+    lensModel !== "" ||
+    selectedTag !== "" ||
     isoRange[0] > 100 ||
     isoRange[1] < 6400;
 
@@ -191,44 +228,53 @@ export default function DashboardPage() {
 
   const handleCreateProject = () => {
     // Redirect to upload page with onboarding flag for first-time users
-    router.push('/upload?onboarding=true');
-  }
+    router.push("/upload?onboarding=true");
+  };
 
   // Helper function to get adaptive empty state message
   const getEmptyStateMessage = () => {
     if (searchQuery) {
       return {
-        title: 'No projects match your search',
+        title: "No projects match your search",
         description: `No projects found matching "${searchQuery}". Try a different search term.`,
       };
     }
-    if (filterStatus === 'completed') {
+    if (filterStatus === "completed") {
       return {
-        title: 'No completed projects yet',
-        description: 'Your completed projects will appear here once processing finishes.',
+        title: "No completed projects yet",
+        description:
+          "Your completed projects will appear here once processing finishes.",
       };
     }
-    if (filterStatus === 'processing') {
+    if (filterStatus === "processing") {
       return {
-        title: 'No projects processing',
-        description: 'Projects currently being processed will appear here.',
+        title: "No projects processing",
+        description: "Projects currently being processed will appear here.",
       };
     }
-    if (dateRange !== 'all') {
+    if (dateRange !== "all") {
       return {
-        title: 'No projects in this period',
+        title: "No projects in this period",
         description: `No projects found for the selected date range.`,
       };
     }
-    if (cameraMake || cameraModel || lensModel || selectedTag || isoRange[0] > 100 || isoRange[1] < 6400) {
+    if (
+      cameraMake ||
+      cameraModel ||
+      lensModel ||
+      selectedTag ||
+      isoRange[0] > 100 ||
+      isoRange[1] < 6400
+    ) {
       return {
-        title: 'No projects match these filters',
-        description: 'Try adjusting your metadata filters to see more results.',
+        title: "No projects match these filters",
+        description: "Try adjusting your metadata filters to see more results.",
       };
     }
     return {
-      title: 'No projects yet',
-      description: 'Start by creating your first project. Upload RAW images and let our AI enhance them.',
+      title: "No projects yet",
+      description:
+        "Start by creating your first project. Upload RAW images and let our AI enhance them.",
     };
   };
 
@@ -237,7 +283,9 @@ export default function DashboardPage() {
       <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))]">
         <div className="flex flex-col items-center gap-4">
           <LoadingSkeleton className="h-10 w-10 rounded-sm" />
-          <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">Loading your projects...</p>
+          <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
+            Loading your projects...
+          </p>
         </div>
       </div>
     );
@@ -254,10 +302,14 @@ export default function DashboardPage() {
             Failed to load projects
           </h3>
           <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-            {error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'}
+            {error instanceof Error
+              ? error.message
+              : "An unexpected error occurred. Please try again."}
           </p>
           <Button
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}
+            onClick={() =>
+              queryClient.invalidateQueries({ queryKey: ["projects"] })
+            }
             className="bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] hover:bg-[hsl(var(--gold-light))] font-display font-semibold uppercase tracking-wider rounded-sm"
           >
             Retry
@@ -275,11 +327,11 @@ export default function DashboardPage() {
           <div className="absolute inset-0 grid-pattern" />
         </div>
 
-        <Header 
+        <Header
           variant="minimal"
           navigation={
-            <Link 
-              href="/pricing" 
+            <Link
+              href="/pricing"
               className="font-body text-sm font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors relative group"
             >
               Upgrade
@@ -349,19 +401,19 @@ export default function DashboardPage() {
                       className="pl-10 h-11 rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--card))] focus:border-[hsl(var(--gold))] font-body"
                     />
                   </div>
-                  
+
                   <div className="flex gap-2">
                     <Button
-                      variant={viewMode === 'grid' ? 'default' : 'outline'}
-                      onClick={() => setViewMode('grid')}
+                      variant={viewMode === "grid" ? "default" : "outline"}
+                      onClick={() => setViewMode("grid")}
                       size="sm"
                       className="rounded-sm font-display uppercase tracking-wider text-xs"
                     >
                       <Grid className="h-4 w-4" />
                     </Button>
                     <Button
-                      variant={viewMode === 'list' ? 'default' : 'outline'}
-                      onClick={() => setViewMode('list')}
+                      variant={viewMode === "list" ? "default" : "outline"}
+                      onClick={() => setViewMode("list")}
                       size="sm"
                       className="rounded-sm font-display uppercase tracking-wider text-xs"
                     >
@@ -375,31 +427,41 @@ export default function DashboardPage() {
                   {/* Status Filter */}
                   <div className="flex gap-2 w-full lg:w-auto overflow-x-auto">
                     <Button
-                      variant={filterStatus === 'all' ? 'default' : 'outline'}
-                      onClick={() => setFilterStatus('all')}
+                      variant={filterStatus === "all" ? "default" : "outline"}
+                      onClick={() => setFilterStatus("all")}
                       className="rounded-sm uppercase tracking-wider text-xs font-display"
                     >
                       All ({projects.length})
                     </Button>
                     <Button
-                      variant={filterStatus === 'completed' ? 'default' : 'outline'}
-                      onClick={() => setFilterStatus('completed')}
+                      variant={
+                        filterStatus === "completed" ? "default" : "outline"
+                      }
+                      onClick={() => setFilterStatus("completed")}
                       className="rounded-sm uppercase tracking-wider text-xs font-display"
                     >
-                      Completed ({projects.filter(p => p.status === 'completed').length})
+                      Completed (
+                      {projects.filter((p) => p.status === "completed").length})
                     </Button>
                     <Button
-                      variant={filterStatus === 'processing' ? 'default' : 'outline'}
-                      onClick={() => setFilterStatus('processing')}
+                      variant={
+                        filterStatus === "processing" ? "default" : "outline"
+                      }
+                      onClick={() => setFilterStatus("processing")}
                       className="rounded-sm uppercase tracking-wider text-xs font-display"
                     >
-                      Processing ({projects.filter(p => p.status === 'processing').length})
+                      Processing (
+                      {projects.filter((p) => p.status === "processing").length}
+                      )
                     </Button>
                   </div>
 
                   <div className="flex gap-2">
                     {/* Date Range Filter */}
-                    <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
+                    <Select
+                      value={dateRange}
+                      onValueChange={(value: any) => setDateRange(value)}
+                    >
                       <SelectTrigger className="w-full lg:w-40 rounded-sm border-[hsl(var(--border))] font-body text-xs">
                         <Calendar className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                         <SelectValue />
@@ -414,9 +476,16 @@ export default function DashboardPage() {
 
                     {/* Sort Options */}
                     <div className="flex gap-2">
-                      <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                      <Select
+                        value={sortBy}
+                        onValueChange={(value: any) => setSortBy(value)}
+                      >
                         <SelectTrigger className="w-full lg:w-32 rounded-sm border-[hsl(var(--border))] font-body text-xs">
-                          {sortOrder === 'asc' ? <SortAsc className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" /> : <SortDesc className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />}
+                          {sortOrder === "asc" ? (
+                            <SortAsc className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                          ) : (
+                            <SortDesc className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                          )}
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -428,18 +497,26 @@ export default function DashboardPage() {
 
                       <Button
                         variant="outline"
-                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        onClick={() =>
+                          setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                        }
                         size="sm"
                         className="rounded-sm"
                       >
-                        {sortOrder === 'asc' ? <SortDesc className="h-4 w-4" /> : <SortAsc className="h-4 w-4" />}
+                        {sortOrder === "asc" ? (
+                          <SortDesc className="h-4 w-4" />
+                        ) : (
+                          <SortAsc className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
 
                     {/* Metadata Filters Toggle */}
                     <Button
-                      variant={showMetadataFilters ? 'default' : 'outline'}
-                      onClick={() => setShowMetadataFilters(!showMetadataFilters)}
+                      variant={showMetadataFilters ? "default" : "outline"}
+                      onClick={() =>
+                        setShowMetadataFilters(!showMetadataFilters)
+                      }
                       size="sm"
                       className="rounded-sm"
                     >
@@ -457,7 +534,7 @@ export default function DashboardPage() {
                   {showMetadataFilters && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+                      animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
                       className="border-t border-[hsl(var(--border))] pt-4 space-y-4"
@@ -526,7 +603,9 @@ export default function DashboardPage() {
                         </label>
                         <Slider
                           value={isoRange}
-                          onValueChange={(value: [number, number]) => setIsoRange(value)}
+                          onValueChange={(value: [number, number]) =>
+                            setIsoRange(value)
+                          }
                           min={100}
                           max={6400}
                           step={100}
@@ -573,12 +652,16 @@ export default function DashboardPage() {
                       <div className="w-10 h-10 rounded-sm bg-[hsl(var(--gold))]/10 flex items-center justify-center border border-[hsl(var(--gold))]/20">
                         <Folder className="w-5 h-5 text-[hsl(var(--gold))]" />
                       </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Total</span>
+                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                        Total
+                      </span>
                     </div>
                     <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
                       {stats?.totalProjects ?? 0}
                     </p>
-                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">Projects</p>
+                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
+                      Projects
+                    </p>
                   </div>
                   <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-[hsl(var(--gold))]/50 group-hover:w-full transition-all duration-300" />
                 </motion.div>
@@ -594,12 +677,16 @@ export default function DashboardPage() {
                       <div className="w-10 h-10 rounded-sm bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                         <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                       </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Ready</span>
+                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                        Ready
+                      </span>
                     </div>
                     <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
                       {stats?.completedProjects ?? 0}
                     </p>
-                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">Completed</p>
+                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
+                      Completed
+                    </p>
                   </div>
                   <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-emerald-500/50 group-hover:w-full transition-all duration-300" />
                 </motion.div>
@@ -615,27 +702,31 @@ export default function DashboardPage() {
                       <div className="w-10 h-10 rounded-sm bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                         <Clock className="w-5 h-5 text-amber-400 animate-pulse" />
                       </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Processing</span>
+                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                        Processing
+                      </span>
                     </div>
                     <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
                       {stats?.processingProjects ?? 0}
                     </p>
                     <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
                       {stats?.processingEta?.remainingMinutes === 0
-                        ? 'Almost done'
-                        : `${stats?.processingEta?.remainingMinutes ?? 0}m remaining`
-                      }
+                        ? "Almost done"
+                        : `${stats?.processingEta?.remainingMinutes ?? 0}m remaining`}
                     </p>
-                    {stats?.processingProjects > 0 && stats?.processingEta?.progressPercentage > 0 && (
-                      <div className="mt-3 w-full h-1.5 bg-[hsl(var(--border))] rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${stats.processingEta.progressPercentage}%` }}
-                          transition={{ duration: 0.5 }}
-                          className="h-full bg-gradient-to-r from-amber-400 to-[hsl(var(--gold))]"
-                        />
-                      </div>
-                    )}
+                    {stats?.processingProjects > 0 &&
+                      stats?.processingEta?.progressPercentage > 0 && (
+                        <div className="mt-3 w-full h-1.5 bg-[hsl(var(--border))] rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{
+                              width: `${stats.processingEta.progressPercentage}%`,
+                            }}
+                            transition={{ duration: 0.5 }}
+                            className="h-full bg-gradient-to-r from-amber-400 to-[hsl(var(--gold))]"
+                          />
+                        </div>
+                      )}
                   </div>
                   <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-amber-500/50 group-hover:w-full transition-all duration-300" />
                 </motion.div>
@@ -651,12 +742,16 @@ export default function DashboardPage() {
                       <div className="w-10 h-10 rounded-sm bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
                         <Activity className="w-5 h-5 text-blue-400" />
                       </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Last 24h</span>
+                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                        Last 24h
+                      </span>
                     </div>
                     <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
                       {stats?.recentActivity ?? 0}
                     </p>
-                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">Actions</p>
+                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
+                      Actions
+                    </p>
                   </div>
                   <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-blue-500/50 group-hover:w-full transition-all duration-300" />
                 </motion.div>
@@ -721,9 +816,10 @@ export default function DashboardPage() {
                             },
                           },
                         }}
-                        className={viewMode === 'grid'
-                          ? "grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
-                          : "flex flex-col gap-4"
+                        className={
+                          viewMode === "grid"
+                            ? "grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
+                            : "flex flex-col gap-4"
                         }
                       >
                         <AnimatePresence>
@@ -735,7 +831,9 @@ export default function DashboardPage() {
                                 visible: { opacity: 1, y: 0 },
                               }}
                               transition={{ duration: 0.3, ease: "easeOut" }}
-                              className={viewMode === 'list' ? "w-full" : undefined}
+                              className={
+                                viewMode === "list" ? "w-full" : undefined
+                              }
                             >
                               <ProjectCard
                                 project={project}
@@ -774,7 +872,10 @@ export default function DashboardPage() {
                           <LoadingSkeleton className="h-5 w-5 rounded-sm" />
                         </div>
                       ) : (
-                        <ActivityTimeline activities={activities} maxItems={8} />
+                        <ActivityTimeline
+                          activities={activities}
+                          maxItems={8}
+                        />
                       )}
                     </div>
                   </motion.div>

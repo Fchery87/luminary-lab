@@ -2,7 +2,7 @@
  * Pagination utilities for list endpoints
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 export const PaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -28,16 +28,20 @@ export interface PaginatedResponse<T> {
 /**
  * Calculate pagination metadata
  */
-export function calculatePagination(page: number, limit: number, total: number): PaginationMeta {
+export function calculatePagination(
+  page: number,
+  limit: number,
+  total: number,
+): PaginationMeta {
   const pages = Math.ceil(total / limit);
-  
+
   return {
     page,
     limit,
     total,
     pages,
     hasNext: page < pages,
-    hasPrev: page > 1
+    hasPrev: page > 1,
   };
 }
 
@@ -55,11 +59,11 @@ export function getPaginatedResponse<T>(
   data: T[],
   page: number,
   limit: number,
-  total: number
+  total: number,
 ): PaginatedResponse<T> {
   return {
     data,
-    meta: calculatePagination(page, limit, total)
+    meta: calculatePagination(page, limit, total),
   };
 }
 
@@ -68,7 +72,7 @@ export function getPaginatedResponse<T>(
  */
 export function extractPaginationParams(url: URL): PaginationQuery {
   return PaginationQuerySchema.parse({
-    page: url.searchParams.get('page') || undefined,
-    limit: url.searchParams.get('limit') || undefined
+    page: url.searchParams.get("page") || undefined,
+    limit: url.searchParams.get("limit") || undefined,
   });
 }

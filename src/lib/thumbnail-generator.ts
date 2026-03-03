@@ -3,18 +3,18 @@
  * Supports various image formats including RAW files
  */
 
-import sharp from 'sharp';
-import { encodeBlurHash } from './blurhash';
+import sharp from "sharp";
+import { encodeBlurHash } from "./blurhash";
 import {
   S3Client,
   GetObjectCommand,
   PutObjectCommand,
-} from '@aws-sdk/client-s3';
-import { db, images } from '@/db';
-import { and, eq } from 'drizzle-orm';
-import { v7 as uuidv7 } from 'uuid';
-import { generateDownloadUrl, uploadFile } from './s3';
-import { detectMimeType, isImageMimeType } from './mime-types';
+} from "@aws-sdk/client-s3";
+import { db, images } from "@/db";
+import { and, eq } from "drizzle-orm";
+import { v7 as uuidv7 } from "uuid";
+import { generateDownloadUrl, uploadFile } from "./s3";
+import { detectMimeType, isImageMimeType } from "./mime-types";
 
 /**
  * Thumbnail generation configuration
@@ -23,8 +23,8 @@ export interface ThumbnailConfig {
   maxWidth: number;
   maxHeight: number;
   quality: number;
-  format: 'jpeg' | 'png' | 'webp';
-  fit: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+  format: "jpeg" | "png" | "webp";
+  fit: "cover" | "contain" | "fill" | "inside" | "outside";
 }
 
 /**
@@ -35,22 +35,22 @@ export const DEFAULT_THUMBNAIL_CONFIGS: Record<string, ThumbnailConfig> = {
     maxWidth: 200,
     maxHeight: 200,
     quality: 85,
-    format: 'jpeg',
-    fit: 'cover',
+    format: "jpeg",
+    fit: "inside",
   },
   medium: {
     maxWidth: 800,
-    maxHeight: 600,
+    maxHeight: 800,
     quality: 90,
-    format: 'jpeg',
-    fit: 'cover',
+    format: "jpeg",
+    fit: "inside",
   },
   large: {
     maxWidth: 1920,
-    maxHeight: 1080,
+    maxHeight: 1920,
     quality: 98,
-    format: 'webp',
-    fit: 'inside',
+    format: "webp",
+    fit: "inside",
   },
 };
 
@@ -95,12 +95,12 @@ function getS3Client(): S3Client {
 
     if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
       throw new Error(
-        'Cloudflare R2 environment variables are not set. Please set: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME'
+        "Cloudflare R2 environment variables are not set. Please set: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME",
       );
     }
 
     return new S3Client({
-      region: 'auto', // R2 always uses 'auto' for region
+      region: "auto", // R2 always uses 'auto' for region
       endpoint:
         process.env.CLOUDFLARE_R2_ENDPOINT ||
         `https://${accountId}.r2.cloudflarestorage.com`,
@@ -117,7 +117,7 @@ function getS3Client(): S3Client {
 
     if (!region || !accessKeyId || !secretAccessKey) {
       throw new Error(
-        'AWS S3 environment variables are not set. Please set: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET'
+        "AWS S3 environment variables are not set. Please set: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET",
       );
     }
 
@@ -146,21 +146,21 @@ export async function downloadImageFromS3(storageKey: string): Promise<Buffer> {
   const response = await s3Client.send(command);
 
   if (!response.Body) {
-    throw new Error('No body in S3 response');
+    throw new Error("No body in S3 response");
   }
 
   // Handle different stream types based on runtime environment
   const body = response.Body;
 
   // Check if it's a Node.js Readable stream (has pipe method)
-  if ('pipe' in body && typeof (body as any).pipe === 'function') {
+  if ("pipe" in body && typeof (body as any).pipe === "function") {
     // Node.js Readable stream - use transformToByteArray()
     const byteArray = await body.transformToByteArray();
     return Buffer.from(byteArray);
   }
 
   // Check if it's a Web ReadableStream (has getReader method)
-  if ('getReader' in body && typeof (body as any).getReader === 'function') {
+  if ("getReader" in body && typeof (body as any).getReader === "function") {
     const stream = body as ReadableStream<Uint8Array>;
     const reader = stream.getReader();
     const chunks: Uint8Array[] = [];
@@ -176,14 +176,14 @@ export async function downloadImageFromS3(storageKey: string): Promise<Buffer> {
 
   // Fallback: try transformToByteArray which should work in most cases
   if (
-    'transformToByteArray' in body &&
-    typeof (body as any).transformToByteArray === 'function'
+    "transformToByteArray" in body &&
+    typeof (body as any).transformToByteArray === "function"
   ) {
     const byteArray = await (body as any).transformToByteArray();
     return Buffer.from(byteArray);
   }
 
-  throw new Error('Unsupported S3 response body type');
+  throw new Error("Unsupported S3 response body type");
 }
 
 /**
@@ -195,14 +195,14 @@ async function extractCR2Preview(imageBuffer: Buffer): Promise<Buffer> {
   try {
     // cr2-raw package can read from a buffer path, but we need to read from buffer
     // The package expects a file path, so we'll write to temp file
-    const fs = await import('fs');
-    const path = await import('path');
-    const os = await import('os');
+    const fs = await import("fs");
+    const path = await import("path");
+    const os = await import("os");
 
     const tempDir = os.tmpdir();
     const tempFile = path.join(
       tempDir,
-      `cr2_${Date.now()}_${Math.random().toString(36).slice(2)}.CR2`
+      `cr2_${Date.now()}_${Math.random().toString(36).slice(2)}.CR2`,
     );
 
     try {
@@ -210,28 +210,28 @@ async function extractCR2Preview(imageBuffer: Buffer): Promise<Buffer> {
       await fs.promises.writeFile(tempFile, imageBuffer);
 
       // Use cr2-raw to extract preview
-      const cr2Raw = require('cr2-raw');
+      const cr2Raw = require("cr2-raw");
       const raw = cr2Raw(tempFile);
       const previewBuffer = raw.previewImage();
 
       if (previewBuffer && previewBuffer.length > 100) {
         console.log(
-          '[cr2-raw] Successfully extracted embedded JPEG preview, size:',
-          previewBuffer.length
+          "[cr2-raw] Successfully extracted embedded JPEG preview, size:",
+          previewBuffer.length,
         );
         // Apply EXIF rotation immediately after extraction to ensure correct orientation
         const rotatedBuffer = await sharp(previewBuffer).rotate().toBuffer();
-        console.log('[cr2-raw] Applied EXIF rotation to embedded preview');
+        console.log("[cr2-raw] Applied EXIF rotation to embedded preview");
         return rotatedBuffer;
       }
 
-      throw new Error('No preview image found in CR2 file');
+      throw new Error("No preview image found in CR2 file");
     } finally {
       // Cleanup temp file
       await fs.promises.unlink(tempFile).catch(() => {});
     }
   } catch (error) {
-    console.error('[cr2-raw] Failed to extract preview:', error);
+    console.error("[cr2-raw] Failed to extract preview:", error);
     throw error;
   }
 }
@@ -244,13 +244,13 @@ async function extractCR2Preview(imageBuffer: Buffer): Promise<Buffer> {
  */
 async function convertRawWithDcraw(
   imageBuffer: Buffer,
-  extension: string = '.raw'
+  extension: string = ".raw",
 ): Promise<Buffer> {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const fs = await import('fs');
-  const path = await import('path');
-  const os = await import('os');
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const fs = await import("fs");
+  const path = await import("path");
+  const os = await import("os");
 
   const execAsync = promisify(exec);
 
@@ -258,9 +258,9 @@ async function convertRawWithDcraw(
   const tempDir = os.tmpdir();
   const tempInputFile = path.join(
     tempDir,
-    `raw_${Date.now()}_${Math.random().toString(36).slice(2)}${extension}`
+    `raw_${Date.now()}_${Math.random().toString(36).slice(2)}${extension}`,
   );
-  const tempOutputFile = tempInputFile.replace(extension, '.ppm');
+  const tempOutputFile = tempInputFile.replace(extension, ".ppm");
 
   try {
     // Write RAW buffer to temp file
@@ -271,7 +271,7 @@ async function convertRawWithDcraw(
       // First try to extract embedded JPEG thumbnail
       await execAsync(
         `dcraw -e -c "${tempInputFile}" > "${tempInputFile}.thumb.jpg"`,
-        { maxBuffer: 50 * 1024 * 1024 }
+        { maxBuffer: 50 * 1024 * 1024 },
       );
       const thumbPath = `${tempInputFile}.thumb.jpg`;
 
@@ -280,8 +280,10 @@ async function convertRawWithDcraw(
         await fs.promises.unlink(thumbPath).catch(() => {});
 
         if (jpegBuffer.length > 100) {
-          console.log('[dcraw] Successfully extracted embedded JPEG preview');
-          return jpegBuffer;
+          console.log("[dcraw] Successfully extracted embedded JPEG preview");
+          const rotatedBuffer = await sharp(jpegBuffer).rotate().toBuffer();
+          console.log("[dcraw] Applied EXIF rotation to embedded preview");
+          return rotatedBuffer;
         }
       }
     } catch {
@@ -289,7 +291,7 @@ async function convertRawWithDcraw(
     }
 
     // Fall back to full RAW to PPM conversion
-    console.log('[dcraw] Attempting full RAW conversion...');
+    console.log("[dcraw] Attempting full RAW conversion...");
     await execAsync(`dcraw -c -w "${tempInputFile}" > "${tempOutputFile}"`, {
       maxBuffer: 100 * 1024 * 1024,
     });
@@ -297,15 +299,15 @@ async function convertRawWithDcraw(
     if (fs.existsSync(tempOutputFile)) {
       const ppmBuffer = await fs.promises.readFile(tempOutputFile);
       await fs.promises.unlink(tempOutputFile).catch(() => {});
-      console.log('[dcraw] Successfully converted RAW to PPM');
+      console.log("[dcraw] Successfully converted RAW to PPM");
 
       // Apply EXIF rotation to PPM using Sharp
       const rotatedBuffer = await sharp(ppmBuffer).rotate().toBuffer();
-      console.log('[dcraw] Applied EXIF rotation to converted image');
+      console.log("[dcraw] Applied EXIF rotation to converted image");
       return rotatedBuffer;
     }
 
-    throw new Error('dcraw conversion failed - no output file');
+    throw new Error("dcraw conversion failed - no output file");
   } finally {
     // Cleanup temp files
     await fs.promises.unlink(tempInputFile).catch(() => {});
@@ -319,16 +321,18 @@ async function convertRawWithDcraw(
  * @param imageBuffer - Image buffer
  * @returns Blur hash string
  */
-async function generateBlurHash(imageBuffer: Buffer): Promise<string | undefined> {
+async function generateBlurHash(
+  imageBuffer: Buffer,
+): Promise<string | undefined> {
   try {
     const { data, info } = await sharp(imageBuffer)
-      .resize(32, 32, { fit: 'inside' })
+      .resize(32, 32, { fit: "inside" })
       .raw()
       .ensureAlpha()
       .toBuffer({ resolveWithObject: true });
     return encodeBlurHash(info.width, info.height, new Uint8ClampedArray(data));
   } catch (blurHashError) {
-    console.warn('Failed to generate blur hash:', blurHashError);
+    console.warn("Failed to generate blur hash:", blurHashError);
     return undefined;
   }
 }
@@ -343,13 +347,19 @@ async function generateBlurHash(imageBuffer: Buffer): Promise<string | undefined
 export async function generateThumbnail(
   imageBuffer: Buffer,
   config: ThumbnailConfig,
-  originalMimeType?: string
-): Promise<{ buffer: Buffer; width: number; height: number; size: number; blurHash?: string }> {
+  originalMimeType?: string,
+): Promise<{
+  buffer: Buffer;
+  width: number;
+  height: number;
+  size: number;
+  blurHash?: string;
+}> {
   // Check if the image is a RAW file
-  const isRaw = originalMimeType?.startsWith('image/x-');
+  const isRaw = originalMimeType?.startsWith("image/x-");
   const isCR2 =
-    originalMimeType === 'image/x-canon-cr2' ||
-    originalMimeType?.includes('canon');
+    originalMimeType === "image/x-canon-cr2" ||
+    originalMimeType?.includes("canon");
 
   let inputBuffer = imageBuffer;
 
@@ -361,7 +371,7 @@ export async function generateThumbnail(
     if (!conversionSuccess) {
       try {
         console.log(
-          '[Thumbnail] Attempting direct Sharp processing for RAW file...'
+          "[Thumbnail] Attempting direct Sharp processing for RAW file...",
         );
         // Test if Sharp can read the RAW file directly
         const testImage = sharp(imageBuffer);
@@ -369,20 +379,23 @@ export async function generateThumbnail(
 
         if (metadata.format && metadata.width && metadata.height) {
           console.log(
-            '[Thumbnail] Sharp can process this RAW format directly:',
-            metadata.format
+            "[Thumbnail] Sharp can process this RAW format directly:",
+            metadata.format,
           );
           // Apply EXIF rotation during thumbnail generation
           const rotatedBuffer = await testImage.rotate().toBuffer();
           inputBuffer = rotatedBuffer;
           conversionSuccess = true;
           console.log(
-            '[Thumbnail] Direct Sharp processing successful, buffer size:',
-            inputBuffer.length
+            "[Thumbnail] Direct Sharp processing successful, buffer size:",
+            inputBuffer.length,
           );
         }
       } catch (sharpError) {
-        console.error('[Thumbnail] Direct Sharp processing failed:', sharpError);
+        console.error(
+          "[Thumbnail] Direct Sharp processing failed:",
+          sharpError,
+        );
       }
     }
 
@@ -390,31 +403,31 @@ export async function generateThumbnail(
     if (!conversionSuccess && isCR2) {
       try {
         console.log(
-          '[Thumbnail] Attempting cr2-raw extraction for Canon CR2 file...'
+          "[Thumbnail] Attempting cr2-raw extraction for Canon CR2 file...",
         );
         inputBuffer = await extractCR2Preview(imageBuffer);
         conversionSuccess = true;
         console.log(
-          '[Thumbnail] cr2-raw extraction successful, buffer size:',
-          inputBuffer.length
+          "[Thumbnail] cr2-raw extraction successful, buffer size:",
+          inputBuffer.length,
         );
       } catch (cr2Error) {
-        console.error('[Thumbnail] cr2-raw extraction failed:', cr2Error);
+        console.error("[Thumbnail] cr2-raw extraction failed:", cr2Error);
       }
     }
 
     // Method 3: Fall back to dcraw for other RAW formats or if cr2-raw failed
     if (!conversionSuccess) {
       try {
-        console.log('[Thumbnail] Attempting dcraw conversion for RAW file...');
-        inputBuffer = await convertRawWithDcraw(imageBuffer, '.raw');
+        console.log("[Thumbnail] Attempting dcraw conversion for RAW file...");
+        inputBuffer = await convertRawWithDcraw(imageBuffer, ".raw");
         conversionSuccess = true;
         console.log(
-          '[Thumbnail] dcraw conversion successful, buffer size:',
-          inputBuffer.length
+          "[Thumbnail] dcraw conversion successful, buffer size:",
+          inputBuffer.length,
         );
       } catch (dcrawError) {
-        console.error('[Thumbnail] dcraw conversion failed:', dcrawError);
+        console.error("[Thumbnail] dcraw conversion failed:", dcrawError);
         // Continue and try Sharp anyway - it might work for some RAW formats
       }
     }
@@ -446,11 +459,11 @@ export async function generateThumbnail(
       blurHash: await generateBlurHash(result.data),
     };
   } catch (error) {
-    console.error('Thumbnail generation error:', error);
+    console.error("Thumbnail generation error:", error);
     throw new Error(
       `Failed to generate thumbnail: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
     );
   }
 }
@@ -465,7 +478,7 @@ export async function generateThumbnail(
 export async function generateMultipleThumbnails(
   imageBuffer: Buffer,
   configs: ThumbnailConfig[],
-  originalMimeType?: string
+  originalMimeType?: string,
 ): Promise<ThumbnailResult[]> {
   const results: ThumbnailResult[] = [];
 
@@ -481,16 +494,16 @@ export async function generateMultipleThumbnails(
 
       results.push({
         id: uuidv7(),
-        projectId: '', // Will be set by caller
-        storageKey: '',
-        filename: '',
+        projectId: "", // Will be set by caller
+        storageKey: "",
+        filename: "",
         sizeBytes,
         mimeType:
-          config.format === 'jpeg'
-            ? 'image/jpeg'
-            : config.format === 'png'
-            ? 'image/png'
-            : 'image/webp',
+          config.format === "jpeg"
+            ? "image/jpeg"
+            : config.format === "png"
+              ? "image/png"
+              : "image/webp",
         width,
         height,
         blurHash,
@@ -516,13 +529,13 @@ export async function generateAndSaveThumbnails(
   projectId: string,
   originalStorageKey: string,
   originalMimeType: string,
-  userId: string
+  userId: string,
 ): Promise<ThumbnailResult[]> {
   try {
     // Validate input
     if (!isImageMimeType(originalMimeType)) {
       throw new Error(
-        `Unsupported MIME type for thumbnail generation: ${originalMimeType}`
+        `Unsupported MIME type for thumbnail generation: ${originalMimeType}`,
       );
     }
 
@@ -533,7 +546,7 @@ export async function generateAndSaveThumbnails(
     const detectedMimeType = detectMimeType(
       originalStorageKey,
       imageBuffer,
-      originalMimeType
+      originalMimeType,
     );
 
     // Generate all thumbnail sizes
@@ -551,18 +564,18 @@ export async function generateAndSaveThumbnails(
         } = await generateThumbnail(imageBuffer, config, detectedMimeType);
 
         // Generate storage key for thumbnail
-        const filename = `thumb_${size}_${originalStorageKey.split('/').pop()}`;
+        const filename = `thumb_${size}_${originalStorageKey.split("/").pop()}`;
         const storageKey = `users/${userId}/projects/${projectId}/thumbnail/${Date.now()}-${filename}`;
 
         // Upload thumbnail to S3
         await uploadFile(
           storageKey,
           buffer,
-          config.format === 'jpeg'
-            ? 'image/jpeg'
-            : config.format === 'png'
-            ? 'image/png'
-            : 'image/webp'
+          config.format === "jpeg"
+            ? "image/jpeg"
+            : config.format === "png"
+              ? "image/png"
+              : "image/webp",
         );
 
         // Create database record
@@ -571,16 +584,16 @@ export async function generateAndSaveThumbnails(
           .values({
             id: uuidv7(),
             projectId,
-            type: 'thumbnail',
+            type: "thumbnail",
             storageKey,
             filename,
             sizeBytes,
             mimeType:
-              config.format === 'jpeg'
-                ? 'image/jpeg'
-                : config.format === 'png'
-                ? 'image/png'
-                : 'image/webp',
+              config.format === "jpeg"
+                ? "image/jpeg"
+                : config.format === "png"
+                  ? "image/png"
+                  : "image/webp",
             width,
             height,
             blurHash,
@@ -593,7 +606,7 @@ export async function generateAndSaveThumbnails(
       } catch (error) {
         console.error(
           `Failed to generate ${size} thumbnail for project ${projectId}:`,
-          error
+          error,
         );
         // Continue with other sizes
       }
@@ -601,7 +614,7 @@ export async function generateAndSaveThumbnails(
 
     return thumbnailResults;
   } catch (error) {
-    console.error('Failed to generate and save thumbnails:', error);
+    console.error("Failed to generate and save thumbnails:", error);
     throw error;
   }
 }
@@ -620,7 +633,7 @@ export async function generateSingleThumbnail(
   originalStorageKey: string,
   originalMimeType: string,
   userId: string,
-  size: keyof typeof DEFAULT_THUMBNAIL_CONFIGS = 'medium'
+  size: keyof typeof DEFAULT_THUMBNAIL_CONFIGS = "medium",
 ): Promise<ThumbnailResult> {
   const config = DEFAULT_THUMBNAIL_CONFIGS[size];
 
@@ -631,7 +644,7 @@ export async function generateSingleThumbnail(
   const detectedMimeType = detectMimeType(
     originalStorageKey,
     imageBuffer,
-    originalMimeType
+    originalMimeType,
   );
 
   // Generate thumbnail
@@ -644,18 +657,18 @@ export async function generateSingleThumbnail(
   } = await generateThumbnail(imageBuffer, config, detectedMimeType);
 
   // Generate storage key
-  const filename = `thumb_${size}_${originalStorageKey.split('/').pop()}`;
+  const filename = `thumb_${size}_${originalStorageKey.split("/").pop()}`;
   const storageKey = `users/${userId}/projects/${projectId}/thumbnail/${Date.now()}-${filename}`;
 
   // Upload to S3
   await uploadFile(
     storageKey,
     buffer,
-    config.format === 'jpeg'
-      ? 'image/jpeg'
-      : config.format === 'png'
-      ? 'image/png'
-      : 'image/webp'
+    config.format === "jpeg"
+      ? "image/jpeg"
+      : config.format === "png"
+        ? "image/png"
+        : "image/webp",
   );
 
   // Create database record
@@ -664,16 +677,16 @@ export async function generateSingleThumbnail(
     .values({
       id: uuidv7(),
       projectId,
-      type: 'thumbnail',
+      type: "thumbnail",
       storageKey,
       filename,
       sizeBytes,
       mimeType:
-        config.format === 'jpeg'
-          ? 'image/jpeg'
-          : config.format === 'png'
-          ? 'image/png'
-          : 'image/webp',
+        config.format === "jpeg"
+          ? "image/jpeg"
+          : config.format === "png"
+            ? "image/png"
+            : "image/webp",
       width,
       height,
       blurHash,
@@ -681,7 +694,7 @@ export async function generateSingleThumbnail(
     .returning();
 
   if (thumbnailRecord.length === 0) {
-    throw new Error('Failed to create thumbnail record');
+    throw new Error("Failed to create thumbnail record");
   }
 
   return thumbnailRecord[0];
@@ -699,22 +712,22 @@ export function canGenerateThumbnail(mimeType: string): boolean {
 
   // Check if Sharp supports this format
   const supportedFormats = [
-    'jpeg',
-    'png',
-    'webp',
-    'gif',
-    'svg',
-    'tiff',
-    'avif',
-    'heif',
+    "jpeg",
+    "png",
+    "webp",
+    "gif",
+    "svg",
+    "tiff",
+    "avif",
+    "heif",
   ];
 
   // RAW files require libvips support
-  if (mimeType.startsWith('image/x-')) {
+  if (mimeType.startsWith("image/x-")) {
     return true;
   }
 
-  const format = mimeType.split('/')[1];
+  const format = mimeType.split("/")[1];
   return supportedFormats.includes(format);
 }
 
@@ -724,11 +737,11 @@ export function canGenerateThumbnail(mimeType: string): boolean {
  * @returns Number of thumbnails deleted
  */
 export async function deleteProjectThumbnails(
-  projectId: string
+  projectId: string,
 ): Promise<number> {
   const deletedThumbnails = await db
     .delete(images)
-    .where(and(eq(images.projectId, projectId), eq(images.type, 'thumbnail')))
+    .where(and(eq(images.projectId, projectId), eq(images.type, "thumbnail")))
     .returning();
 
   return deletedThumbnails.length;

@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface Preset {
   id: string;
@@ -61,22 +61,22 @@ export function PresetQuickSelect({
                   isSelected
                     ? "border-primary ring-2 ring-primary/30 shadow-lg"
                     : "border-border hover:border-primary/50 hover:shadow-md",
-                  isRecommended && !isSelected && "ring-2 ring-amber-500/50"
+                  isRecommended && !isSelected && "ring-2 ring-amber-500/50",
                 )}
               >
                 {/* Thumbnail */}
-                 <div className="relative h-full w-full">
-                   <Image
-                     src={preset.exampleImageUrl}
-                     alt={preset.name}
-                     fill
-                     sizes="(max-width: 640px) 50vw, 25vw"
-                     className="object-cover transition-transform duration-300 group-hover:scale-105"
-                   />
-                  
+                <div className="relative h-full w-full">
+                  <Image
+                    src={preset.exampleImageUrl}
+                    alt={preset.name}
+                    fill
+                    sizes="(max-width: 640px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+
                   {/* Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-                  
+
                   {/* Recommended Badge (Gold) */}
                   {isRecommended && (
                     <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm px-2 py-1 rounded-sm border border-amber-400/30 shadow-lg">
@@ -90,8 +90,18 @@ export function PresetQuickSelect({
                   {/* Selected Checkmark */}
                   {isSelected && (
                     <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-sm p-1 border border-primary/30 shadow-lg">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     </div>
                   )}

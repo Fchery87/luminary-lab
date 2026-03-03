@@ -3,7 +3,7 @@
  * Stores request-scoped data like request ID, user ID, duration
  */
 
-import { AsyncLocalStorage } from 'async_hooks';
+let globalContext: RequestContext | undefined;
 
 export interface RequestContext {
   requestId: string;
@@ -13,32 +13,30 @@ export interface RequestContext {
   tags?: Record<string, string>;
 }
 
-const contextStorage = new AsyncLocalStorage<RequestContext>();
-
 export function createRequestContext(
   requestId: string,
   userId?: string,
-  endpoint?: string
+  endpoint?: string,
 ): RequestContext {
   return {
     requestId,
     userId,
     endpoint,
     startTime: Date.now(),
-    tags: {}
+    tags: {},
   };
 }
 
 export function getRequestContext(): RequestContext | undefined {
-  return contextStorage.getStore();
+  return globalContext;
 }
 
 export function setRequestContext(context: RequestContext): void {
-  contextStorage.enterWith(context);
+  globalContext = context;
 }
 
 export function addContextTag(key: string, value: string): void {
-  const context = contextStorage.getStore();
+  const context = globalContext;
   if (context) {
     context.tags ??= {};
     context.tags[key] = value;
@@ -46,14 +44,20 @@ export function addContextTag(key: string, value: string): void {
 }
 
 export function getContextDuration(): number {
-  const context = contextStorage.getStore();
+  const context = globalContext;
   if (!context) return 0;
   return Date.now() - context.startTime;
 }
 
 export async function withContext<T>(
   context: RequestContext,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<T> {
-  return contextStorage.run(context, fn);
+  const previousContext = globalContext;
+  globalContext = context;
+  try {
+    return await fn();
+  } finally {
+    globalContext = previousContext;
+  }
 }

@@ -2,8 +2,8 @@
  * Job queue monitoring and health tracking
  */
 
-import { logger } from './logger';
-import { metricsCollector } from './metrics';
+import { logger } from "./logger";
+import { metricsCollector } from "./metrics";
 
 export interface QueueHealth {
   name: string;
@@ -18,7 +18,7 @@ export interface QueueHealth {
 
 export interface QueueEvent {
   timestamp: number;
-  type: 'job_started' | 'job_completed' | 'job_failed';
+  type: "job_started" | "job_completed" | "job_failed";
   jobId: string;
   duration?: number;
   error?: string;
@@ -42,7 +42,7 @@ class QueueMonitor {
       completed: number;
       failed: number;
       delayed: number;
-    }
+    },
   ): void {
     const avgTime = this.getAverageProcessingTime(queueName);
 
@@ -55,7 +55,7 @@ class QueueMonitor {
 
     // Log warning if queue is backing up
     if (status.waiting > 100) {
-      logger.warn('Queue backing up', {
+      logger.warn("Queue backing up", {
         queue: queueName,
         waiting: status.waiting,
         active: status.active,
@@ -63,13 +63,13 @@ class QueueMonitor {
     }
 
     // Record metrics
-    metricsCollector.record('queue.waiting', status.waiting, 'count', {
+    metricsCollector.record("queue.waiting", status.waiting, "count", {
       queue: queueName,
     });
-    metricsCollector.record('queue.active', status.active, 'count', {
+    metricsCollector.record("queue.active", status.active, "count", {
       queue: queueName,
     });
-    metricsCollector.record('queue.failed', status.failed, 'count', {
+    metricsCollector.record("queue.failed", status.failed, "count", {
       queue: queueName,
     });
   }
@@ -80,10 +80,10 @@ class QueueMonitor {
   recordJobCompletion(
     queueName: string,
     jobId: string,
-    duration: number
+    duration: number,
   ): void {
     this.recordEvent({
-      type: 'job_completed',
+      type: "job_completed",
       queueName,
       jobId,
       duration,
@@ -96,7 +96,7 @@ class QueueMonitor {
     }
     this.processingTimes.get(queueName)!.push(duration);
 
-    metricsCollector.record('queue.job_duration', duration, 'ms', {
+    metricsCollector.record("queue.job_duration", duration, "ms", {
       queue: queueName,
     });
   }
@@ -108,10 +108,10 @@ class QueueMonitor {
     queueName: string,
     jobId: string,
     error: string,
-    duration: number
+    duration: number,
   ): void {
     this.recordEvent({
-      type: 'job_failed',
+      type: "job_failed",
       queueName,
       jobId,
       duration,
@@ -119,13 +119,13 @@ class QueueMonitor {
       timestamp: Date.now(),
     });
 
-    logger.error('Job failed', new Error(error), {
+    logger.error("Job failed", new Error(error), {
       queue: queueName,
       jobId,
       duration,
     });
 
-    metricsCollector.record('queue.job_failed', 1, 'count', {
+    metricsCollector.record("queue.job_failed", 1, "count", {
       queue: queueName,
     });
   }
@@ -160,13 +160,11 @@ class QueueMonitor {
   /**
    * Get queue events (for monitoring)
    */
-  getEvents(
-    filter?: {
-      queueName?: string;
-      type?: QueueEvent['type'];
-      limit?: number;
-    }
-  ): QueueEvent[] {
+  getEvents(filter?: {
+    queueName?: string;
+    type?: QueueEvent["type"];
+    limit?: number;
+  }): QueueEvent[] {
     let filtered = this.events;
 
     if (filter?.queueName) {
@@ -202,9 +200,8 @@ class QueueMonitor {
       totalActive: health.reduce((sum, q) => sum + q.active, 0),
       totalFailed: health.reduce((sum, q) => sum + q.failed, 0),
       avgProcessingTime:
-        (health.reduce((sum, q) => sum + q.avgProcessingTime, 0) /
-          health.length) ||
-        0,
+        health.reduce((sum, q) => sum + q.avgProcessingTime, 0) /
+          health.length || 0,
       queues: queues as Record<string, QueueHealth>,
     };
   }

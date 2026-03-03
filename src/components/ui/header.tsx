@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Aperture, LogOut } from 'lucide-react';
-import { ReactNode } from 'react';
-import { motion } from 'framer-motion';
-import { authClient } from '@/lib/auth-client';
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Aperture, LogOut } from "lucide-react";
+import { ReactNode } from "react";
+import { motion } from "framer-motion";
+import { authClient } from "@/lib/auth-client";
 
 interface HeaderProps {
   navigation?: ReactNode;
   showUserMenu?: boolean;
-  variant?: 'default' | 'minimal';
+  variant?: "default" | "minimal";
 }
 
 export function Header({
   navigation,
   showUserMenu = true,
-  variant = 'default'
+  variant = "default",
 }: HeaderProps) {
   const session = authClient.useSession();
 
@@ -28,7 +28,7 @@ export function Header({
     <header className="px-6 h-16 flex items-center border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]/80 backdrop-blur-md sticky top-0 z-50">
       {/* Top amber accent line */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[hsl(var(--gold))] via-[hsl(var(--gold-light))] to-transparent opacity-60" />
-      
+
       <Link href="/" className="flex items-center gap-3 group">
         <motion.div
           whileHover={{ rotate: 360 }}
@@ -41,10 +41,10 @@ export function Header({
           Luminary Lab
         </span>
       </Link>
-      
+
       <div className="ml-auto flex items-center gap-6">
         {navigation}
-        
+
         {showUserMenu && (
           <nav className="flex gap-8 items-center">
             <Link
@@ -72,7 +72,7 @@ export function Header({
                   {session.data.user.image && (
                     <Image
                       src={session.data.user.image}
-                      alt={session.data.user.name || 'User'}
+                      alt={session.data.user.name || "User"}
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-full"

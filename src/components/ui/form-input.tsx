@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Input } from './input';
-import { Label } from './label';
+import React from "react";
+import { Input } from "./input";
+import { Label } from "./label";
 
 interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -26,20 +26,24 @@ const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
         <Input
           ref={ref}
           id={inputId}
-          className={error ? 'border-destructive focus:ring-destructive' : ''}
-          aria-invalid={error ? 'true' : 'false'}
+          className={error ? "border-destructive focus:ring-destructive" : ""}
+          aria-invalid={error ? "true" : "false"}
           aria-describedby={error ? `${inputId}-error` : undefined}
           {...props}
         />
         {error && (
-          <p id={`${inputId}-error`} className="text-sm text-destructive" role="alert">
+          <p
+            id={`${inputId}-error`}
+            className="text-sm text-destructive"
+            role="alert"
+          >
             {error}
           </p>
         )}
       </div>
     );
-  }
+  },
 );
-FormInput.displayName = 'FormInput';
+FormInput.displayName = "FormInput";
 
 export { FormInput };

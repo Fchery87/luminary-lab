@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
-import { getDb } from '@/db';
-import { projects, processingJobs } from '@/db/schema';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { eq, and, gte, sql, count } from 'drizzle-orm';
+import { NextResponse } from "next/server";
+import { getDb } from "@/db";
+import { projects, processingJobs } from "@/db/schema";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { eq, and, gte, sql, count } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     });
 
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const db = getDb();
@@ -34,10 +34,7 @@ export async function GET(req: Request) {
       .select({ count: count() })
       .from(projects)
       .where(
-        and(
-          eq(projects.userId, userId),
-          eq(projects.status, 'completed')
-        )
+        and(eq(projects.userId, userId), eq(projects.status, "completed")),
       );
 
     const completedProjects = completedProjectsResult[0]?.count || 0;
@@ -49,8 +46,8 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(projects.userId, userId),
-          sql`${projects.status} IN ('processing', 'queued', 'pending')`
-        )
+          sql`${projects.status} IN ('processing', 'queued', 'pending')`,
+        ),
       );
 
     const processingProjects = processingProjectsResult[0]?.count || 0;
@@ -66,8 +63,8 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(projects.userId, userId),
-          sql`${projects.status} IN ('processing', 'queued', 'pending')`
-        )
+          sql`${projects.status} IN ('processing', 'queued', 'pending')`,
+        ),
       );
 
     // Get processing job details for accurate startedAt times
@@ -78,9 +75,7 @@ export async function GET(req: Request) {
         status: processingJobs.status,
       })
       .from(processingJobs)
-      .where(
-        sql`${processingJobs.status} IN ('queued', 'processing')`
-      );
+      .where(sql`${processingJobs.status} IN ('queued', 'processing')`);
 
     // Map project IDs to their job start times
     const projectStartTimes = new Map<string, Date | null>();
@@ -102,11 +97,15 @@ export async function GET(req: Request) {
       totalElapsedSeconds += Math.min(elapsed, avgProcessingTimeSeconds);
     }
 
-    const remainingSeconds = Math.max(0, totalEstimatedSeconds - totalElapsedSeconds);
+    const remainingSeconds = Math.max(
+      0,
+      totalEstimatedSeconds - totalElapsedSeconds,
+    );
     const remainingMinutes = Math.ceil(remainingSeconds / 60);
-    const progressPercentage = totalEstimatedSeconds > 0
-      ? Math.round((totalElapsedSeconds / totalEstimatedSeconds) * 100)
-      : 0;
+    const progressPercentage =
+      totalEstimatedSeconds > 0
+        ? Math.round((totalElapsedSeconds / totalEstimatedSeconds) * 100)
+        : 0;
 
     // Get recent activity count (last 24 hours)
     // We'll count projects created in the last 24 hours as a proxy for activity
@@ -116,8 +115,8 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(projects.userId, userId),
-          gte(projects.createdAt, twentyFourHoursAgo)
-        )
+          gte(projects.createdAt, twentyFourHoursAgo),
+        ),
       );
 
     const recentActivity = recentActivityResult[0]?.count || 0;
@@ -134,7 +133,7 @@ export async function GET(req: Request) {
       recentActivity,
     });
   } catch (error) {
-    console.error('[DASHBOARD_STATS]', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    console.error("[DASHBOARD_STATS]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }

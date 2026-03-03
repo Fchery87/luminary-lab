@@ -1,9 +1,15 @@
-import { NextResponse } from 'next/server';
-import { getDb } from '@/db';
-import { auditLogs, projects, images, systemStyles, processingJobs } from '@/db/schema';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { eq, desc, gte, sql } from 'drizzle-orm';
+import { NextResponse } from "next/server";
+import { getDb } from "@/db";
+import {
+  auditLogs,
+  projects,
+  images,
+  systemStyles,
+  processingJobs,
+} from "@/db/schema";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { eq, desc, gte, sql } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
@@ -12,12 +18,12 @@ export async function GET(req: Request) {
     });
 
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const db = getDb();
     const { searchParams } = new URL(req.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50);
 
     const userId = session.user.id;
 
@@ -43,7 +49,7 @@ export async function GET(req: Request) {
         let context: any = {};
 
         // Add project name if the resource is a project
-        if (activity.resource === 'project' && activity.resourceId) {
+        if (activity.resource === "project" && activity.resourceId) {
           const project = await db
             .select({ name: projects.name, status: projects.status })
             .from(projects)
@@ -57,7 +63,7 @@ export async function GET(req: Request) {
         }
 
         // Add style name if the action involves applying a style
-        if (activity.action === 'style_applied' && activity.details) {
+        if (activity.action === "style_applied" && activity.details) {
           const styleId = (activity.details as any)?.styleId;
           if (styleId) {
             const style = await db
@@ -76,7 +82,7 @@ export async function GET(req: Request) {
           ...activity,
           ...context,
         };
-      })
+      }),
     );
 
     // Transform activities into a user-friendly format
@@ -97,8 +103,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(transformedActivities);
   } catch (error) {
-    console.error('[DASHBOARD_ACTIVITY]', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    console.error("[DASHBOARD_ACTIVITY]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
 
@@ -106,55 +112,59 @@ function getActivityType(activity: any): { type: string; icon: string } {
   const action = activity.action;
   const resource = activity.resource;
 
-  if (action === 'upload' || action === 'image_uploaded') {
-    return { type: 'uploaded', icon: 'upload' };
+  if (action === "upload" || action === "image_uploaded") {
+    return { type: "uploaded", icon: "upload" };
   }
-  if (action === 'processing_complete' || action === 'job_completed') {
-    return { type: 'completed', icon: 'check' };
+  if (action === "processing_complete" || action === "job_completed") {
+    return { type: "completed", icon: "check" };
   }
-  if (action === 'style_applied') {
-    return { type: 'styled', icon: 'palette' };
+  if (action === "style_applied") {
+    return { type: "styled", icon: "palette" };
   }
-  if (action === 'delete' || action === 'project_deleted' || action === 'image_deleted') {
-    return { type: 'deleted', icon: 'trash' };
+  if (
+    action === "delete" ||
+    action === "project_deleted" ||
+    action === "image_deleted"
+  ) {
+    return { type: "deleted", icon: "trash" };
   }
-  if (action === 'project_created') {
-    return { type: 'created', icon: 'plus' };
+  if (action === "project_created") {
+    return { type: "created", icon: "plus" };
   }
-  if (action === 'processing_started') {
-    return { type: 'processing', icon: 'clock' };
+  if (action === "processing_started") {
+    return { type: "processing", icon: "clock" };
   }
 
   // Default fallback
-  return { type: action, icon: 'activity' };
+  return { type: action, icon: "activity" };
 }
 
 function getActivityDescription(activity: any): string {
   const action = activity.action;
-  const projectName = activity.projectName || 'Unknown project';
+  const projectName = activity.projectName || "Unknown project";
   const styleName = activity.styleName;
 
   switch (action) {
-    case 'upload':
-    case 'image_uploaded':
+    case "upload":
+    case "image_uploaded":
       return `Uploaded images to "${projectName}"`;
-    case 'project_created':
+    case "project_created":
       return `Created project "${projectName}"`;
-    case 'processing_complete':
-    case 'job_completed':
+    case "processing_complete":
+    case "job_completed":
       return `Completed processing for "${projectName}"`;
-    case 'processing_started':
+    case "processing_started":
       return `Started processing "${projectName}"`;
-    case 'style_applied':
+    case "style_applied":
       return styleName
         ? `Applied style "${styleName}" to "${projectName}"`
         : `Applied style to "${projectName}"`;
-    case 'delete':
-    case 'project_deleted':
+    case "delete":
+    case "project_deleted":
       return `Deleted "${projectName}"`;
-    case 'image_deleted':
+    case "image_deleted":
       return `Deleted image from "${projectName}"`;
     default:
-      return `${action.replace(/_/g, ' ')} - ${projectName}`;
+      return `${action.replace(/_/g, " ")} - ${projectName}`;
   }
 }

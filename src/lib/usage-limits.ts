@@ -1,7 +1,7 @@
-import { auth } from '@/lib/auth';
-import { db, usageTracking, userSubscriptions, subscriptionPlans } from '@/db';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
-import { NextRequest } from 'next/server';
+import { auth } from "@/lib/auth";
+import { db, usageTracking, userSubscriptions, subscriptionPlans, users } from "@/db";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { NextRequest } from "next/server";
 
 interface UsageLimits {
   monthlyUploadLimit: number;
@@ -11,10 +11,10 @@ interface UsageLimits {
   canUpload: boolean;
 }
 
-export async function checkUsageLimits(request: NextRequest): Promise<{ 
-  success: boolean; 
-  limits?: UsageLimits; 
-  error?: string; 
+export async function checkUsageLimits(request: NextRequest): Promise<{
+  success: boolean;
+  limits?: UsageLimits;
+  error?: string;
   status?: number;
 }> {
   try {
@@ -26,12 +26,32 @@ export async function checkUsageLimits(request: NextRequest): Promise<{
     if (!session) {
       return {
         success: false,
-        error: 'Authentication required',
-        status: 401
+        error: "Authentication required",
+        status: 401,
       };
     }
 
     const userId = session.user.id;
+
+    // Admins bypass all usage limits
+    const [user] = await db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (user?.role === "admin") {
+      return {
+        success: true,
+        limits: {
+          monthlyUploadLimit: Infinity,
+          currentUsage: 0,
+          remainingUploads: Infinity,
+          planName: "Admin",
+          canUpload: true,
+        },
+      };
+    }
 
     // Get user's active subscription
     const [subscription] = await db
@@ -44,12 +64,15 @@ export async function checkUsageLimits(request: NextRequest): Promise<{
         features: subscriptionPlans.features,
       })
       .from(userSubscriptions)
-      .innerJoin(subscriptionPlans, eq(userSubscriptions.planId, subscriptionPlans.id))
+      .innerJoin(
+        subscriptionPlans,
+        eq(userSubscriptions.planId, subscriptionPlans.id),
+      )
       .where(
         and(
           eq(userSubscriptions.userId, userId),
-          eq(userSubscriptions.status, 'active')
-        )
+          eq(userSubscriptions.status, "active"),
+        ),
       )
       .orderBy(desc(userSubscriptions.createdAt))
       .limit(1);
@@ -59,43 +82,52 @@ export async function checkUsageLimits(request: NextRequest): Promise<{
       const [freePlan] = await db
         .select()
         .from(subscriptionPlans)
-        .where(eq(subscriptionPlans.name, 'Free'))
+        .where(eq(subscriptionPlans.name, "Free"))
         .limit(1);
 
       if (!freePlan) {
         return {
           success: false,
-          error: 'No subscription plans available',
-          status: 500
+          error: "No subscription plans available",
+          status: 500,
         };
       }
 
       const currentUsage = await getCurrentMonthlyUsage(userId, freePlan.id);
       const usageCount = currentUsage.uploadCount || 0;
-      
+
       return {
         success: usageCount < freePlan.monthlyUploadLimit,
         limits: {
           monthlyUploadLimit: freePlan.monthlyUploadLimit,
           currentUsage: usageCount,
-          remainingUploads: Math.max(0, freePlan.monthlyUploadLimit - usageCount),
+          remainingUploads: Math.max(
+            0,
+            freePlan.monthlyUploadLimit - usageCount,
+          ),
           planName: freePlan.name,
           canUpload: usageCount < freePlan.monthlyUploadLimit,
-        }
+        },
       };
     }
 
     // Check if subscription is still valid
-    if (subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd) < new Date()) {
+    if (
+      subscription.currentPeriodEnd &&
+      new Date(subscription.currentPeriodEnd) < new Date()
+    ) {
       return {
         success: false,
-        error: 'Subscription expired',
-        status: 402
+        error: "Subscription expired",
+        status: 402,
       };
     }
 
     // Get current usage for the subscription period
-    const currentUsage = await getCurrentMonthlyUsage(userId, subscription.planId);
+    const currentUsage = await getCurrentMonthlyUsage(
+      userId,
+      subscription.planId,
+    );
     const usageCount = currentUsage.uploadCount || 0;
 
     const canUpload = usageCount < subscription.monthlyUploadLimit;
@@ -105,20 +137,24 @@ export async function checkUsageLimits(request: NextRequest): Promise<{
       limits: {
         monthlyUploadLimit: subscription.monthlyUploadLimit,
         currentUsage: usageCount,
-        remainingUploads: Math.max(0, subscription.monthlyUploadLimit - usageCount),
+        remainingUploads: Math.max(
+          0,
+          subscription.monthlyUploadLimit - usageCount,
+        ),
         planName: subscription.planName,
         canUpload,
       },
-      error: canUpload ? undefined : `Monthly upload limit (${subscription.monthlyUploadLimit}) exceeded`,
-      status: canUpload ? undefined : 429
+      error: canUpload
+        ? undefined
+        : `Monthly upload limit (${subscription.monthlyUploadLimit}) exceeded`,
+      status: canUpload ? undefined : 429,
     };
-
   } catch (error) {
-    console.error('Usage limits check error:', error);
+    console.error("Usage limits check error:", error);
     return {
       success: false,
-      error: 'Failed to check usage limits',
-      status: 500
+      error: "Failed to check usage limits",
+      status: 500,
     };
   }
 }
@@ -136,8 +172,8 @@ async function getCurrentMonthlyUsage(userId: string, planId: string) {
       and(
         eq(usageTracking.userId, userId),
         gte(usageTracking.periodStart, startOfMonth),
-        lte(usageTracking.periodEnd, endOfMonth)
-      )
+        lte(usageTracking.periodEnd, endOfMonth),
+      ),
     )
     .limit(1);
 
@@ -174,24 +210,26 @@ export async function incrementUsage(userId: string): Promise<void> {
       and(
         eq(usageTracking.userId, userId),
         gte(usageTracking.periodStart, startOfMonth),
-        lte(usageTracking.periodEnd, endOfMonth)
-      )
+        lte(usageTracking.periodEnd, endOfMonth),
+      ),
     );
 }
 
 // Middleware wrapper for API routes
-export function withUsageLimits(handler: (req: NextRequest) => Promise<Response>) {
+export function withUsageLimits(
+  handler: (req: NextRequest) => Promise<Response>,
+) {
   return async (request: NextRequest) => {
     const usageCheck = await checkUsageLimits(request);
 
     if (!usageCheck.success) {
       return Response.json(
-        { 
+        {
           error: usageCheck.error,
           limits: usageCheck.limits,
-          code: 'USAGE_LIMIT_EXCEEDED'
+          code: "USAGE_LIMIT_EXCEEDED",
         },
-        { status: usageCheck.status || 429 }
+        { status: usageCheck.status || 429 },
       );
     }
 
@@ -208,7 +246,7 @@ export function withUsageLimits(handler: (req: NextRequest) => Promise<Response>
     const response = await handler(clonedRequest);
 
     // If the upload was successful, increment usage
-    if (response.ok && request.method === 'POST') {
+    if (response.ok && request.method === "POST") {
       try {
         const session = await auth.api.getSession({
           headers: request.headers,
@@ -217,7 +255,7 @@ export function withUsageLimits(handler: (req: NextRequest) => Promise<Response>
           await incrementUsage(session.user.id);
         }
       } catch (error) {
-        console.error('Failed to increment usage:', error);
+        console.error("Failed to increment usage:", error);
         // Don't fail the request if usage tracking fails
       }
     }

@@ -1,7 +1,7 @@
-import { db, auditLogs } from '@/db';
-import { v7 as uuidv7 } from 'uuid';
-import { NextRequest } from 'next/server';
-import { asc, desc } from 'drizzle-orm';
+import { db, auditLogs } from "@/db";
+import { v7 as uuidv7 } from "uuid";
+import { NextRequest } from "next/server";
+import { asc, desc } from "drizzle-orm";
 
 export interface AuditLogData {
   userId?: string;
@@ -18,8 +18,8 @@ export interface AuditLogData {
 export interface PaginationOptions {
   page?: number;
   limit?: number;
-  sortBy?: 'timestamp' | 'userId' | 'action';
-  sortOrder?: 'asc' | 'desc';
+  sortBy?: "timestamp" | "userId" | "action";
+  sortOrder?: "asc" | "desc";
 }
 
 export interface FilterOptions {
@@ -44,7 +44,7 @@ export class AuditLogger {
       // For now, just log to console to avoid DB issues
       // In production, you'd insert into database
       if (!data.success) {
-        console.error('[AUDIT] Failed action:', {
+        console.error("[AUDIT] Failed action:", {
           userId: data.userId,
           action: data.action,
           resource: data.resource,
@@ -52,16 +52,15 @@ export class AuditLogger {
           timestamp: new Date().toISOString(),
         });
       } else {
-        console.log('[AUDIT] Action logged:', {
+        console.log("[AUDIT] Action logged:", {
           userId: data.userId,
           action: data.action,
           resource: data.resource,
           timestamp: new Date().toISOString(),
         });
       }
-      
     } catch (error) {
-      console.error('Failed to log audit event:', error);
+      console.error("Failed to log audit event:", error);
       // Don't throw error to avoid breaking main flow
     }
   }
@@ -73,7 +72,7 @@ export class AuditLogger {
     userId?: string,
     resourceId?: string,
     details?: Record<string, any>,
-    request?: NextRequest
+    request?: NextRequest,
   ): Promise<void> {
     return this.log({
       userId,
@@ -81,8 +80,11 @@ export class AuditLogger {
       resource,
       resourceId,
       details,
-      ipAddress: request?.headers.get('x-forwarded-for') || request?.headers.get('x-real-ip') || undefined,
-      userAgent: request?.headers.get('user-agent') || undefined,
+      ipAddress:
+        request?.headers.get("x-forwarded-for") ||
+        request?.headers.get("x-real-ip") ||
+        undefined,
+      userAgent: request?.headers.get("user-agent") || undefined,
       success: true,
     });
   }
@@ -95,7 +97,7 @@ export class AuditLogger {
     userId?: string,
     resourceId?: string,
     details?: Record<string, any>,
-    request?: NextRequest
+    request?: NextRequest,
   ): Promise<void> {
     return this.log({
       userId,
@@ -104,8 +106,11 @@ export class AuditLogger {
       resourceId,
       details,
       error,
-      ipAddress: request?.headers.get('x-forwarded-for') || request?.headers.get('x-real-ip') || undefined,
-      userAgent: request?.headers.get('user-agent') || undefined,
+      ipAddress:
+        request?.headers.get("x-forwarded-for") ||
+        request?.headers.get("x-real-ip") ||
+        undefined,
+      userAgent: request?.headers.get("user-agent") || undefined,
       success: false,
     });
   }
@@ -113,7 +118,7 @@ export class AuditLogger {
   // Get audit logs with filtering and pagination
   static async getLogs(
     filters: FilterOptions = {},
-    pagination: PaginationOptions = {}
+    pagination: PaginationOptions = {},
   ): Promise<{
     logs: any[];
     total: number;
@@ -127,32 +132,28 @@ export class AuditLogger {
         logs: [],
         total: 0,
         page: 1,
-        totalPages: 0
+        totalPages: 0,
       };
-
     } catch (error) {
-      console.error('Failed to get audit logs:', error);
+      console.error("Failed to get audit logs:", error);
       return {
         logs: [],
         total: 0,
         page: 1,
-        totalPages: 0
+        totalPages: 0,
       };
     }
   }
 
   // Get security events (failed logins, suspicious activity)
-  static async getSecurityEvents(
-    hours: number = 24
-  ): Promise<any[]> {
+  static async getSecurityEvents(hours: number = 24): Promise<any[]> {
     try {
       // For now, return empty array
       // In production, implement database queries
       console.log(`[AUDIT] Security events requested for last ${hours} hours`);
       return [];
-
     } catch (error) {
-      console.error('Failed to get security events:', error);
+      console.error("Failed to get security events:", error);
       return [];
     }
   }
@@ -160,7 +161,7 @@ export class AuditLogger {
   // Get user activity summary
   static async getUserActivitySummary(
     userId: string,
-    days: number = 30
+    days: number = 30,
   ): Promise<{
     totalActions: number;
     actionsByType: Record<string, number>;
@@ -171,7 +172,9 @@ export class AuditLogger {
     try {
       // For now, return empty summary
       // In production, implement database queries
-      console.log(`[AUDIT] Activity summary requested for user ${userId} (last ${days} days)`);
+      console.log(
+        `[AUDIT] Activity summary requested for user ${userId} (last ${days} days)`,
+      );
       return {
         totalActions: 0,
         actionsByType: {},
@@ -179,9 +182,8 @@ export class AuditLogger {
         failureRate: 0,
         lastActivity: null,
       };
-
     } catch (error) {
-      console.error('Failed to get user activity summary:', error);
+      console.error("Failed to get user activity summary:", error);
       return {
         totalActions: 0,
         actionsByType: {},
@@ -197,18 +199,22 @@ export class AuditLogger {
 export function withAuditLogging(
   action: string,
   resource: string,
-  getUserId: (request: NextRequest) => string | undefined
+  getUserId: (request: NextRequest) => string | undefined,
 ) {
-  return function(target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyName: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function(request: NextRequest, ...args: any[]) {
+    descriptor.value = async function (request: NextRequest, ...args: any[]) {
       const userId = getUserId(request);
       const startTime = Date.now();
-      
+
       try {
         const result = await originalMethod.apply(this, [request, ...args]);
-        
+
         // Log successful action
         await AuditLogger.logSuccess(
           action,
@@ -218,13 +224,12 @@ export function withAuditLogging(
           args[0]?.id || args[0]?.projectId || args[0]?.userId,
           {
             duration: Date.now() - startTime,
-            result: typeof result === 'object' ? 'success' : result
+            result: typeof result === "object" ? "success" : result,
           },
-          request
+          request,
         );
 
         return result;
-
       } catch (error) {
         // Log failed action
         await AuditLogger.logFailure(
@@ -236,9 +241,9 @@ export function withAuditLogging(
           args[0]?.id || args[0]?.projectId || args[0]?.userId,
           {
             duration: Date.now() - startTime,
-            error: error instanceof Error ? error.stack : error
+            error: error instanceof Error ? error.stack : error,
           },
-          request
+          request,
         );
 
         throw error;

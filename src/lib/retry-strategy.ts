@@ -21,7 +21,7 @@ export async function withRetry<T>(
   operation: () => Promise<T>,
   maxRetries: number = 3,
   baseDelayMs: number = 1000,
-  onRetry?: (attempt: number, error: Error) => void
+  onRetry?: (attempt: number, error: Error) => void,
 ): Promise<T> {
   let lastError: Error | null = null;
 
@@ -30,20 +30,20 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       lastError = error as Error;
-      
+
       if (attempt === maxRetries - 1) {
         throw error;
       }
 
       const delayMs = baseDelayMs * Math.pow(2, attempt);
-      
+
       // Add jitter (±10%) to prevent thundering herd
       const jitter = Math.random() * delayMs * 0.1;
       const totalDelayMs = delayMs + jitter;
-      
+
       onRetry?.(attempt + 1, lastError);
-      
-      await new Promise(resolve => setTimeout(resolve, totalDelayMs));
+
+      await new Promise((resolve) => setTimeout(resolve, totalDelayMs));
     }
   }
 

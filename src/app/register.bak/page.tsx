@@ -1,8 +1,15 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function RegisterPage() {
   return (
@@ -23,11 +30,21 @@ export default function RegisterPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="displayName">Display Name</Label>
-              <Input id="displayName" type="text" placeholder="John Doe" required />
+              <Input
+                id="displayName"
+                type="text"
+                placeholder="John Doe"
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" required />
+              <Input
+                id="email"
+                type="email"
+                placeholder="m@example.com"
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -41,7 +58,7 @@ export default function RegisterPage() {
           <CardFooter className="flex flex-col space-y-4">
             <Button className="w-full">Sign Up</Button>
             <div className="text-sm text-muted-foreground text-center">
-              Already have an account?{' '}
+              Already have an account?{" "}
               <Link href="/login" className="underline hover:text-primary">
                 Login
               </Link>

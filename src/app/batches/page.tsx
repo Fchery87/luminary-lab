@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface Batch {
   id: string;
@@ -18,12 +24,12 @@ interface Batch {
 }
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  partial_failure: 'bg-orange-100 text-orange-800',
-  failed: 'bg-red-100 text-red-800',
-  cancelled: 'bg-gray-100 text-gray-800',
+  pending: "bg-yellow-100 text-yellow-800",
+  processing: "bg-blue-100 text-blue-800",
+  completed: "bg-green-100 text-green-800",
+  partial_failure: "bg-orange-100 text-orange-800",
+  failed: "bg-red-100 text-red-800",
+  cancelled: "bg-gray-100 text-gray-800",
 };
 
 export default function BatchesPage() {
@@ -39,14 +45,16 @@ export default function BatchesPage() {
   useEffect(() => {
     const fetchBatches = async () => {
       try {
-        const response = await fetch(`/api/batches?page=${page}&limit=${limit}`);
-        if (!response.ok) throw new Error('Failed to fetch batches');
+        const response = await fetch(
+          `/api/batches?page=${page}&limit=${limit}`,
+        );
+        if (!response.ok) throw new Error("Failed to fetch batches");
         const data = await response.json();
         setBatches(data.items);
         setTotal(data.total);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading batches');
+        setError(err instanceof Error ? err.message : "Error loading batches");
       } finally {
         setIsLoading(false);
       }
@@ -68,7 +76,7 @@ export default function BatchesPage() {
               Manage your batch uploads
             </p>
           </div>
-          <Button onClick={() => router.push('/upload/batch')}>
+          <Button onClick={() => router.push("/upload/batch")}>
             New Batch
           </Button>
         </div>
@@ -96,7 +104,7 @@ export default function BatchesPage() {
           <Card>
             <CardContent className="pt-12 text-center">
               <p className="text-muted-foreground mb-4">No batches yet</p>
-              <Button onClick={() => router.push('/upload/batch')}>
+              <Button onClick={() => router.push("/upload/batch")}>
                 Create First Batch
               </Button>
             </CardContent>
@@ -118,7 +126,8 @@ export default function BatchesPage() {
                       <h3 className="font-semibold">{batch.name}</h3>
                       <p className="text-sm text-muted-foreground">
                         {batch.completedJobs}/{batch.totalJobs} completed
-                        {batch.failedJobs > 0 && ` • ${batch.failedJobs} failed`}
+                        {batch.failedJobs > 0 &&
+                          ` • ${batch.failedJobs} failed`}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Created: {new Date(batch.createdAt).toLocaleString()}
@@ -127,7 +136,9 @@ export default function BatchesPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge className={statusColors[batch.status] || 'bg-gray-100'}>
+                      <Badge
+                        className={statusColors[batch.status] || "bg-gray-100"}
+                      >
                         {batch.status}
                       </Badge>
                       <Button variant="ghost" size="sm">
@@ -146,7 +157,7 @@ export default function BatchesPage() {
           <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
             >
               Previous
@@ -156,7 +167,7 @@ export default function BatchesPage() {
             </span>
             <Button
               variant="outline"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
             >
               Next

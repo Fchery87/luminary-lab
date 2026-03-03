@@ -1,8 +1,8 @@
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 export function CyberpunkOverlays({ className }: { className?: string }) {
   return (
-    <div className={cn('pointer-events-none absolute inset-0 z-30', className)}>
+    <div className={cn("pointer-events-none absolute inset-0 z-30", className)}>
       <div className="absolute inset-0 neon-noise opacity-[0.06] mix-blend-overlay" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(48,227,202,0.10),transparent_55%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(255,43,214,0.07),transparent_55%)]" />
@@ -18,4 +18,3 @@ export function CyberpunkOverlays({ className }: { className?: string }) {
     </div>
   );
 }
-

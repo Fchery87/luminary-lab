@@ -20,15 +20,15 @@ class MetricsCollector {
   record(
     name: string,
     value: number,
-    unit: string = 'ms',
-    tags: Record<string, string> = {}
+    unit: string = "ms",
+    tags: Record<string, string> = {},
   ): void {
     this.metrics.push({
       name,
       value,
       unit,
       timestamp: Date.now(),
-      tags
+      tags,
     });
 
     // Keep memory bounded
@@ -40,22 +40,43 @@ class MetricsCollector {
   /**
    * Record query duration
    */
-  recordQueryTime(query: string, duration: number, tags: Record<string, string> = {}): void {
-    this.record('query.duration', duration, 'ms', { query, ...tags });
+  recordQueryTime(
+    query: string,
+    duration: number,
+    tags: Record<string, string> = {},
+  ): void {
+    this.record("query.duration", duration, "ms", { query, ...tags });
   }
 
   /**
    * Record API endpoint duration
    */
-  recordEndpointTime(endpoint: string, duration: number, status: number, tags: Record<string, string> = {}): void {
-    this.record('endpoint.duration', duration, 'ms', { endpoint, status: status.toString(), ...tags });
+  recordEndpointTime(
+    endpoint: string,
+    duration: number,
+    status: number,
+    tags: Record<string, string> = {},
+  ): void {
+    this.record("endpoint.duration", duration, "ms", {
+      endpoint,
+      status: status.toString(),
+      ...tags,
+    });
   }
 
   /**
    * Record cache hit/miss
    */
-  recordCacheEvent(hit: boolean, key: string, tags: Record<string, string> = {}): void {
-    this.record('cache.event', hit ? 1 : 0, 'hit', { key, hit: hit ? 'hit' : 'miss', ...tags });
+  recordCacheEvent(
+    hit: boolean,
+    key: string,
+    tags: Record<string, string> = {},
+  ): void {
+    this.record("cache.event", hit ? 1 : 0, "hit", {
+      key,
+      hit: hit ? "hit" : "miss",
+      ...tags,
+    });
   }
 
   /**
@@ -68,20 +89,20 @@ class MetricsCollector {
     max: number;
     p95: number;
   } | null {
-    const filtered = name 
-      ? this.metrics.filter(m => m.name === name)
+    const filtered = name
+      ? this.metrics.filter((m) => m.name === name)
       : this.metrics;
 
     if (filtered.length === 0) return null;
 
-    const values = filtered.map(m => m.value).sort((a, b) => a - b);
-    
+    const values = filtered.map((m) => m.value).sort((a, b) => a - b);
+
     return {
       count: values.length,
       avg: values.reduce((a, b) => a + b) / values.length,
       min: values[0],
       max: values[values.length - 1],
-      p95: values[Math.floor(values.length * 0.95)]
+      p95: values[Math.floor(values.length * 0.95)],
     };
   }
 
@@ -108,17 +129,17 @@ export const metricsCollector = new MetricsCollector();
 export async function measureAsync<T>(
   name: string,
   fn: () => Promise<T>,
-  tags: Record<string, string> = {}
+  tags: Record<string, string> = {},
 ): Promise<T> {
   const start = performance.now();
   try {
     const result = await fn();
     const duration = performance.now() - start;
-    metricsCollector.record(name, duration, 'ms', tags);
+    metricsCollector.record(name, duration, "ms", tags);
     return result;
   } catch (error) {
     const duration = performance.now() - start;
-    metricsCollector.record(name, duration, 'ms', { ...tags, error: 'true' });
+    metricsCollector.record(name, duration, "ms", { ...tags, error: "true" });
     throw error;
   }
 }
@@ -129,17 +150,17 @@ export async function measureAsync<T>(
 export function measureSync<T>(
   name: string,
   fn: () => T,
-  tags: Record<string, string> = {}
+  tags: Record<string, string> = {},
 ): T {
   const start = performance.now();
   try {
     const result = fn();
     const duration = performance.now() - start;
-    metricsCollector.record(name, duration, 'ms', tags);
+    metricsCollector.record(name, duration, "ms", tags);
     return result;
   } catch (error) {
     const duration = performance.now() - start;
-    metricsCollector.record(name, duration, 'ms', { ...tags, error: 'true' });
+    metricsCollector.record(name, duration, "ms", { ...tags, error: "true" });
     throw error;
   }
 }

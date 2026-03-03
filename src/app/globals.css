@@ -1,7 +1,7 @@
 /* Import distinctive fonts */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800;900&display=swap");
 
-@import 'tailwindcss';
+@import "tailwindcss";
 
 :root {
   /* 
@@ -149,7 +149,8 @@ html {
 
 /* Grid pattern overlay */
 .grid-pattern {
-  background-image: linear-gradient(hsl(var(--border)) 1px, transparent 1px),
+  background-image:
+    linear-gradient(hsl(var(--border)) 1px, transparent 1px),
     linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px);
   background-size: 60px 60px;
   background-position: center center;

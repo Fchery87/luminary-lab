@@ -1,10 +1,10 @@
-declare module 'exif-parser' {
+declare module "exif-parser" {
   export function create(buffer: Buffer): Parser;
-  
+
   export interface Parser {
     parse(): ParseResult;
   }
-  
+
   export interface ParseResult {
     tags: {
       [key: string]: any;

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Button } from './button';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React from "react";
+import { Button } from "./button";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -14,7 +14,10 @@ interface ErrorBoundaryProps {
   fallback?: React.ComponentType<{ error?: Error; reset: () => void }>;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -26,7 +29,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log error to monitoring service in production
-    console.error('Error caught by boundary:', error, errorInfo);
+    console.error("Error caught by boundary:", error, errorInfo);
   }
 
   reset = () => {
@@ -43,7 +46,13 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-function DefaultErrorFallback({ error, reset }: { error?: Error; reset: () => void }) {
+function DefaultErrorFallback({
+  error,
+  reset,
+}: {
+  error?: Error;
+  reset: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[200px] p-6 text-center">
       <div className="flex items-center justify-center w-12 h-12 rounded-full bg-destructive/10 mb-4">
@@ -51,9 +60,13 @@ function DefaultErrorFallback({ error, reset }: { error?: Error; reset: () => vo
       </div>
       <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
       <p className="text-sm text-muted-foreground mb-4 max-w-md">
-        {error?.message || 'An unexpected error occurred. Please try again.'}
+        {error?.message || "An unexpected error occurred. Please try again."}
       </p>
-      <Button onClick={reset} variant="outline" className="flex items-center gap-2">
+      <Button
+        onClick={reset}
+        variant="outline"
+        className="flex items-center gap-2"
+      >
         <RefreshCw className="h-4 w-4" />
         Try again
       </Button>

@@ -1,23 +1,33 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef, Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileImage, Loader2, Aperture, XCircle } from 'lucide-react';
-import Link from 'next/link';
-import { toast } from 'sonner';
-import { motion } from 'framer-motion';
-import { OnboardingChecklist, type OnboardingStep } from '@/components/ui/onboarding-checklist';
-import { Header } from '@/components/ui/header';
+import { useState, useCallback, useRef, Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useDropzone } from "react-dropzone";
+import { Upload, FileImage, Loader2, Aperture, XCircle } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { motion } from "framer-motion";
+import {
+  OnboardingChecklist,
+  type OnboardingStep,
+} from "@/components/ui/onboarding-checklist";
+import { Header } from "@/components/ui/header";
+import { authClient } from "@/lib/auth-client";
 
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
 
 interface MultipartUploadData {
-  uploadType: 'single-part' | 'multipart';
+  uploadType: "single-part" | "multipart";
   projectId: string;
   uploadId?: string;
   uploadUrl?: string;
@@ -30,347 +40,407 @@ interface MultipartUploadData {
 function UploadPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, isPending } = authClient.useSession();
   const [isOnboarding, setIsOnboarding] = useState(false);
 
   useEffect(() => {
-    setIsOnboarding(searchParams.get('onboarding') === 'true');
+    if (!isPending && !session) {
+      router.replace("/login");
+    }
+  }, [session, isPending, router]);
+
+  useEffect(() => {
+    setIsOnboarding(searchParams.get("onboarding") === "true");
   }, [searchParams]);
 
-  const [projectName, setProjectName] = useState('');
+  const [projectName, setProjectName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState('');
+  const [uploadStatus, setUploadStatus] = useState("");
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Refs for stable function references to avoid useCallback dependency issues
-  const handleSinglePartUploadRef = useRef<((file: File, data: MultipartUploadData) => Promise<void>) | null>(null);
-  const handleMultipartUploadRef = useRef<((file: File, data: MultipartUploadData) => Promise<void>) | null>(null);
+  const handleSinglePartUploadRef = useRef<
+    ((file: File, data: MultipartUploadData) => Promise<void>) | null
+  >(null);
+  const handleMultipartUploadRef = useRef<
+    ((file: File, data: MultipartUploadData) => Promise<void>) | null
+  >(null);
 
   // Onboarding state
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>('name');
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>("name");
   const [completedSteps, setCompletedSteps] = useState<OnboardingStep[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      if (acceptedFiles.length === 0) return;
 
-    const file = acceptedFiles[0];
+      const file = acceptedFiles[0];
 
-    // Validate file type
-    const rawExtensions = ['.cr2', '.nef', '.arw', '.dng', '.raf', '.rw2', '.orf', '.pef'];
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      // Validate file type
+      const rawExtensions = [
+        ".cr2",
+        ".nef",
+        ".arw",
+        ".dng",
+        ".raf",
+        ".rw2",
+        ".orf",
+        ".pef",
+      ];
+      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
 
-    if (!rawExtensions.includes(fileExtension)) {
-      toast.error('Please upload a RAW file format');
-      return;
-    }
-
-    // Validate file size (100MB)
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('File size must be less than 100MB');
-      return;
-    }
-
-    // Update onboarding state
-    if (isOnboarding) {
-      setSelectedFile(file);
-      setCompletedSteps((prev) => [...new Set([...prev, 'upload' as const])]);
-      setCurrentStep('preview');
-    }
-
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadStatus('Initializing...');
-    abortControllerRef.current = new AbortController();
-
-    try {
-      // Get upload configuration from API
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: file.name,
-          fileSize: file.size,
-          mimeType: file.type,
-          projectName: projectName || undefined,
-        }),
-      });
-
-      const data: MultipartUploadData = await response.json();
-
-      if (!response.ok) {
-        const errorBody = data as { error?: string };
-        throw new Error(errorBody.error || 'Failed to get upload URL');
+      if (!rawExtensions.includes(fileExtension)) {
+        toast.error("Please upload a RAW file format");
+        return;
       }
 
-      // Handle multipart or single-part upload
-      if (data.uploadType === 'multipart' && data.uploadId) {
-        if (!handleMultipartUploadRef.current) {
-          throw new Error('Multipart upload handler not initialized');
-        }
-        console.log('[Upload] Starting multipart upload for project:', data.projectId);
-        await handleMultipartUploadRef.current(file, data);
-        console.log('[Upload] Multipart upload completed for project:', data.projectId);
-      } else if (data.uploadType === 'single-part' && data.uploadUrl) {
-        if (!handleSinglePartUploadRef.current) {
-          throw new Error('Single part upload handler not initialized');
-        }
-        console.log('[Upload] Starting single-part upload for project:', data.projectId);
-        await handleSinglePartUploadRef.current(file, data);
-        console.log('[Upload] Single-part upload completed for project:', data.projectId);
-      } else {
-        throw new Error('Invalid upload response from server');
+      // Validate file size (100MB)
+      if (file.size > 100 * 1024 * 1024) {
+        toast.error("File size must be less than 100MB");
+        return;
       }
 
-      // Verify image was created by fetching project
-      console.log('[Upload] Verifying image upload for project:', data.projectId);
-      setUploadStatus('Verifying upload...');
-      
-      try {
-        const verifyResponse = await fetch(`/api/projects/${data.projectId}`, {
-          credentials: 'include',
-        });
-        
-        if (verifyResponse.ok) {
-          const projectData = await verifyResponse.json();
-          const hasOriginalImage = projectData.images?.some((img: any) => img.type === 'original');
-          
-          if (!hasOriginalImage) {
-            console.warn('[Upload] Warning: No original image found after upload. Project data:', projectData);
-            // Continue anyway but log warning
-          } else {
-            console.log('[Upload] Verification successful - original image exists');
-          }
-        } else {
-          console.warn('[Upload] Could not verify upload, but proceeding anyway');
-        }
-      } catch (verifyError) {
-        console.warn('[Upload] Verification failed, but proceeding:', verifyError);
-        // Don't fail the upload if verification fails
-      }
-
-      toast.success('File uploaded successfully!');
-
-      // Small delay to ensure database commit completes
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // For onboarding, redirect to compare page to show the "Aha" moment
-      // Otherwise, redirect to editing page
-      console.log('[Upload] Navigating to', isOnboarding ? 'compare' : 'edit', 'page');
+      // Update onboarding state
       if (isOnboarding) {
-        router.push(`/compare/${data.projectId}?onboarding=true`);
-      } else {
-        router.push(`/edit/${data.projectId}`);
+        setSelectedFile(file);
+        setCompletedSteps((prev) => [...new Set([...prev, "upload" as const])]);
+        setCurrentStep("preview");
       }
-    } catch (error) {
-      import('@/lib/logger').then(({ logger }) => {
-        logger.error('Upload failed', error as Error);
-      });
-      toast.error(error instanceof Error ? error.message : 'Upload failed');
-      // Reset onboarding state on error
-      if (isOnboarding) {
-        setSelectedFile(null);
-        setCompletedSteps((prev) => prev.filter((s) => s !== 'upload'));
-        setCurrentStep('name');
-      }
-    } finally {
-      setIsUploading(false);
+
+      setIsUploading(true);
       setUploadProgress(0);
-      setUploadStatus('');
-      abortControllerRef.current = null;
-    }
-  }, [projectName, router, isOnboarding]);
+      setUploadStatus("Initializing...");
+      abortControllerRef.current = new AbortController();
 
-  const handleSinglePartUpload = useCallback(async (
-    file: File,
-    data: MultipartUploadData
-  ): Promise<void> => {
-    setUploadStatus('Uploading file...');
+      try {
+        // Get upload configuration from API
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+            projectName: projectName || undefined,
+          }),
+        });
 
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', data.uploadUrl!);
+        const data: MultipartUploadData = await response.json();
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(progress);
-          setUploadStatus(`Uploading... ${progress}%`);
+        if (!response.ok) {
+          const errorBody = data as { error?: string };
+          throw new Error(errorBody.error || "Failed to get upload URL");
         }
-      };
 
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve();
+        // Handle multipart or single-part upload
+        if (data.uploadType === "multipart" && data.uploadId) {
+          if (!handleMultipartUploadRef.current) {
+            throw new Error("Multipart upload handler not initialized");
+          }
+          console.log(
+            "[Upload] Starting multipart upload for project:",
+            data.projectId,
+          );
+          await handleMultipartUploadRef.current(file, data);
+          console.log(
+            "[Upload] Multipart upload completed for project:",
+            data.projectId,
+          );
+        } else if (data.uploadType === "single-part" && data.uploadUrl) {
+          if (!handleSinglePartUploadRef.current) {
+            throw new Error("Single part upload handler not initialized");
+          }
+          console.log(
+            "[Upload] Starting single-part upload for project:",
+            data.projectId,
+          );
+          await handleSinglePartUploadRef.current(file, data);
+          console.log(
+            "[Upload] Single-part upload completed for project:",
+            data.projectId,
+          );
         } else {
-          reject(new Error('Failed to upload file'));
+          throw new Error("Invalid upload response from server");
         }
-      };
 
-      xhr.onerror = () => reject(new Error('Failed to upload file'));
-      xhr.send(file);
-    });
-  }, []);
+        // Verify image was created by fetching project
+        console.log(
+          "[Upload] Verifying image upload for project:",
+          data.projectId,
+        );
+        setUploadStatus("Verifying upload...");
+
+        try {
+          const verifyResponse = await fetch(
+            `/api/projects/${data.projectId}`,
+            {
+              credentials: "include",
+            },
+          );
+
+          if (verifyResponse.ok) {
+            const projectData = await verifyResponse.json();
+            const hasOriginalImage = projectData.images?.some(
+              (img: any) => img.type === "original",
+            );
+
+            if (!hasOriginalImage) {
+              console.warn(
+                "[Upload] Warning: No original image found after upload. Project data:",
+                projectData,
+              );
+              // Continue anyway but log warning
+            } else {
+              console.log(
+                "[Upload] Verification successful - original image exists",
+              );
+            }
+          } else {
+            console.warn(
+              "[Upload] Could not verify upload, but proceeding anyway",
+            );
+          }
+        } catch (verifyError) {
+          console.warn(
+            "[Upload] Verification failed, but proceeding:",
+            verifyError,
+          );
+          // Don't fail the upload if verification fails
+        }
+
+        toast.success("File uploaded successfully!");
+
+        // Small delay to ensure database commit completes
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // For onboarding, redirect to compare page to show the "Aha" moment
+        // Otherwise, redirect to editing page
+        console.log(
+          "[Upload] Navigating to",
+          isOnboarding ? "compare" : "edit",
+          "page",
+        );
+        if (isOnboarding) {
+          router.push(`/compare/${data.projectId}?onboarding=true`);
+        } else {
+          router.push(`/edit/${data.projectId}`);
+        }
+      } catch (error) {
+        import("@/lib/logger").then(({ logger }) => {
+          logger.error("Upload failed", error as Error);
+        });
+        toast.error(error instanceof Error ? error.message : "Upload failed");
+        // Reset onboarding state on error
+        if (isOnboarding) {
+          setSelectedFile(null);
+          setCompletedSteps((prev) => prev.filter((s) => s !== "upload"));
+          setCurrentStep("name");
+        }
+      } finally {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadStatus("");
+        abortControllerRef.current = null;
+      }
+    },
+    [projectName, router, isOnboarding],
+  );
+
+  const handleSinglePartUpload = useCallback(
+    async (file: File, data: MultipartUploadData): Promise<void> => {
+      setUploadStatus("Uploading file...");
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", data.uploadUrl!);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(progress);
+            setUploadStatus(`Uploading... ${progress}%`);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error("Failed to upload file"));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Failed to upload file"));
+        xhr.send(file);
+      });
+    },
+    [],
+  );
 
   // Assign the function to the ref for stable reference
   handleSinglePartUploadRef.current = handleSinglePartUpload;
 
-  const handleMultipartUpload = useCallback(async (
-    file: File,
-    data: MultipartUploadData
-  ): Promise<void> => {
-    const totalParts = data.totalParts || 1;
-    const chunkSize = data.chunkSize || CHUNK_SIZE;
-    const parts = data.partUrls || [];
+  const uploadPartToS3 = useCallback(
+    async (url: string, chunk: Blob, partNumber: number): Promise<string> => {
+      console.log(`[Upload] Part ${partNumber}: PUT to ${new URL(url).hostname}, size=${chunk.size}`);
 
-    let uploadedParts = 0;
+      const response = await fetch(url, {
+        method: "PUT",
+        body: chunk,
+      });
 
-    for (let i = 0; i < totalParts; i++) {
-      if (!abortControllerRef.current) {
-        throw new Error('Upload was cancelled');
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(
+          `Failed to upload part ${partNumber}. Status: ${response.status}, Response: ${body}`,
+        );
       }
 
-      const partNumber = i + 1;
-      const partUrl = parts[i]?.url;
-      if (!partUrl) {
-        throw new Error(`No URL found for part ${partNumber}`);
+      let etag = response.headers.get("ETag");
+      if (!etag) {
+        throw new Error(
+          "Missing ETag from storage response. Ensure your bucket CORS exposes the ETag header.",
+        );
+      }
+      // ETag may be returned with quotes, strip them for consistency
+      etag = etag.replace(/^"|"$/g, "");
+      console.log(`Part ${partNumber} uploaded successfully, ETag:`, etag);
+      return etag;
+    },
+    [],
+  );
+
+  const registerPart = useCallback(
+    async (
+      uploadId: string,
+      partNumber: number,
+      sizeBytes: number,
+      etag: string,
+    ): Promise<void> => {
+      const response = await fetch("/api/upload/chunk", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "register",
+          uploadId,
+          partNumber,
+          etag,
+          sizeBytes,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to register part");
+      }
+    },
+    [],
+  );
+
+  const completeMultipartUpload = useCallback(
+    async (file: File, data: MultipartUploadData): Promise<void> => {
+      const response = await fetch("/api/upload/chunk", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "complete",
+          uploadId: data.uploadId,
+          projectId: data.projectId,
+          filename: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Complete upload failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+        });
+        throw new Error(
+          errorData.error ||
+            `Failed to complete upload (HTTP ${response.status})`,
+        );
       }
 
-      const start = i * chunkSize;
-      const end = Math.min(start + chunkSize, file.size);
-      const chunk = file.slice(start, end);
+      setUploadProgress(100);
+      setUploadStatus("Upload complete!");
+    },
+    [],
+  );
 
-      setUploadStatus(`Uploading part ${partNumber} of ${totalParts}...`);
+  const handleMultipartUpload = useCallback(
+    async (file: File, data: MultipartUploadData): Promise<void> => {
+      const totalParts = data.totalParts || 1;
+      const chunkSize = data.chunkSize || CHUNK_SIZE;
+      const parts = data.partUrls || [];
 
-      // Upload part to S3
-      const etag = await uploadPartToS3(partUrl, chunk, partNumber);
+      let uploadedParts = 0;
 
-      // Register part with server
-      await registerPart(data.uploadId!, partNumber, chunk.size, etag);
+      for (let i = 0; i < totalParts; i++) {
+        if (!abortControllerRef.current) {
+          throw new Error("Upload was cancelled");
+        }
 
-      uploadedParts++;
-      const progress = Math.round((uploadedParts / totalParts) * 100);
-      setUploadProgress(progress);
-    }
+        const partNumber = i + 1;
+        const partUrl = parts[i]?.url;
+        if (!partUrl) {
+          throw new Error(`No URL found for part ${partNumber}`);
+        }
 
-    // Complete the multipart upload
-    setUploadStatus('Finalizing upload...');
-    await completeMultipartUpload(file, data);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
+
+        setUploadStatus(`Uploading part ${partNumber} of ${totalParts}...`);
+
+        // Upload part to S3
+        const etag = await uploadPartToS3(partUrl, chunk, partNumber);
+
+        // Register part with server
+        await registerPart(data.uploadId!, partNumber, chunk.size, etag);
+
+        uploadedParts++;
+        const progress = Math.round((uploadedParts / totalParts) * 100);
+        setUploadProgress(progress);
+      }
+
+      // Complete the multipart upload
+      setUploadStatus("Finalizing upload...");
+      await completeMultipartUpload(file, data);
+    },
+    [uploadPartToS3, registerPart, completeMultipartUpload],
+  );
 
   // Assign to ref for stable reference
   handleMultipartUploadRef.current = handleMultipartUpload;
-
-  const uploadPartToS3 = useCallback((url: string, chunk: Blob, partNumber: number): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', url);
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          // Extract ETag from response headers
-          let etag = xhr.getResponseHeader('ETag');
-          if (!etag) {
-            console.error('Response headers:', xhr.getAllResponseHeaders());
-            reject(
-              new Error(
-                'Missing ETag from storage response. Ensure your bucket CORS exposes the ETag header.'
-              )
-            );
-            return;
-          }
-          // ETag may be returned with quotes, strip them for consistency
-          etag = etag.replace(/^"|"$/g, '');
-          console.log(`Part ${partNumber} uploaded successfully, ETag:`, etag);
-          resolve(etag);
-        } else {
-          reject(new Error(`Failed to upload part. Status: ${xhr.status}, Response: ${xhr.responseText}`));
-        }
-      };
-
-      xhr.onerror = () => reject(new Error('Failed to upload part to S3'));
-      xhr.send(chunk);
-    });
-  }, []);
-
-  const registerPart = useCallback(async (
-    uploadId: string,
-    partNumber: number,
-    sizeBytes: number,
-    etag: string
-  ): Promise<void> => {
-    const response = await fetch('/api/upload/chunk', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'register',
-        uploadId,
-        partNumber,
-        etag,
-        sizeBytes,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to register part');
-    }
-  }, []);
-
-  const completeMultipartUpload = useCallback(async (
-    file: File,
-    data: MultipartUploadData
-  ): Promise<void> => {
-    const response = await fetch('/api/upload/chunk', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'complete',
-        uploadId: data.uploadId,
-        projectId: data.projectId,
-        filename: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Complete upload failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorData
-      });
-      throw new Error(errorData.error || `Failed to complete upload (HTTP ${response.status})`);
-    }
-
-    setUploadProgress(100);
-    setUploadStatus('Upload complete!');
-  }, []);
 
   const cancelUpload = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsUploading(false);
       setUploadProgress(0);
-      setUploadStatus('');
+      setUploadStatus("");
       abortControllerRef.current = null;
-      toast.info('Upload cancelled');
+      toast.info("Upload cancelled");
       // Reset onboarding state on cancel
       if (isOnboarding) {
         setSelectedFile(null);
         setCompletedSteps([]);
-        setCurrentStep('name');
+        setCurrentStep("name");
       }
     }
   }, [isOnboarding]);
@@ -378,14 +448,18 @@ function UploadPageContent() {
   const handleProjectNameChange = (value: string) => {
     setProjectName(value);
     // Update onboarding state
-    if (isOnboarding && value.trim().length > 0 && !completedSteps.includes('name')) {
-      setCompletedSteps((prev) => [...prev, 'name']);
+    if (
+      isOnboarding &&
+      value.trim().length > 0 &&
+      !completedSteps.includes("name")
+    ) {
+      setCompletedSteps((prev) => [...prev, "name"]);
     }
   };
 
   const handleStepClick = (step: OnboardingStep) => {
     // Only allow navigating to completed steps or next step
-    const steps: OnboardingStep[] = ['name', 'upload', 'preview', 'complete'];
+    const steps: OnboardingStep[] = ["name", "upload", "preview", "complete"];
     const currentIndex = steps.indexOf(currentStep);
     const targetIndex = steps.indexOf(step);
 
@@ -394,21 +468,22 @@ function UploadPageContent() {
     }
   };
 
-  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
-    onDrop,
-    accept: {
-      'image/x-canon-cr2': ['.cr2'],
-      'image/x-nikon-nef': ['.nef'],
-      'image/x-sony-arw': ['.arw'],
-      'image/x-adobe-dng': ['.dng'],
-      'image/x-fuji-raf': ['.raf'],
-      'image/x-panasonic-rw2': ['.rw2'],
-      'image/x-olympus-orf': ['.orf'],
-      'image/x-pentax-pef': ['.pef'],
-    },
-    maxFiles: 1,
-    maxSize: 100 * 1024 * 1024, // 100MB
-  });
+  const { getRootProps, getInputProps, isDragActive, isDragReject } =
+    useDropzone({
+      onDrop,
+      accept: {
+        "image/x-canon-cr2": [".cr2"],
+        "image/x-nikon-nef": [".nef"],
+        "image/x-sony-arw": [".arw"],
+        "image/x-adobe-dng": [".dng"],
+        "image/x-fuji-raf": [".raf"],
+        "image/x-panasonic-rw2": [".rw2"],
+        "image/x-olympus-orf": [".orf"],
+        "image/x-pentax-pef": [".pef"],
+      },
+      maxFiles: 1,
+      maxSize: 100 * 1024 * 1024, // 100MB
+    });
 
   return (
     <div className="flex min-h-screen flex-col bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
@@ -417,10 +492,7 @@ function UploadPageContent() {
         <div className="absolute inset-0 grid-pattern" />
       </div>
 
-      <Header
-        variant="minimal"
-        showUserMenu={true}
-      />
+      <Header variant="minimal" showUserMenu={true} />
 
       <main className="flex-1 flex items-center justify-center p-6 relative z-10">
         {isOnboarding ? (
@@ -451,13 +523,17 @@ function UploadPageContent() {
                     Upload RAW File
                   </CardTitle>
                   <CardDescription className="font-body text-[hsl(var(--muted-foreground))]">
-                    Upload your RAW file to start AI editing process. Supported formats: CR2, NEF, ARW, DNG, RAF, RW2, ORF, PEF
+                    Upload your RAW file to start AI editing process. Supported
+                    formats: CR2, NEF, ARW, DNG, RAF, RW2, ORF, PEF
                   </CardDescription>
                 </CardHeader>
 
                 <CardContent className="space-y-6 pt-2">
                   <div className="space-y-2">
-                    <Label htmlFor="projectName" className="font-body text-xs uppercase tracking-wider text-[hsl(var(--foreground))]">
+                    <Label
+                      htmlFor="projectName"
+                      className="font-body text-xs uppercase tracking-wider text-[hsl(var(--foreground))]"
+                    >
                       Project Name (Optional)
                     </Label>
                     <Input
@@ -475,11 +551,11 @@ function UploadPageContent() {
                     {...getRootProps()}
                     className={`relative border-2 border-dashed rounded-sm p-12 text-center cursor-pointer transition-all duration-300 ${
                       isDragActive
-                        ? 'border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5'
+                        ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
                         : isDragReject
-                        ? 'border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5'
-                        : 'border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50'
-                    } ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+                          ? "border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5"
+                          : "border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50"
+                    } ${isUploading ? "pointer-events-none opacity-50" : ""}`}
                   >
                     <input {...getInputProps()} />
 
@@ -496,7 +572,8 @@ function UploadPageContent() {
                             />
                           </div>
                           <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                            {uploadStatus || `Uploading file... ${uploadProgress}%`}
+                            {uploadStatus ||
+                              `Uploading file... ${uploadProgress}%`}
                           </p>
                           <Button
                             type="button"
@@ -527,7 +604,8 @@ function UploadPageContent() {
                             Drag & drop your RAW file here, or click to select
                           </p>
                           <p className="font-body text-xs text-[hsl(var(--muted-foreground))]">
-                            Maximum file size: 100MB. Large files (&gt;10MB) will be uploaded in chunks.
+                            Maximum file size: 100MB. Large files (&gt;10MB)
+                            will be uploaded in chunks.
                           </p>
                         </div>
                       </div>
@@ -563,13 +641,17 @@ function UploadPageContent() {
                   Upload RAW File
                 </CardTitle>
                 <CardDescription className="font-body text-[hsl(var(--muted-foreground))]">
-                  Upload your RAW file to start AI editing process. Supported formats: CR2, NEF, ARW, DNG, RAF, RW2, ORF, PEF
+                  Upload your RAW file to start AI editing process. Supported
+                  formats: CR2, NEF, ARW, DNG, RAF, RW2, ORF, PEF
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-6 pt-2">
                 <div className="space-y-2">
-                  <Label htmlFor="projectName" className="font-body text-xs uppercase tracking-wider text-[hsl(var(--foreground))]">
+                  <Label
+                    htmlFor="projectName"
+                    className="font-body text-xs uppercase tracking-wider text-[hsl(var(--foreground))]"
+                  >
                     Project Name (Optional)
                   </Label>
                   <Input
@@ -587,11 +669,11 @@ function UploadPageContent() {
                   {...getRootProps()}
                   className={`relative border-2 border-dashed rounded-sm p-12 text-center cursor-pointer transition-all duration-300 ${
                     isDragActive
-                      ? 'border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5'
+                      ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
                       : isDragReject
-                      ? 'border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5'
-                      : 'border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50'
-                  } ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+                        ? "border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5"
+                        : "border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50"
+                  } ${isUploading ? "pointer-events-none opacity-50" : ""}`}
                 >
                   <input {...getInputProps()} />
 
@@ -608,7 +690,8 @@ function UploadPageContent() {
                           />
                         </div>
                         <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                          {uploadStatus || `Uploading file... ${uploadProgress}%`}
+                          {uploadStatus ||
+                            `Uploading file... ${uploadProgress}%`}
                         </p>
                         <Button
                           type="button"
@@ -639,7 +722,8 @@ function UploadPageContent() {
                           Drag & drop your RAW file here, or click to select
                         </p>
                         <p className="font-body text-xs text-[hsl(var(--muted-foreground))]">
-                          Maximum file size: 100MB. Large files (&gt;10MB) will be uploaded in chunks.
+                          Maximum file size: 100MB. Large files (&gt;10MB) will
+                          be uploaded in chunks.
                         </p>
                       </div>
                     </div>
@@ -656,7 +740,13 @@ function UploadPageContent() {
 
 export default function UploadPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          Loading...
+        </div>
+      }
+    >
       <UploadPageContent />
     </Suspense>
   );

@@ -1,4 +1,4 @@
-import Stripe from 'stripe';
+import Stripe from "stripe";
 
 let stripeSingleton: Stripe | null = null;
 
@@ -7,11 +7,11 @@ export function getStripeServer(): Stripe {
 
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
-    throw new Error('STRIPE_SECRET_KEY is not set');
+    throw new Error("STRIPE_SECRET_KEY is not set");
   }
 
   stripeSingleton = new Stripe(secretKey, {
-    apiVersion: '2025-12-15.clover',
+    apiVersion: "2025-12-15.clover",
     typescript: true,
   });
 
@@ -19,7 +19,7 @@ export function getStripeServer(): Stripe {
 }
 
 export async function getStripeBrowser() {
-  const { loadStripe } = await import('@stripe/stripe-js');
+  const { loadStripe } = await import("@stripe/stripe-js");
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
   if (!publishableKey) return null;
   return loadStripe(publishableKey);

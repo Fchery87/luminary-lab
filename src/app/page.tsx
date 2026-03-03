@@ -1,22 +1,32 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Header } from '@/components/ui/header';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import Link from "next/link";
+import { Header } from "@/components/ui/header";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { motion, useScroll, useTransform, useInView } from "framer-motion";
 import {
-  ArrowRight, Upload, Download, Sparkles, Aperture,
-  Shield, Layers, Zap, Cpu, Wand2, Sliders, Camera
-} from 'lucide-react';
-import { useRef, useEffect, useState } from 'react';
+  ArrowRight,
+  Upload,
+  Download,
+  Sparkles,
+  Aperture,
+  Shield,
+  Layers,
+  Zap,
+  Cpu,
+  Wand2,
+  Sliders,
+  Camera,
+} from "lucide-react";
+import { useRef, useEffect, useState } from "react";
 
 // Utility: Simple fade-in animation (replaces expensive CharReveal)
-function FadeIn({ 
-  children, 
+function FadeIn({
+  children,
   delay = 0,
-  className = ''
-}: { 
-  children: React.ReactNode; 
+  className = "",
+}: {
+  children: React.ReactNode;
   delay?: number;
   className?: string;
 }) {
@@ -25,10 +35,10 @@ function FadeIn({
       className={`inline-block ${className}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ 
-        duration: 0.6, 
+      transition={{
+        duration: 0.6,
         delay,
-        ease: [0.25, 0.1, 0.25, 1] // CSS ease-out equivalent
+        ease: [0.25, 0.1, 0.25, 1], // CSS ease-out equivalent
       }}
     >
       {children}
@@ -37,12 +47,12 @@ function FadeIn({
 }
 
 // Precise border frame with amber accent
-function Frame({ 
-  children, 
-  className = '',
-  accent = false
-}: { 
-  children: React.ReactNode; 
+function Frame({
+  children,
+  className = "",
+  accent = false,
+}: {
+  children: React.ReactNode;
   className?: string;
   accent?: boolean;
 }) {
@@ -58,21 +68,21 @@ function Frame({
 }
 
 // Industrial card with sharp edges
-function IndustrialCard({ 
-  children, 
-  className = '',
-  hover = false
-}: { 
-  children: React.ReactNode; 
+function IndustrialCard({
+  children,
+  className = "",
+  hover = false,
+}: {
+  children: React.ReactNode;
   className?: string;
   hover?: boolean;
 }) {
   return (
     <motion.div
-      className={`relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] ${hover ? 'hover:border-[hsl(var(--gold))] transition-colors duration-300' : ''} ${className}`}
+      className={`relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] ${hover ? "hover:border-[hsl(var(--gold))] transition-colors duration-300" : ""} ${className}`}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-50px' }}
+      viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.6 }}
     >
       {/* Top accent line */}
@@ -83,12 +93,12 @@ function IndustrialCard({
 }
 
 // Amber glow button with sharp edges
-function AmberButton({ 
-  children, 
-  variant = 'primary',
-  className = '',
+function AmberButton({
+  children,
+  variant = "primary",
+  className = "",
   href,
-  ...props 
+  ...props
 }: any) {
   const content = (
     <span className="relative z-10 flex items-center justify-center gap-2">
@@ -98,9 +108,10 @@ function AmberButton({
 
   const buttonClasses = `
     relative overflow-hidden font-display font-semibold uppercase tracking-wider cursor-pointer
-    ${variant === 'primary' 
-      ? 'bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] hover:bg-[hsl(var(--gold-light))]' 
-      : 'bg-transparent border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:border-[hsl(var(--gold))]'
+    ${
+      variant === "primary"
+        ? "bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] hover:bg-[hsl(var(--gold-light))]"
+        : "bg-transparent border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:border-[hsl(var(--gold))]"
     }
     ${className}
   `;
@@ -134,22 +145,22 @@ function AmberButton({
 }
 
 // Stat counter with monospace font
-function StatCounter({ 
-  value, 
-  suffix = '',
+function StatCounter({
+  value,
+  suffix = "",
   label,
-  index = 0 
-}: { 
+  index = 0,
+}: {
   value: string;
   suffix?: string;
   label: string;
   index?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: '-50px' });
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
   const [count, setCount] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  
+
   useEffect(() => {
     if (isInView) {
       const numericValue = parseFloat(value);
@@ -157,7 +168,7 @@ function StatCounter({
       const steps = 60;
       const stepTime = duration / steps;
       let current = 0;
-      
+
       const timer = setInterval(() => {
         current += numericValue / steps;
         setCount(current);
@@ -166,7 +177,7 @@ function StatCounter({
           setIsComplete(true);
         }
       }, stepTime);
-      
+
       return () => clearInterval(timer);
     }
   }, [isInView, value]);
@@ -176,13 +187,20 @@ function StatCounter({
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-100px' }}
-        transition={{ duration: isComplete ? 0.3 : 0.6, delay: isComplete ? 0 : index * 0.1 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{
+          duration: isComplete ? 0.3 : 0.6,
+          delay: isComplete ? 0 : index * 0.1,
+        }}
         animate={{ scale: isComplete ? [1, 1.02, 1] : 1 }}
       >
         <div className="font-mono text-5xl md:text-7xl font-medium text-[hsl(var(--gold))] mb-1">
-          {count.toFixed(value.includes('.') ? 1 : 0)}
-          {suffix && <span className="text-3xl md:text-5xl text-[hsl(var(--foreground))] ml-1">{suffix}</span>}
+          {count.toFixed(value.includes(".") ? 1 : 0)}
+          {suffix && (
+            <span className="text-3xl md:text-5xl text-[hsl(var(--foreground))] ml-1">
+              {suffix}
+            </span>
+          )}
         </div>
         <div className="text-xs uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))] font-display">
           {label}
@@ -193,19 +211,19 @@ function StatCounter({
 }
 
 // Feature item with amber accent
-function FeatureItem({ 
-  icon: Icon, 
-  title, 
-  description, 
-  index = 0 
-}: { 
-  icon: any; 
-  title: string; 
-  description: string; 
+function FeatureItem({
+  icon: Icon,
+  title,
+  description,
+  index = 0,
+}: {
+  icon: any;
+  title: string;
+  description: string;
   index?: number;
 }) {
   return (
-    <IndustrialCard 
+    <IndustrialCard
       className="p-6 group hover:bg-[hsl(var(--secondary))] transition-colors"
       hover
     >
@@ -223,8 +241,12 @@ function FeatureItem({
           </div>
         </div>
         <div className="flex-1">
-          <h3 className="font-display font-semibold text-lg mb-2 text-[hsl(var(--foreground))]">{title}</h3>
-          <p className="font-body text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">{description}</p>
+          <h3 className="font-display font-semibold text-lg mb-2 text-[hsl(var(--foreground))]">
+            {title}
+          </h3>
+          <p className="font-body text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
+            {description}
+          </p>
         </div>
       </motion.div>
     </IndustrialCard>
@@ -240,11 +262,11 @@ export default function HomePage() {
       {/* Texture overlays */}
       <div className="film-grain" />
       <div className="scanlines" />
-      
+
       <div className="min-h-screen flex flex-col bg-[hsl(var(--charcoal))] text-[hsl(var(--cream))] overflow-x-hidden relative">
         {/* Subtle background grid */}
         <div className="fixed inset-0 grid-pattern opacity-[0.03] pointer-events-none" />
-        
+
         {/* Amber ambient glow */}
         <div className="fixed top-0 left-1/4 w-[800px] h-[800px] rounded-full bg-[hsl(var(--gold))] opacity-[0.03] blur-[200px] pointer-events-none" />
         <div className="fixed bottom-0 right-1/4 w-[600px] h-[600px] rounded-full bg-[hsl(var(--gold))] opacity-[0.02] blur-[150px] pointer-events-none" />
@@ -287,8 +309,8 @@ export default function HomePage() {
                 transition={{ duration: 0.6, delay: 0.4 }}
                 className="font-body text-xl md:text-2xl text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto mb-16 leading-relaxed"
               >
-                AI-powered RAW processing engineered for professional photographers. 
-                Preserve texture, enhance color, deliver results.
+                AI-powered RAW processing engineered for professional
+                photographers. Preserve texture, enhance color, deliver results.
               </motion.p>
 
               {/* CTA Buttons */}
@@ -322,11 +344,15 @@ export default function HomePage() {
                 className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto"
               >
                 {[
-                  { label: 'RAW Support', value: 'CR3, ARW, NEF, DNG' },
-                  { label: 'Color Depth', value: '16-bit' },
-                  { label: 'Processing', value: '< 300ms' }
+                  { label: "RAW Support", value: "CR3, ARW, NEF, DNG" },
+                  { label: "Color Depth", value: "16-bit" },
+                  { label: "Processing", value: "< 300ms" },
                 ].map((item, i) => (
-                  <Frame key={i} accent={i === 0} className="bg-[hsl(var(--card))] p-5">
+                  <Frame
+                    key={i}
+                    accent={i === 0}
+                    className="bg-[hsl(var(--card))] p-5"
+                  >
                     <div className="font-mono text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-2">
                       {item.label}
                     </div>
@@ -367,7 +393,8 @@ export default function HomePage() {
                   <FadeIn>Professional Capabilities</FadeIn>
                 </h2>
                 <p className="font-body text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto">
-                  Advanced processing powered by distributed GPU clusters and neural networks trained on millions of editorial images.
+                  Advanced processing powered by distributed GPU clusters and
+                  neural networks trained on millions of editorial images.
                 </p>
               </motion.div>
 
@@ -423,10 +450,30 @@ export default function HomePage() {
                 transition={{ duration: 0.6 }}
                 className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 max-w-6xl mx-auto"
               >
-                <StatCounter value="5" suffix="M+" label="Photos Processed" index={0} />
-                <StatCounter value="300" suffix="ms" label="Average Time" index={1} />
-                <StatCounter value="99.9" suffix="%" label="Satisfaction" index={2} />
-                <StatCounter value="16" suffix="-bit" label="Color Depth" index={3} />
+                <StatCounter
+                  value="5"
+                  suffix="M+"
+                  label="Photos Processed"
+                  index={0}
+                />
+                <StatCounter
+                  value="300"
+                  suffix="ms"
+                  label="Average Time"
+                  index={1}
+                />
+                <StatCounter
+                  value="99.9"
+                  suffix="%"
+                  label="Satisfaction"
+                  index={2}
+                />
+                <StatCounter
+                  value="16"
+                  suffix="-bit"
+                  label="Color Depth"
+                  index={3}
+                />
               </motion.div>
             </div>
           </section>
@@ -456,30 +503,30 @@ export default function HomePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
                   {
-                    step: '01',
+                    step: "01",
                     icon: Upload,
-                    title: 'Upload RAW',
-                    desc: 'Drag and drop your RAW photos or select from your device. Support for all major formats.'
+                    title: "Upload RAW",
+                    desc: "Drag and drop your RAW photos or select from your device. Support for all major formats.",
                   },
                   {
-                    step: '02',
+                    step: "02",
                     icon: Sparkles,
-                    title: 'AI Enhancement',
-                    desc: 'Our neural network automatically enhances your photos while preserving natural texture.'
+                    title: "AI Enhancement",
+                    desc: "Our neural network automatically enhances your photos while preserving natural texture.",
                   },
                   {
-                    step: '03',
+                    step: "03",
                     icon: Download,
-                    title: 'Export Results',
-                    desc: 'Download in your preferred format with full quality. JPG for web, TIFF for print.'
-                  }
+                    title: "Export Results",
+                    desc: "Download in your preferred format with full quality. JPG for web, TIFF for print.",
+                  },
                 ].map((item, i) => (
                   <IndustrialCard key={i} className="p-8 relative">
                     {/* Step number */}
                     <div className="absolute -top-3 -left-3 font-mono text-4xl font-bold text-[hsl(var(--gold))]/20">
                       {item.step}
                     </div>
-                    
+
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
@@ -511,14 +558,21 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.7 }}
               >
-                <Frame accent className="bg-[hsl(var(--card))] p-16 md:p-24 text-center max-w-4xl mx-auto">
+                <Frame
+                  accent
+                  className="bg-[hsl(var(--card))] p-16 md:p-24 text-center max-w-4xl mx-auto"
+                >
                   {/* Amber icon */}
                   <motion.div
-                    animate={{ 
+                    animate={{
                       rotate: [0, 360],
-                      scale: [1, 1.1, 1]
+                      scale: [1, 1.1, 1],
                     }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                     className="w-20 h-20 mx-auto mb-10 bg-[hsl(var(--gold))] rounded-sm flex items-center justify-center amber-glow"
                   >
                     <Sparkles className="w-10 h-10 text-[hsl(var(--charcoal))]" />
@@ -527,12 +581,16 @@ export default function HomePage() {
                   <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
                     <FadeIn>Create Something Extraordinary</FadeIn>
                   </h2>
-                  
+
                   <p className="font-body text-xl text-[hsl(var(--muted-foreground))] max-w-xl mx-auto mb-10 leading-relaxed">
-                    Start transforming your RAW files into gallery-worthy masterpieces with AI-powered precision.
+                    Start transforming your RAW files into gallery-worthy
+                    masterpieces with AI-powered precision.
                   </p>
 
-                  <AmberButton className="px-12 py-5 text-sm rounded-sm" href="/login">
+                  <AmberButton
+                    className="px-12 py-5 text-sm rounded-sm"
+                    href="/login"
+                  >
                     Begin Your Journey
                     <ArrowRight className="w-4 h-4" />
                   </AmberButton>
@@ -550,7 +608,11 @@ export default function HomePage() {
               <div className="flex items-center gap-3">
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  transition={{
+                    duration: 20,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
                   className="w-10 h-10 bg-[hsl(var(--gold))] rounded-sm flex items-center justify-center"
                 >
                   <Aperture className="w-5 h-5 text-[hsl(var(--charcoal))]" />

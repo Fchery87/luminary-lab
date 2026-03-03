@@ -2,8 +2,8 @@
  * Slow query detection and alerting
  */
 
-import { logger } from './logger';
-import { metricsCollector } from './metrics';
+import { logger } from "./logger";
+import { metricsCollector } from "./metrics";
 
 export interface SlowQueryAlert {
   query: string;
@@ -27,7 +27,7 @@ class QueryMonitor {
   checkQuery(
     query: string,
     duration: number,
-    tags: Record<string, string> = {}
+    tags: Record<string, string> = {},
   ): SlowQueryAlert | null {
     let alert: SlowQueryAlert | null = null;
 
@@ -37,38 +37,36 @@ class QueryMonitor {
         duration,
         threshold: this.thresholds.critical,
         timestamp: Date.now(),
-        tags: { ...tags, severity: 'critical' },
+        tags: { ...tags, severity: "critical" },
       };
 
       logger.error(
-        'CRITICAL: Slow query detected',
-        new Error(
-          `Query took ${duration}ms (>${this.thresholds.critical}ms)`
-        ),
+        "CRITICAL: Slow query detected",
+        new Error(`Query took ${duration}ms (>${this.thresholds.critical}ms)`),
         {
           query,
           duration,
-          severity: 'critical',
-        }
+          severity: "critical",
+        },
       );
 
-      metricsCollector.record('query.slow_critical', duration, 'ms', { query });
+      metricsCollector.record("query.slow_critical", duration, "ms", { query });
     } else if (duration >= this.thresholds.warning) {
       alert = {
         query,
         duration,
         threshold: this.thresholds.warning,
         timestamp: Date.now(),
-        tags: { ...tags, severity: 'warning' },
+        tags: { ...tags, severity: "warning" },
       };
 
-      logger.warn('Slow query detected', {
+      logger.warn("Slow query detected", {
         query,
         duration,
-        severity: 'warning',
+        severity: "warning",
       });
 
-      metricsCollector.record('query.slow_warning', duration, 'ms', { query });
+      metricsCollector.record("query.slow_warning", duration, "ms", { query });
     }
 
     if (alert) {
@@ -88,9 +86,10 @@ class QueryMonitor {
   /**
    * Get recent slow query alerts
    */
-  getAlerts(
-    filter?: { severity?: 'critical' | 'warning'; minDuration?: number }
-  ): SlowQueryAlert[] {
+  getAlerts(filter?: {
+    severity?: "critical" | "warning";
+    minDuration?: number;
+  }): SlowQueryAlert[] {
     return this.alerts.filter((alert) => {
       if (filter?.severity && alert.tags?.severity !== filter.severity)
         return false;
@@ -112,10 +111,9 @@ class QueryMonitor {
   } {
     return {
       total: this.alerts.length,
-      critical: this.alerts.filter((a) => a.tags?.severity === 'critical')
+      critical: this.alerts.filter((a) => a.tags?.severity === "critical")
         .length,
-      warning: this.alerts.filter((a) => a.tags?.severity === 'warning')
-        .length,
+      warning: this.alerts.filter((a) => a.tags?.severity === "warning").length,
       averageDuration:
         this.alerts.length > 0
           ? this.alerts.reduce((sum, a) => sum + a.duration, 0) /
@@ -124,7 +122,7 @@ class QueryMonitor {
       slowestQuery:
         this.alerts.length > 0
           ? this.alerts.reduce((max, a) =>
-              a.duration > max.duration ? a : max
+              a.duration > max.duration ? a : max,
             )
           : null,
     };
@@ -134,10 +132,7 @@ class QueryMonitor {
     this.alerts = [];
   }
 
-  setThresholds(thresholds: {
-    critical?: number;
-    warning?: number;
-  }): void {
+  setThresholds(thresholds: { critical?: number; warning?: number }): void {
     if (thresholds.critical) this.thresholds.critical = thresholds.critical;
     if (thresholds.warning) this.thresholds.warning = thresholds.warning;
   }
@@ -152,7 +147,7 @@ export function monitorQuery(name: string) {
   return function <T extends any[], R>(
     target: any,
     propertyKey: string,
-    descriptor: PropertyDescriptor
+    descriptor: PropertyDescriptor,
   ) {
     const originalMethod = descriptor.value;
 
@@ -161,11 +156,11 @@ export function monitorQuery(name: string) {
       try {
         const result = await originalMethod.apply(this, args);
         const duration = performance.now() - start;
-        queryMonitor.checkQuery(name, duration, { type: 'success' });
+        queryMonitor.checkQuery(name, duration, { type: "success" });
         return result;
       } catch (error) {
         const duration = performance.now() - start;
-        queryMonitor.checkQuery(name, duration, { type: 'error' });
+        queryMonitor.checkQuery(name, duration, { type: "error" });
         throw error;
       }
     };

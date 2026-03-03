@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db, systemStyles } from '@/db';
-import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { db, systemStyles } from "@/db";
+import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 const updatePresetSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -17,7 +17,7 @@ const updatePresetSchema = z.object({
 // PUT - Update preset (admin only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -27,18 +27,25 @@ export async function PUT(
     });
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isAdmin = session.user.email?.endsWith('@admin.com') ||
-                  session.user.email === 'admin@luminarylab.com';
+    const isAdmin =
+      session.user.email?.endsWith("@admin.com") ||
+      session.user.email === "admin@luminarylab.com";
 
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: "Admin access required" },
+        { status: 403 },
+      );
     }
 
     if (!id) {
-      return NextResponse.json({ error: 'Preset ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Preset ID required" },
+        { status: 400 },
+      );
     }
 
     const body = await request.json();
@@ -46,8 +53,8 @@ export async function PUT(
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validated.error },
-        { status: 400 }
+        { error: "Invalid request data", details: validated.error },
+        { status: 400 },
       );
     }
 
@@ -59,10 +66,7 @@ export async function PUT(
       .limit(1);
 
     if (!existingPreset) {
-      return NextResponse.json(
-        { error: 'Preset not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Preset not found" }, { status: 404 });
     }
 
     // Update preset
@@ -79,12 +83,11 @@ export async function PUT(
       success: true,
       preset: updatedPreset,
     });
-
   } catch (error) {
-    console.error('Update preset error:', error);
+    console.error("Update preset error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
@@ -92,7 +95,7 @@ export async function PUT(
 // DELETE - Delete preset (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -102,18 +105,25 @@ export async function DELETE(
     });
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isAdmin = session.user.email?.endsWith('@admin.com') ||
-                  session.user.email === 'admin@luminarylab.com';
+    const isAdmin =
+      session.user.email?.endsWith("@admin.com") ||
+      session.user.email === "admin@luminarylab.com";
 
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: "Admin access required" },
+        { status: 403 },
+      );
     }
 
     if (!id) {
-      return NextResponse.json({ error: 'Preset ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Preset ID required" },
+        { status: 400 },
+      );
     }
 
     // Check if preset exists
@@ -124,10 +134,7 @@ export async function DELETE(
       .limit(1);
 
     if (!existingPreset) {
-      return NextResponse.json(
-        { error: 'Preset not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Preset not found" }, { status: 404 });
     }
 
     // Delete preset
@@ -135,14 +142,13 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Preset deleted successfully',
+      message: "Preset deleted successfully",
     });
-
   } catch (error) {
-    console.error('Delete preset error:', error);
+    console.error("Delete preset error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
@@ -150,7 +156,7 @@ export async function DELETE(
 // PATCH - Toggle active status (admin only)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -160,27 +166,34 @@ export async function PATCH(
     });
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isAdmin = session.user.email?.endsWith('@admin.com') ||
-                  session.user.email === 'admin@luminarylab.com';
+    const isAdmin =
+      session.user.email?.endsWith("@admin.com") ||
+      session.user.email === "admin@luminarylab.com";
 
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: "Admin access required" },
+        { status: 403 },
+      );
     }
 
     if (!id) {
-      return NextResponse.json({ error: 'Preset ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Preset ID required" },
+        { status: 400 },
+      );
     }
 
     const body = await request.json();
     const { isActive } = body;
 
-    if (typeof isActive !== 'boolean') {
+    if (typeof isActive !== "boolean") {
       return NextResponse.json(
-        { error: 'isActive must be a boolean' },
-        { status: 400 }
+        { error: "isActive must be a boolean" },
+        { status: 400 },
       );
     }
 
@@ -192,10 +205,7 @@ export async function PATCH(
       .limit(1);
 
     if (!existingPreset) {
-      return NextResponse.json(
-        { error: 'Preset not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Preset not found" }, { status: 404 });
     }
 
     // Update active status
@@ -212,12 +222,11 @@ export async function PATCH(
       success: true,
       preset: updatedPreset,
     });
-
   } catch (error) {
-    console.error('Toggle preset status error:', error);
+    console.error("Toggle preset status error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

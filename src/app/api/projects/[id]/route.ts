@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
-import { getDb } from '@/db';
-import { projects, images } from '@/db/schema';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import { eq, and } from 'drizzle-orm';
-import { generateDownloadUrl } from '@/lib/s3';
+import { NextResponse } from "next/server";
+import { getDb } from "@/db";
+import { projects, images } from "@/db/schema";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { eq, and } from "drizzle-orm";
+import { generateDownloadUrl } from "@/lib/s3";
 
 // Helper to validate session and getting DB
 async function getContext(req: Request, params: { id: string }) {
@@ -13,7 +13,7 @@ async function getContext(req: Request, params: { id: string }) {
   });
 
   if (!session?.user) {
-    return { error: new NextResponse('Unauthorized', { status: 401 }) };
+    return { error: new NextResponse("Unauthorized", { status: 401 }) };
   }
 
   const db = getDb();
@@ -23,12 +23,12 @@ async function getContext(req: Request, params: { id: string }) {
     .select()
     .from(projects)
     .where(
-      and(eq(projects.id, params.id), eq(projects.userId, session.user.id))
+      and(eq(projects.id, params.id), eq(projects.userId, session.user.id)),
     )
     .limit(1);
 
   if (!project) {
-    return { error: new NextResponse('Project not found', { status: 404 }) };
+    return { error: new NextResponse("Project not found", { status: 404 }) };
   }
 
   return { session, db, project };
@@ -36,7 +36,7 @@ async function getContext(req: Request, params: { id: string }) {
 
 export async function GET(
   req: Request,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   const params = await props.params;
   const { error, db, project } = await getContext(req, params);
@@ -53,7 +53,7 @@ export async function GET(
     projectImages.map(async (img) => ({
       ...img,
       url: await generateDownloadUrl(img.storageKey, 3600), // 1 hour expiry
-    }))
+    })),
   );
 
   // Construct response object
@@ -67,7 +67,7 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   const params = await props.params;
   const { error, db, project } = await getContext(req, params);
@@ -77,14 +77,14 @@ export async function DELETE(
     await db.delete(projects).where(eq(projects.id, project.id));
     return new NextResponse(null, { status: 204 });
   } catch (e) {
-    console.error('[PROJECT_DELETE]', e);
-    return new NextResponse('Internal Error', { status: 500 });
+    console.error("[PROJECT_DELETE]", e);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
 
 export async function PATCH(
   req: Request,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   const params = await props.params;
   const { error, db, project } = await getContext(req, params);
@@ -95,7 +95,7 @@ export async function PATCH(
     const { name } = body; // Only allow updating name for now
 
     if (!name) {
-      return new NextResponse('Name is required', { status: 400 });
+      return new NextResponse("Name is required", { status: 400 });
     }
 
     const [updatedProject] = await db
@@ -106,7 +106,7 @@ export async function PATCH(
 
     return NextResponse.json(updatedProject);
   } catch (e) {
-    console.error('[PROJECT_PDATE]', e);
-    return new NextResponse('Internal Error', { status: 500 });
+    console.error("[PROJECT_PDATE]", e);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }

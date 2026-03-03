@@ -24,13 +24,17 @@ export class FormValidator {
     if (!emailRegex.test(value)) {
       return {
         field: fieldName,
-        message: 'Please enter a valid email address',
+        message: "Please enter a valid email address",
       };
     }
     return null;
   }
 
-  static minLength(value: string, minLength: number, fieldName: string): ValidationError | null {
+  static minLength(
+    value: string,
+    minLength: number,
+    fieldName: string,
+  ): ValidationError | null {
     if (value.length < minLength) {
       return {
         field: fieldName,
@@ -40,7 +44,11 @@ export class FormValidator {
     return null;
   }
 
-  static maxLength(value: string, maxLength: number, fieldName: string): ValidationError | null {
+  static maxLength(
+    value: string,
+    maxLength: number,
+    fieldName: string,
+  ): ValidationError | null {
     if (value.length > maxLength) {
       return {
         field: fieldName,
@@ -50,7 +58,11 @@ export class FormValidator {
     return null;
   }
 
-  static fileSize(file: File, maxSize: number, fieldName: string): ValidationError | null {
+  static fileSize(
+    file: File,
+    maxSize: number,
+    fieldName: string,
+  ): ValidationError | null {
     if (file.size > maxSize) {
       const maxSizeMB = Math.round(maxSize / (1024 * 1024));
       return {
@@ -61,11 +73,15 @@ export class FormValidator {
     return null;
   }
 
-  static fileType(file: File, allowedTypes: string[], fieldName: string): ValidationError | null {
+  static fileType(
+    file: File,
+    allowedTypes: string[],
+    fieldName: string,
+  ): ValidationError | null {
     if (!allowedTypes.includes(file.type)) {
       return {
         field: fieldName,
-        message: 'Invalid file type',
+        message: "Invalid file type",
       };
     }
     return null;
@@ -73,7 +89,7 @@ export class FormValidator {
 
   static validateRules<T extends Record<string, any>>(
     data: T,
-    rules: Array<(value: any, fieldName: string) => ValidationError | null>
+    rules: Array<(value: any, fieldName: string) => ValidationError | null>,
   ): ValidationResult {
     const errors: ValidationError[] = [];
 

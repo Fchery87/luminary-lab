@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import {
   generateUploadUrl,
   generateFileKey,
@@ -11,17 +11,20 @@ import {
   calculatePartCount,
   generatePartUploadUrl,
   DEFAULT_MULTIPART_CONFIG,
-} from '@/lib/s3';
-import { db, projects, images, multipartUploads } from '@/db';
-import { v7 as uuidv7 } from 'uuid';
-import { z } from 'zod';
-import { withUsageLimits } from '@/lib/usage-limits';
-import { validateRawFile, generateProjectName } from '@/lib/raw-metadata';
-import { AuditLogger } from '@/lib/audit-logger';
-import { detectMimeType } from '@/lib/mime-types';
-import { eq } from 'drizzle-orm';
-import { checkUploadRateLimit, checkUploadBytesRateLimit } from '@/lib/rate-limit';
-import { logger } from '@/lib/logger';
+} from "@/lib/s3";
+import { db, projects, images, multipartUploads } from "@/db";
+import { v7 as uuidv7 } from "uuid";
+import { z } from "zod";
+import { withUsageLimits } from "@/lib/usage-limits";
+import { validateRawFile, generateProjectName } from "@/lib/raw-metadata";
+import { AuditLogger } from "@/lib/audit-logger";
+import { detectMimeType } from "@/lib/mime-types";
+import { eq } from "drizzle-orm";
+import {
+  checkUploadRateLimit,
+  checkUploadBytesRateLimit,
+} from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 const uploadSchema = z.object({
   filename: z.string().min(1),
@@ -42,7 +45,7 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     });
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     userId = session.user.id;
@@ -52,8 +55,8 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validated.error },
-        { status: 400 }
+        { error: "Invalid request data", details: validated.error },
+        { status: 400 },
       );
     }
 
@@ -64,51 +67,60 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     // Check rate limits
     const uploadCountLimitCheck = await checkUploadRateLimit(userId);
     if (!uploadCountLimitCheck.success) {
-      logger.warn('Rate limit exceeded: upload count', {
+      logger.warn("Rate limit exceeded: upload count", {
         userId,
-        retryAfter: uploadCountLimitCheck.retryAfter
+        retryAfter: uploadCountLimitCheck.retryAfter,
       });
-      
+
       return NextResponse.json(
         {
-          error: 'Rate limit exceeded',
-          message: `Too many uploads. Max 10 per hour. Retry in ${uploadCountLimitCheck.retryAfter}s`
+          error: "Rate limit exceeded",
+          message: `Too many uploads. Max 10 per hour. Retry in ${uploadCountLimitCheck.retryAfter}s`,
         },
         {
           status: 429,
           headers: {
-            'Retry-After': String(uploadCountLimitCheck.retryAfter),
-            'X-RateLimit-Limit': String(uploadCountLimitCheck.limit),
-            'X-RateLimit-Remaining': String(uploadCountLimitCheck.remaining),
-            'X-RateLimit-Reset': new Date(uploadCountLimitCheck.resetTime).toISOString()
-          }
-        }
+            "Retry-After": String(uploadCountLimitCheck.retryAfter),
+            "X-RateLimit-Limit": String(uploadCountLimitCheck.limit),
+            "X-RateLimit-Remaining": String(uploadCountLimitCheck.remaining),
+            "X-RateLimit-Reset": new Date(
+              uploadCountLimitCheck.resetTime,
+            ).toISOString(),
+          },
+        },
       );
     }
 
-    const uploadBytesLimitCheck = await checkUploadBytesRateLimit(userId, fileSize);
+    const uploadBytesLimitCheck = await checkUploadBytesRateLimit(
+      userId,
+      fileSize,
+    );
     if (!uploadBytesLimitCheck.success) {
-      logger.warn('Rate limit exceeded: upload bytes', {
+      logger.warn("Rate limit exceeded: upload bytes", {
         userId,
         fileSize,
         remaining: uploadBytesLimitCheck.remaining,
-        retryAfter: uploadBytesLimitCheck.retryAfter
+        retryAfter: uploadBytesLimitCheck.retryAfter,
       });
-      
+
       return NextResponse.json(
         {
-          error: 'Storage quota exceeded',
-          message: `Upload would exceed your 5GB/hour limit. ${(uploadBytesLimitCheck.remaining / (1024 * 1024 * 1024)).toFixed(2)}GB remaining.`
+          error: "Storage quota exceeded",
+          message: `Upload would exceed your 5GB/hour limit. ${(uploadBytesLimitCheck.remaining / (1024 * 1024 * 1024)).toFixed(2)}GB remaining.`,
         },
         {
           status: 429,
           headers: {
-            'Retry-After': String(uploadBytesLimitCheck.retryAfter),
-            'X-RateLimit-Bytes-Limit': String(uploadBytesLimitCheck.limit),
-            'X-RateLimit-Bytes-Remaining': String(uploadBytesLimitCheck.remaining),
-            'X-RateLimit-Reset': new Date(uploadBytesLimitCheck.resetTime).toISOString()
-          }
-        }
+            "Retry-After": String(uploadBytesLimitCheck.retryAfter),
+            "X-RateLimit-Bytes-Limit": String(uploadBytesLimitCheck.limit),
+            "X-RateLimit-Bytes-Remaining": String(
+              uploadBytesLimitCheck.remaining,
+            ),
+            "X-RateLimit-Reset": new Date(
+              uploadBytesLimitCheck.resetTime,
+            ).toISOString(),
+          },
+        },
       );
     }
 
@@ -118,16 +130,16 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     // Validate file type (RAW only)
     if (!finalMimeType || !isValidRawFile(finalMimeType)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only RAW files are allowed.' },
-        { status: 400 }
+        { error: "Invalid file type. Only RAW files are allowed." },
+        { status: 400 },
       );
     }
 
     // Validate file size (100MB max)
     if (fileSize > 100 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 100MB.' },
-        { status: 400 }
+        { error: "File too large. Maximum size is 100MB." },
+        { status: 400 },
       );
     }
 
@@ -141,21 +153,22 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     try {
       const validation = validateRawFile(filename, finalMimeType);
       if (!validation.isValid) {
-        console.warn('RAW file validation warnings:', validation.errors);
+        console.warn("RAW file validation warnings:", validation.errors);
       }
     } catch (error) {
-      console.error('RAW file validation failed:', error);
+      console.error("RAW file validation failed:", error);
     }
 
     // Generate project name from provided name or use a default
-    const projectFinalName = projectName || `Project ${new Date().toLocaleDateString()}`;
+    const projectFinalName =
+      projectName || `Project ${new Date().toLocaleDateString()}`;
 
     // Create project in database
     await db.insert(projects).values({
       id: projectId,
       userId: userId!,
       name: projectFinalName,
-      status: 'pending',
+      status: "pending",
     });
 
     // Handle multipart upload for large files
@@ -166,7 +179,7 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
         filename!,
         finalMimeType,
         fileSize,
-        request
+        request,
       );
     }
 
@@ -177,32 +190,32 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
       filename!,
       finalMimeType,
       fileSize,
-      request
+      request,
     );
   } catch (error) {
-    console.error('Upload error:', error);
-    
+    console.error("Upload error:", error);
+
     // Log failed upload
     try {
       await AuditLogger.logFailure(
-        'file_upload',
-        'image',
+        "file_upload",
+        "image",
         error instanceof Error ? error.message : String(error),
         userId,
         projectId,
         {
           filename,
-          fileSize
+          fileSize,
         },
-        request
+        request,
       );
     } catch (logError) {
-      console.error('Failed to log upload error:', logError);
+      console.error("Failed to log upload error:", logError);
     }
-    
+
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 });
@@ -217,18 +230,23 @@ async function handleSinglePartUpload(
   filename: string,
   mimeType: string,
   fileSize: number,
-  request: NextRequest
+  request: NextRequest,
 ): Promise<NextResponse> {
   // Generate file keys
-  const originalKey = generateFileKey(userId, projectId, filename, 'original');
-  const thumbnailKey = generateFileKey(userId, projectId, `thumb_${filename}`, 'thumbnail');
+  const originalKey = generateFileKey(userId, projectId, filename, "original");
+  const thumbnailKey = generateFileKey(
+    userId,
+    projectId,
+    `thumb_${filename}`,
+    "thumbnail",
+  );
 
   // Create image records (metadata will be populated after upload)
   await db.insert(images).values([
     {
       id: uuidv7(),
       projectId,
-      type: 'original',
+      type: "original",
       storageKey: originalKey,
       filename,
       sizeBytes: fileSize,
@@ -237,41 +255,44 @@ async function handleSinglePartUpload(
     {
       id: uuidv7(),
       projectId,
-      type: 'thumbnail',
+      type: "thumbnail",
       storageKey: thumbnailKey,
       filename: `thumb_${filename}`,
       sizeBytes: 0, // Will be updated after processing
-      mimeType: 'image/jpeg',
+      mimeType: "image/jpeg",
     },
   ]);
 
   // Generate signed URLs for upload
   const uploadUrl = await generateUploadUrl(originalKey, mimeType);
-  const thumbnailUploadUrl = await generateUploadUrl(thumbnailKey, 'image/jpeg');
+  const thumbnailUploadUrl = await generateUploadUrl(
+    thumbnailKey,
+    "image/jpeg",
+  );
 
   // Add usage limits info to response
   const usageLimits = (request as any).usageLimits || {};
 
   // Log successful upload initialization
   await AuditLogger.logSuccess(
-    'file_upload_init',
-    'image',
+    "file_upload_init",
+    "image",
     userId,
     projectId,
     {
       filename,
       fileSize,
       mimeType,
-      uploadType: 'single-part',
-      usageLimits
+      uploadType: "single-part",
+      usageLimits,
     },
-    request
+    request,
   );
 
   return NextResponse.json({
     success: true,
     projectId,
-    uploadType: 'single-part',
+    uploadType: "single-part",
     uploadUrl,
     thumbnailUploadUrl,
     fileKey: originalKey,
@@ -290,10 +311,10 @@ async function handleMultipartUpload(
   filename: string,
   mimeType: string,
   fileSize: number,
-  request: NextRequest
+  request: NextRequest,
 ): Promise<NextResponse> {
   // Generate file key
-  const originalKey = generateFileKey(userId, projectId, filename, 'original');
+  const originalKey = generateFileKey(userId, projectId, filename, "original");
 
   // Create multipart upload on S3
   const { uploadId } = await createMultipartUpload(originalKey, mimeType);
@@ -314,7 +335,7 @@ async function handleMultipartUpload(
     storageKey: originalKey,
     totalParts,
     uploadedParts: 0,
-    status: 'initiated',
+    status: "initiated",
   });
 
   // Generate presigned URLs for each part
@@ -329,8 +350,8 @@ async function handleMultipartUpload(
 
   // Log successful multipart upload initialization
   await AuditLogger.logSuccess(
-    'multipart_upload_init',
-    'image',
+    "multipart_upload_init",
+    "image",
     userId,
     projectId,
     {
@@ -340,16 +361,16 @@ async function handleMultipartUpload(
       uploadId,
       totalParts,
       chunkSize,
-      uploadType: 'multipart',
-      usageLimits
+      uploadType: "multipart",
+      usageLimits,
     },
-    request
+    request,
   );
 
   return NextResponse.json({
     success: true,
     projectId,
-    uploadType: 'multipart',
+    uploadType: "multipart",
     uploadId,
     fileKey: originalKey,
     totalParts,

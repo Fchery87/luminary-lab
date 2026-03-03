@@ -1,11 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db, projects, processingJobs, images, systemStyles } from '@/db';
-import { imageProcessingQueue, ImageProcessingJob } from '@/lib/queue';
-import { notifyJobStatusChange, notifyUserProjectUpdate } from '@/lib/websocket-server';
-import { z } from 'zod';
-import { v7 as uuidv7 } from 'uuid';
-import { eq, and } from 'drizzle-orm';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { db, projects, processingJobs, images, systemStyles } from "@/db";
+import { imageProcessingQueue, ImageProcessingJob } from "@/lib/queue";
+import {
+  notifyJobStatusChange,
+  notifyUserProjectUpdate,
+} from "@/lib/websocket-server";
+import { z } from "zod";
+import { v7 as uuidv7 } from "uuid";
+import { eq, and } from "drizzle-orm";
 
 const processSchema = z.object({
   projectId: z.string().min(1),
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -28,8 +31,8 @@ export async function POST(request: NextRequest) {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validated.error },
-        { status: 400 }
+        { error: "Invalid request data", details: validated.error },
+        { status: 400 },
       );
     }
 
@@ -43,8 +46,8 @@ export async function POST(request: NextRequest) {
 
     if (!project || project.userId !== session.user.id) {
       return NextResponse.json(
-        { error: 'Project not found or access denied' },
-        { status: 404 }
+        { error: "Project not found or access denied" },
+        { status: 404 },
       );
     }
 
@@ -52,15 +55,14 @@ export async function POST(request: NextRequest) {
     const [style] = await db
       .select()
       .from(systemStyles)
-      .where(and(
-        eq(systemStyles.id, presetId),
-        eq(systemStyles.isActive, true)
-      ));
+      .where(
+        and(eq(systemStyles.id, presetId), eq(systemStyles.isActive, true)),
+      );
 
     if (!style) {
       return NextResponse.json(
-        { error: 'Style not found or not active' },
-        { status: 404 }
+        { error: "Style not found or not active" },
+        { status: 404 },
       );
     }
 
@@ -68,15 +70,12 @@ export async function POST(request: NextRequest) {
     const [originalImage] = await db
       .select()
       .from(images)
-      .where(and(
-        eq(images.projectId, projectId),
-        eq(images.type, 'original')
-      ));
+      .where(and(eq(images.projectId, projectId), eq(images.type, "original")));
 
     if (!originalImage) {
       return NextResponse.json(
-        { error: 'Original image not found' },
-        { status: 404 }
+        { error: "Original image not found" },
+        { status: 404 },
       );
     }
 
@@ -88,7 +87,7 @@ export async function POST(request: NextRequest) {
       userId: session.user.id as any,
       styleId: presetId,
       intensity: intensity.toString(),
-      status: 'queued',
+      status: "queued",
     });
 
     // Add job to queue
@@ -101,7 +100,7 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
     };
 
-    const job = await imageProcessingQueue.add('process image', jobData, {
+    const job = await imageProcessingQueue.add("process image", jobData, {
       delay: 0,
       attempts: 3,
       removeOnComplete: true,
@@ -109,39 +108,39 @@ export async function POST(request: NextRequest) {
     });
 
     // Update project status
-    await db.update(projects)
-      .set({ status: 'processing' })
+    await db
+      .update(projects)
+      .set({ status: "processing" })
       .where(eq(projects.id, projectId));
 
     // Send real-time notifications
-    await notifyJobStatusChange(jobId, 'queued', {
+    await notifyJobStatusChange(jobId, "queued", {
       projectId,
       styleName: style.name,
       intensity: intensity * 100,
     });
 
     await notifyUserProjectUpdate(session.user.id, projectId, {
-      type: 'status_change',
+      type: "status_change",
       data: {
-        status: 'processing',
+        status: "processing",
         styleName: style.name,
         intensity: intensity * 100,
         jobId,
-      }
+      },
     });
 
     return NextResponse.json({
       success: true,
       jobId: job.id,
-      message: 'Processing started successfully',
-      estimatedTime: '2-3 minutes',
+      message: "Processing started successfully",
+      estimatedTime: "2-3 minutes",
     });
-
   } catch (error) {
-    console.error('Process error:', error);
+    console.error("Process error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

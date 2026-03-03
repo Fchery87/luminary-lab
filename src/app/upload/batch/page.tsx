@@ -1,17 +1,23 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function BatchUploadPage() {
   const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
-  const [batchName, setBatchName] = useState('');
-  const [batchDescription, setBatchDescription] = useState('');
+  const [batchName, setBatchName] = useState("");
+  const [batchDescription, setBatchDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,9 +26,9 @@ export default function BatchUploadPage() {
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
+    if (e.type === "dragenter" || e.type === "dragover") {
       setIsDragActive(true);
-    } else if (e.type === 'dragleave') {
+    } else if (e.type === "dragleave") {
       setIsDragActive(false);
     }
   };
@@ -34,7 +40,7 @@ export default function BatchUploadPage() {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const newFiles = Array.from(e.dataTransfer.files);
-      setFiles(prev => [...prev, ...newFiles].slice(0, 50));
+      setFiles((prev) => [...prev, ...newFiles].slice(0, 50));
       setError(null);
     }
   };
@@ -42,19 +48,19 @@ export default function BatchUploadPage() {
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...newFiles].slice(0, 50));
+      setFiles((prev) => [...prev, ...newFiles].slice(0, 50));
       setError(null);
     }
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (files.length === 0) {
-      setError('Please select at least one file');
+      setError("Please select at least one file");
       return;
     }
 
@@ -63,24 +69,24 @@ export default function BatchUploadPage() {
 
     try {
       const formData = new FormData();
-      files.forEach(file => formData.append('files', file));
-      if (batchName) formData.append('name', batchName);
-      if (batchDescription) formData.append('description', batchDescription);
+      files.forEach((file) => formData.append("files", file));
+      if (batchName) formData.append("name", batchName);
+      if (batchDescription) formData.append("description", batchDescription);
 
-      const response = await fetch('/api/batches', {
-        method: 'POST',
+      const response = await fetch("/api/batches", {
+        method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Upload failed');
+        throw new Error(data.error || "Upload failed");
       }
 
       const data = await response.json();
       router.push(`/batches/${data.batchId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setIsLoading(false);
     }
@@ -106,12 +112,14 @@ export default function BatchUploadPage() {
                 onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
                   isDragActive
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted-foreground/25'
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25"
                 }`}
               >
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Drag files here or click to browse</p>
+                  <p className="text-sm font-medium">
+                    Drag files here or click to browse
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     RAW images only • Max 100MB each • Up to 50 files
                   </p>
@@ -203,7 +211,9 @@ export default function BatchUploadPage() {
                 disabled={files.length === 0 || isLoading}
                 className="w-full"
               >
-                {isLoading ? 'Uploading...' : `Upload ${files.length} File${files.length !== 1 ? 's' : ''}`}
+                {isLoading
+                  ? "Uploading..."
+                  : `Upload ${files.length} File${files.length !== 1 ? "s" : ""}`}
               </Button>
             </form>
           </CardContent>

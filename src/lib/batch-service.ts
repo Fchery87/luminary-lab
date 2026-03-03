@@ -2,9 +2,9 @@
  * Batch service for creating and managing image upload batches
  */
 
-import { db, batches, processingJobs, users } from '@/db';
-import { eq } from 'drizzle-orm';
-import { logger } from './logger';
+import { db, batches, processingJobs, users } from "@/db";
+import { eq } from "drizzle-orm";
+import { logger } from "./logger";
 
 export interface CreateBatchInput {
   userId: string;
@@ -42,13 +42,13 @@ class BatchService {
       userId: input.userId as any,
       name: input.name,
       description: input.description,
-      status: 'pending',
+      status: "pending",
       totalJobs: 0,
       completedJobs: 0,
       failedJobs: 0,
     });
 
-    logger.info('Batch created', {
+    logger.info("Batch created", {
       batchId,
       userId: input.userId,
       name: input.name,
@@ -86,7 +86,7 @@ class BatchService {
       completedJobs: batch.completedJobs ?? 0,
       failedJobs: batch.failedJobs ?? 0,
       completedAt: batch.completedAt ?? undefined,
-      jobs: jobs.map(job => ({
+      jobs: jobs.map((job) => ({
         id: job.id,
         status: job.status,
         error: job.error ?? undefined,
@@ -114,14 +114,11 @@ class BatchService {
    */
   async updateBatchStatus(batchId: string, status: string): Promise<void> {
     const updateData: any = { status };
-    if (status === 'completed' || status === 'failed') {
+    if (status === "completed" || status === "failed") {
       updateData.completedAt = new Date();
     }
 
-    await db
-      .update(batches)
-      .set(updateData)
-      .where(eq(batches.id, batchId));
+    await db.update(batches).set(updateData).where(eq(batches.id, batchId));
   }
 
   /**
@@ -129,14 +126,14 @@ class BatchService {
    */
   async incrementJobCount(
     batchId: string,
-    increment: number = 1
+    increment: number = 1,
   ): Promise<void> {
     const [batch] = await db
       .select()
       .from(batches)
       .where(eq(batches.id, batchId));
 
-    if (!batch) throw new Error('Batch not found');
+    if (!batch) throw new Error("Batch not found");
 
     const currentTotal = batch.totalJobs ?? 0;
     await db
@@ -157,25 +154,25 @@ class BatchService {
       .where(eq(processingJobs.batchId, batchId));
 
     if (jobs.length === 0) {
-      await this.updateBatchStatus(batchId, 'pending');
+      await this.updateBatchStatus(batchId, "pending");
       return;
     }
 
-    const completed = jobs.filter((j) => j.status === 'completed').length;
-    const failed = jobs.filter((j) => j.status === 'failed').length;
-    const cancelled = jobs.filter((j) => j.status === 'cancelled').length;
+    const completed = jobs.filter((j) => j.status === "completed").length;
+    const failed = jobs.filter((j) => j.status === "failed").length;
+    const cancelled = jobs.filter((j) => j.status === "cancelled").length;
 
     let status: string;
     if (cancelled === jobs.length) {
-      status = 'cancelled';
+      status = "cancelled";
     } else if (failed === jobs.length) {
-      status = 'failed';
+      status = "failed";
     } else if (completed === jobs.length) {
-      status = 'completed';
+      status = "completed";
     } else if (failed > 0 || cancelled > 0) {
-      status = 'partial_failure';
+      status = "partial_failure";
     } else {
-      status = 'processing';
+      status = "processing";
     }
 
     await db
@@ -204,10 +201,10 @@ class BatchService {
       .from(processingJobs)
       .where(eq(processingJobs.batchId, batchId));
 
-    const completed = jobs.filter((j) => j.status === 'completed').length;
-    const failed = jobs.filter((j) => j.status === 'failed').length;
+    const completed = jobs.filter((j) => j.status === "completed").length;
+    const failed = jobs.filter((j) => j.status === "failed").length;
     const inProgress = jobs.filter(
-      (j) => j.status === 'processing' || j.status === 'queued'
+      (j) => j.status === "processing" || j.status === "queued",
     ).length;
 
     return {

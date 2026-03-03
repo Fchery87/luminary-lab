@@ -1,11 +1,22 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Download, Share2, Sliders, ArrowRight, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { PresetQuickSelect, type Preset } from '@/components/ui/preset-quick-select';
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  X,
+  Sparkles,
+  Download,
+  Share2,
+  Sliders,
+  ArrowRight,
+  ChevronRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  PresetQuickSelect,
+  type Preset,
+} from "@/components/ui/preset-quick-select";
 
 interface WhatsNextPanelProps {
   onApplyPreset?: (preset: Preset) => void;
@@ -21,40 +32,40 @@ interface WhatsNextPanelProps {
 
 const actions = [
   {
-    id: 'preset',
-    title: 'Apply a Preset',
-    description: 'Choose from our curated collection of professional styles',
+    id: "preset",
+    title: "Apply a Preset",
+    description: "Choose from our curated collection of professional styles",
     icon: Sparkles,
-    color: 'text-primary',
-    bgColor: 'bg-primary/10',
-    borderColor: 'border-primary/30',
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    borderColor: "border-primary/30",
   },
   {
-    id: 'settings',
-    title: 'Adjust Settings',
-    description: 'Fine-tune intensity and other parameters',
+    id: "settings",
+    title: "Adjust Settings",
+    description: "Fine-tune intensity and other parameters",
     icon: Sliders,
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-400/10',
-    borderColor: 'border-blue-400/30',
+    color: "text-blue-400",
+    bgColor: "bg-blue-400/10",
+    borderColor: "border-blue-400/30",
   },
   {
-    id: 'download',
-    title: 'Download',
-    description: 'Export your masterpiece in high resolution',
+    id: "download",
+    title: "Download",
+    description: "Export your masterpiece in high resolution",
     icon: Download,
-    color: 'text-green-400',
-    bgColor: 'bg-green-400/10',
-    borderColor: 'border-green-400/30',
+    color: "text-green-400",
+    bgColor: "bg-green-400/10",
+    borderColor: "border-green-400/30",
   },
   {
-    id: 'share',
-    title: 'Share',
-    description: 'Show off your work with the world',
+    id: "share",
+    title: "Share",
+    description: "Show off your work with the world",
     icon: Share2,
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-400/10',
-    borderColor: 'border-purple-400/30',
+    color: "text-purple-400",
+    bgColor: "bg-purple-400/10",
+    borderColor: "border-purple-400/30",
   },
 ];
 
@@ -80,15 +91,15 @@ export function WhatsNextPanel({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
         className={cn(
           "relative bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-sm overflow-hidden",
-          className
+          className,
         )}
       >
         {/* Gold accent line */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-        
+
         {/* Glow effect */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -112,7 +123,8 @@ export function WhatsNextPanel({
                 What&apos;s Next?
               </h3>
               <p className="text-sm text-muted-foreground">
-                Your image is ready! Here are some quick actions to get you started.
+                Your image is ready! Here are some quick actions to get you
+                started.
               </p>
             </div>
           </div>
@@ -167,16 +179,16 @@ export function WhatsNextPanel({
                     whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       switch (action.id) {
-                        case 'settings':
+                        case "settings":
                           onAdjustSettings?.();
                           break;
-                        case 'download':
+                        case "download":
                           onDownload?.();
                           break;
-                        case 'share':
+                        case "share":
                           onShare?.();
                           break;
-                        case 'preset':
+                        case "preset":
                           setShowQuickPresets(!showQuickPresets);
                           break;
                       }
@@ -185,11 +197,16 @@ export function WhatsNextPanel({
                       "group relative p-3 rounded-sm border text-left transition-all duration-200",
                       action.borderColor,
                       action.bgColor,
-                      "hover:shadow-md"
+                      "hover:shadow-md",
                     )}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={cn("flex-shrink-0 p-1.5 rounded-sm bg-background/50", action.color)}>
+                      <div
+                        className={cn(
+                          "flex-shrink-0 p-1.5 rounded-sm bg-background/50",
+                          action.color,
+                        )}
+                      >
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">

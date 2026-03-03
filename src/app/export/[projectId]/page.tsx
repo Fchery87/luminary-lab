@@ -1,109 +1,115 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   Download,
   ArrowLeft,
   CheckCircle,
   Settings,
   ImageIcon,
-} from 'lucide-react';
-import Link from 'next/link';
-import { toast } from 'sonner';
-import { Header } from '@/components/ui/header';
+} from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { Header } from "@/components/ui/header";
 
 export default function ExportPage() {
   const params = useParams();
   const projectId = params.projectId as string;
-  
-  const [format, setFormat] = useState('jpg');
-  const [quality, setQuality] = useState('high');
-  const [size, setSize] = useState('web');
+
+  const [format, setFormat] = useState("jpg");
+  const [quality, setQuality] = useState("high");
+  const [size, setSize] = useState("web");
   const [isExporting, setIsExporting] = useState(false);
 
   const formats = [
     {
-      value: 'jpg',
-      label: 'JPEG',
-      description: 'Best for web and email',
-      colorSpace: 'sRGB',
-      bitDepth: '8-bit',
+      value: "jpg",
+      label: "JPEG",
+      description: "Best for web and email",
+      colorSpace: "sRGB",
+      bitDepth: "8-bit",
     },
     {
-      value: 'tiff',
-      label: 'TIFF',
-      description: 'Professional printing',
-      colorSpace: 'ProPhoto RGB',
-      bitDepth: '16-bit',
+      value: "tiff",
+      label: "TIFF",
+      description: "Professional printing",
+      colorSpace: "ProPhoto RGB",
+      bitDepth: "16-bit",
     },
     {
-      value: 'png',
-      label: 'PNG',
-      description: 'Lossless compression',
-      colorSpace: 'sRGB',
-      bitDepth: '16-bit',
+      value: "png",
+      label: "PNG",
+      description: "Lossless compression",
+      colorSpace: "sRGB",
+      bitDepth: "16-bit",
     },
   ];
 
   const qualities = [
     {
-      value: 'standard',
-      label: 'Standard',
-      description: 'Fast export, good quality',
+      value: "standard",
+      label: "Standard",
+      description: "Fast export, good quality",
       settings: { jpeg: 85, tiff: 8, png: 6 },
     },
     {
-      value: 'high',
-      label: 'High',
-      description: 'Best balance',
+      value: "high",
+      label: "High",
+      description: "Best balance",
       settings: { jpeg: 95, tiff: 16, png: 8 },
     },
     {
-      value: 'ultra',
-      label: 'Ultra',
-      description: 'Maximum quality',
+      value: "ultra",
+      label: "Ultra",
+      description: "Maximum quality",
       settings: { jpeg: 100, tiff: 16, png: 8 },
     },
   ];
 
   const sizes = [
     {
-      value: 'web',
-      label: 'Web (2048px)',
-      description: 'Optimized for web use',
+      value: "web",
+      label: "Web (2048px)",
+      description: "Optimized for web use",
     },
     {
-      value: 'print',
-      label: 'Print (4000px)',
-      description: 'High resolution for printing',
+      value: "print",
+      label: "Print (4000px)",
+      description: "High resolution for printing",
     },
     {
-      value: 'original',
-      label: 'Original',
-      description: 'Full resolution',
+      value: "original",
+      label: "Original",
+      description: "Full resolution",
     },
   ];
 
-  const selectedFormat = formats.find(f => f.value === format);
-  const selectedQuality = qualities.find(q => q.value === quality);
-  const selectedSize = sizes.find(s => s.value === size);
+  const selectedFormat = formats.find((f) => f.value === format);
+  const selectedQuality = qualities.find((q) => q.value === quality);
+  const selectedSize = sizes.find((s) => s.value === size);
 
   const handleExport = async () => {
     setIsExporting(true);
-    
+
     try {
-      const response = await fetch('/api/export', {
-        method: 'POST',
-        credentials: 'include',
+      const response = await fetch("/api/export", {
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           projectId,
@@ -116,21 +122,21 @@ export default function ExportPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Export failed');
+        throw new Error(data.error || "Export failed");
       }
 
       // Trigger download
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = data.downloadUrl;
       link.download = data.fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      toast.success('Export completed successfully!');
+      toast.success("Export completed successfully!");
     } catch (error) {
-      console.error('Export error:', error);
-      toast.error(error instanceof Error ? error.message : 'Export failed');
+      console.error("Export error:", error);
+      toast.error(error instanceof Error ? error.message : "Export failed");
     } finally {
       setIsExporting(false);
     }
@@ -138,10 +144,7 @@ export default function ExportPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header
-        variant="minimal"
-        showUserMenu={true}
-      />
+      <Header variant="minimal" showUserMenu={true} />
 
       <main className="flex-1 container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
@@ -168,10 +171,15 @@ export default function ExportPage() {
                   {formats.map((f) => (
                     <div key={f.value} className="flex items-center space-x-2">
                       <RadioGroupItem value={f.value} id={f.value} />
-                      <Label htmlFor={f.value} className="flex-1 cursor-pointer">
+                      <Label
+                        htmlFor={f.value}
+                        className="flex-1 cursor-pointer"
+                      >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{f.label}</span>
-                          {format === f.value && <CheckCircle className="h-4 w-4 text-primary" />}
+                          {format === f.value && (
+                            <CheckCircle className="h-4 w-4 text-primary" />
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
                           {f.description}
@@ -200,17 +208,21 @@ export default function ExportPage() {
                   {qualities.map((q) => (
                     <div key={q.value} className="flex items-center space-x-2">
                       <RadioGroupItem value={q.value} id={q.value} />
-                      <Label htmlFor={q.value} className="flex-1 cursor-pointer">
+                      <Label
+                        htmlFor={q.value}
+                        className="flex-1 cursor-pointer"
+                      >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{q.label}</span>
-                          {quality === q.value && <CheckCircle className="h-4 w-4 text-primary" />}
+                          {quality === q.value && (
+                            <CheckCircle className="h-4 w-4 text-primary" />
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
                           {q.description}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          JPEG: {q.settings.jpeg}%, 
-                          TIFF: {q.settings.tiff}-bit, 
+                          JPEG: {q.settings.jpeg}%, TIFF: {q.settings.tiff}-bit,
                           PNG: {q.settings.png}-bit
                         </div>
                       </Label>
@@ -231,10 +243,15 @@ export default function ExportPage() {
                   {sizes.map((s) => (
                     <div key={s.value} className="flex items-center space-x-2">
                       <RadioGroupItem value={s.value} id={s.value} />
-                      <Label htmlFor={s.value} className="flex-1 cursor-pointer">
+                      <Label
+                        htmlFor={s.value}
+                        className="flex-1 cursor-pointer"
+                      >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{s.label}</span>
-                          {size === s.value && <CheckCircle className="h-4 w-4 text-primary" />}
+                          {size === s.value && (
+                            <CheckCircle className="h-4 w-4 text-primary" />
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
                           {s.description}
@@ -251,7 +268,9 @@ export default function ExportPage() {
           <Card className="mt-8">
             <CardHeader>
               <CardTitle>Export Summary</CardTitle>
-              <CardDescription>Review your settings before export</CardDescription>
+              <CardDescription>
+                Review your settings before export
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
@@ -264,14 +283,16 @@ export default function ExportPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Color Space:</span>
-                    <span className="text-sm">{selectedFormat?.colorSpace}</span>
+                    <span className="text-sm">
+                      {selectedFormat?.colorSpace}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Quality:</span>
                     <span className="text-sm">{selectedQuality?.label}</span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Resolution:</span>
@@ -298,7 +319,7 @@ export default function ExportPage() {
                       Back
                     </Link>
                   </Button>
-                  
+
                   <Button
                     onClick={handleExport}
                     disabled={isExporting}

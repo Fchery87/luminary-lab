@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import {
   uploadPart,
   listParts,
   completeMultipartUpload,
   abortMultipartUpload,
-} from '@/lib/s3';
+} from "@/lib/s3";
 import {
   db,
   multipartUploads,
@@ -14,20 +14,22 @@ import {
   tags,
   projectTags,
   projects,
-} from '@/db';
-import { v7 as uuidv7 } from 'uuid';
-import { z } from 'zod';
-import { withUsageLimits } from '@/lib/usage-limits';
-import { AuditLogger } from '@/lib/audit-logger';
+} from "@/db";
+import { v7 as uuidv7 } from "uuid";
+import { z } from "zod";
+import { withUsageLimits } from "@/lib/usage-limits";
+import { AuditLogger } from "@/lib/audit-logger";
 import {
   extractTagsFromMetadata,
   formatMetadataForDisplay,
   generateProjectName,
   extractMetadataFromS3,
-} from '@/lib/raw-metadata';
-import { detectMimeType } from '@/lib/mime-types';
-import { eq, and } from 'drizzle-orm';
-import { generateAndSaveThumbnails } from '@/lib/thumbnail-generator';
+} from "@/lib/raw-metadata";
+import { detectMimeType } from "@/lib/mime-types";
+import { eq, and } from "drizzle-orm";
+import { generateAndSaveThumbnails, downloadImageFromS3 } from "@/lib/thumbnail-generator";
+import { extractPreviewFromUpload, generatePreviewBlurHash } from "@/lib/preview-extractor";
+import { uploadFile } from "@/lib/s3";
 
 // Schema for registering a part upload
 const registerPartSchema = z.object({
@@ -62,7 +64,7 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
   });
 
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const userId = session.user.id;
@@ -71,38 +73,38 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
     const body = await request.json();
     const action = body.action;
 
-    if (action === 'register') {
+    if (action === "register") {
       return await handlePartRegistration(body, userId, request);
-    } else if (action === 'complete') {
+    } else if (action === "complete") {
       return await handleUploadCompletion(body, userId, request);
-    } else if (action === 'progress') {
+    } else if (action === "progress") {
       return await handleGetProgress(body, userId);
-    } else if (action === 'abort') {
+    } else if (action === "abort") {
       return await handleUploadAbort(body, userId, request);
     } else {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
   } catch (error) {
-    console.error('Chunk upload error:', error);
+    console.error("Chunk upload error:", error);
 
     // Log failed chunk upload
     try {
       await AuditLogger.logFailure(
-        'chunk_upload',
-        'image',
+        "chunk_upload",
+        "image",
         error instanceof Error ? error.message : String(error),
         userId,
         undefined,
         {},
-        request
+        request,
       );
     } catch (logError) {
-      console.error('Failed to log chunk upload error:', logError);
+      console.error("Failed to log chunk upload error:", logError);
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 });
@@ -113,14 +115,14 @@ export const POST = withUsageLimits(async (request: NextRequest) => {
 async function handlePartRegistration(
   body: any,
   userId: string,
-  request: NextRequest
+  request: NextRequest,
 ): Promise<NextResponse> {
   const validated = registerPartSchema.safeParse(body);
 
   if (!validated.success) {
     return NextResponse.json(
-      { error: 'Invalid part data', details: validated.error },
-      { status: 400 }
+      { error: "Invalid part data", details: validated.error },
+      { status: 400 },
     );
   }
 
@@ -133,12 +135,12 @@ async function handlePartRegistration(
     .where(
       and(
         eq(multipartUploads.uploadId, uploadId),
-        eq(multipartUploads.userId, userId)
-      )
+        eq(multipartUploads.userId, userId),
+      ),
     );
 
   if (!upload) {
-    return NextResponse.json({ error: 'Upload not found' }, { status: 404 });
+    return NextResponse.json({ error: "Upload not found" }, { status: 404 });
   }
 
   // Store part info in database
@@ -149,7 +151,7 @@ async function handlePartRegistration(
     partNumber,
     partEtag: etag,
     sizeBytes,
-    status: 'uploaded',
+    status: "uploaded",
   });
 
   // Update uploaded parts count
@@ -163,7 +165,7 @@ async function handlePartRegistration(
       .update(multipartUploads)
       .set({
         uploadedParts: (existingUpload.uploadedParts || 0) + 1,
-        status: 'in_progress',
+        status: "in_progress",
         updatedAt: new Date(),
       })
       .where(eq(multipartUploads.uploadId, uploadId));
@@ -171,8 +173,8 @@ async function handlePartRegistration(
 
   // Log part upload
   await AuditLogger.logSuccess(
-    'chunk_upload_part',
-    'image',
+    "chunk_upload_part",
+    "image",
     userId,
     upload.projectId,
     {
@@ -181,16 +183,16 @@ async function handlePartRegistration(
       sizeBytes,
       etag,
     },
-    request
+    request,
   );
 
   return NextResponse.json({
     success: true,
-    message: 'Part registered successfully',
+    message: "Part registered successfully",
     uploadedParts: (existingUpload?.uploadedParts || 0) + 1,
     totalParts: upload.totalParts,
     progress: Math.round(
-      (((existingUpload?.uploadedParts || 0) + 1) / upload.totalParts) * 100
+      (((existingUpload?.uploadedParts || 0) + 1) / upload.totalParts) * 100,
     ),
   });
 }
@@ -201,14 +203,14 @@ async function handlePartRegistration(
 async function handleUploadCompletion(
   body: any,
   userId: string,
-  request: NextRequest
+  request: NextRequest,
 ): Promise<NextResponse> {
   const validated = completeUploadSchema.safeParse(body);
 
   if (!validated.success) {
     return NextResponse.json(
-      { error: 'Invalid completion data', details: validated.error },
-      { status: 400 }
+      { error: "Invalid completion data", details: validated.error },
+      { status: 400 },
     );
   }
 
@@ -221,12 +223,12 @@ async function handleUploadCompletion(
     .where(
       and(
         eq(multipartUploads.uploadId, uploadId),
-        eq(multipartUploads.userId, userId)
-      )
+        eq(multipartUploads.userId, userId),
+      ),
     );
 
   if (!upload) {
-    return NextResponse.json({ error: 'Upload not found' }, { status: 404 });
+    return NextResponse.json({ error: "Upload not found" }, { status: 404 });
   }
 
   // Get all uploaded parts from database
@@ -238,11 +240,11 @@ async function handleUploadCompletion(
   if (parts.length !== upload.totalParts) {
     return NextResponse.json(
       {
-        error: 'Not all parts uploaded',
+        error: "Not all parts uploaded",
         uploadedParts: parts.length,
         totalParts: upload.totalParts,
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -254,7 +256,7 @@ async function handleUploadCompletion(
       etag: p.partEtag!,
     }));
 
-  console.log('[Multipart Completion] Starting multipart upload completion:', {
+  console.log("[Multipart Completion] Starting multipart upload completion:", {
     uploadId,
     storageKey: upload.storageKey,
     totalParts: partsArray.length,
@@ -265,9 +267,9 @@ async function handleUploadCompletion(
     const result = await completeMultipartUpload(
       upload.storageKey,
       uploadId,
-      partsArray
+      partsArray,
     );
-    console.log('[Multipart Completion] Successfully completed:', {
+    console.log("[Multipart Completion] Successfully completed:", {
       uploadId,
       storageKey: upload.storageKey,
       location: result.location,
@@ -276,7 +278,7 @@ async function handleUploadCompletion(
   } catch (s3Error) {
     const error = s3Error as any;
     console.error(
-      '[Multipart Completion] FAILED - S3 completeMultipartUpload failed:',
+      "[Multipart Completion] FAILED - S3 completeMultipartUpload failed:",
       {
         error,
         message: error.message,
@@ -286,20 +288,20 @@ async function handleUploadCompletion(
         uploadId,
         storageKey: upload.storageKey,
         partsProvided: partsArray.length,
-      }
+      },
     );
 
     const statusCode = error.$metadata?.httpStatusCode;
     const errorMessage =
       statusCode === 400
-        ? 'Invalid part data or ETags. Ensure all parts uploaded successfully.'
+        ? "Invalid part data or ETags. Ensure all parts uploaded successfully."
         : statusCode === 404
-        ? 'Upload not found or expired. Please try again.'
-        : error.message || 'Failed to complete upload on storage';
+          ? "Upload not found or expired. Please try again."
+          : error.message || "Failed to complete upload on storage";
 
     return NextResponse.json(
       { error: errorMessage, details: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -307,7 +309,7 @@ async function handleUploadCompletion(
   await db
     .update(multipartUploads)
     .set({
-      status: 'completed',
+      status: "completed",
       completedAt: new Date(),
       updatedAt: new Date(),
     })
@@ -321,7 +323,7 @@ async function handleUploadCompletion(
   await db.insert(images).values({
     id: uuidv7(),
     projectId,
-    type: 'original',
+    type: "original",
     storageKey: originalKey,
     filename,
     sizeBytes: fileSize,
@@ -334,10 +336,10 @@ async function handleUploadCompletion(
       projectId,
       originalKey,
       finalMimeType,
-      userId
+      userId,
     );
   } catch (thumbnailError) {
-    console.error('Thumbnail generation failed:', thumbnailError);
+    console.error("Thumbnail generation failed:", thumbnailError);
     // Don't fail the upload if thumbnail generation fails
   }
 
@@ -347,9 +349,9 @@ async function handleUploadCompletion(
     metadata = await extractMetadataFromS3(
       originalKey,
       filename,
-      finalMimeType
+      finalMimeType,
     );
-    console.log('Extracted metadata for', filename, ':', metadata);
+    console.log("Extracted metadata for", filename, ":", metadata);
 
     // Update image record with extracted metadata
     if (metadata) {
@@ -368,7 +370,7 @@ async function handleUploadCompletion(
         .from(projects)
         .where(eq(projects.id, projectId));
 
-      if (existingProject && existingProject.name.startsWith('Project ')) {
+      if (existingProject && existingProject.name.startsWith("Project ")) {
         const autoGeneratedName = generateProjectName(metadata);
         await db
           .update(projects)
@@ -377,9 +379,51 @@ async function handleUploadCompletion(
       }
     }
   } catch (metadataError) {
-    console.error('Metadata extraction failed:', metadataError);
+    console.error("Metadata extraction failed:", metadataError);
     // Don't fail the upload if metadata extraction fails
   }
+
+  // Generate preview image for real-time editing
+  try {
+    const originalBuffer = await downloadImageFromS3(originalKey);
+
+    const previewResult = await extractPreviewFromUpload(
+      originalBuffer,
+      finalMimeType,
+      { maxPreviewWidth: 1600, maxPreviewHeight: 1200, quality: 90 }
+    );
+
+    if (previewResult.hasPreview && previewResult.previewBuffer) {
+      const previewKey = `users/${userId}/projects/${projectId}/preview/${Date.now()}-preview.jpg`;
+
+      await uploadFile(previewKey, previewResult.previewBuffer, "image/jpeg");
+
+      const blurHash = await generatePreviewBlurHash(previewResult.previewBuffer);
+
+      await db.insert(images).values({
+        id: uuidv7(),
+        projectId,
+        type: "preview",
+        storageKey: previewKey,
+        filename: `preview_${projectId}.jpg`,
+        sizeBytes: previewResult.previewBuffer.length,
+        mimeType: "image/jpeg",
+        isPreview: true,
+        previewImageType: previewResult.previewType,
+        blurHash: blurHash || undefined,
+      });
+
+      console.log("Preview image generated and saved:", previewKey);
+    }
+  } catch (previewError) {
+    console.error("Preview generation failed:", previewError);
+  }
+
+  // Update project status to completed
+  await db
+    .update(projects)
+    .set({ status: "completed" })
+    .where(eq(projects.id, projectId));
 
   // Extract and store tags from metadata
   if (metadata) {
@@ -392,7 +436,7 @@ async function handleUploadCompletion(
 
       let tagId: string | undefined;
       const existingTag = existingTags.find(
-        (t) => t.name === tag.name && t.type === tag.type
+        (t) => t.name === tag.name && t.type === tag.type,
       );
 
       if (existingTag) {
@@ -422,8 +466,8 @@ async function handleUploadCompletion(
 
   // Log successful upload completion
   await AuditLogger.logSuccess(
-    'multipart_upload_complete',
-    'image',
+    "multipart_upload_complete",
+    "image",
     userId,
     projectId,
     {
@@ -433,12 +477,12 @@ async function handleUploadCompletion(
       totalParts: upload.totalParts,
       mimeType: finalMimeType,
     },
-    request
+    request,
   );
 
   return NextResponse.json({
     success: true,
-    message: 'Upload completed successfully',
+    message: "Upload completed successfully",
     projectId,
     filename,
     fileSize,
@@ -450,14 +494,14 @@ async function handleUploadCompletion(
  */
 async function handleGetProgress(
   body: any,
-  userId: string
+  userId: string,
 ): Promise<NextResponse> {
   const validated = progressSchema.safeParse(body);
 
   if (!validated.success) {
     return NextResponse.json(
-      { error: 'Invalid progress request', details: validated.error },
-      { status: 400 }
+      { error: "Invalid progress request", details: validated.error },
+      { status: 400 },
     );
   }
 
@@ -470,12 +514,12 @@ async function handleGetProgress(
     .where(
       and(
         eq(multipartUploads.uploadId, uploadId),
-        eq(multipartUploads.userId, userId)
-      )
+        eq(multipartUploads.userId, userId),
+      ),
     );
 
   if (!upload) {
-    return NextResponse.json({ error: 'Upload not found' }, { status: 404 });
+    return NextResponse.json({ error: "Upload not found" }, { status: 404 });
   }
 
   const parts = await db
@@ -484,7 +528,7 @@ async function handleGetProgress(
     .where(eq(uploadParts.uploadId, uploadId));
 
   const progress = Math.round(
-    ((upload.uploadedParts || 0) / upload.totalParts) * 100
+    ((upload.uploadedParts || 0) / upload.totalParts) * 100,
   );
 
   return NextResponse.json({
@@ -508,14 +552,14 @@ async function handleGetProgress(
 async function handleUploadAbort(
   body: any,
   userId: string,
-  request: NextRequest
+  request: NextRequest,
 ): Promise<NextResponse> {
   const validated = abortUploadSchema.safeParse(body);
 
   if (!validated.success) {
     return NextResponse.json(
-      { error: 'Invalid abort request', details: validated.error },
-      { status: 400 }
+      { error: "Invalid abort request", details: validated.error },
+      { status: 400 },
     );
   }
 
@@ -528,19 +572,19 @@ async function handleUploadAbort(
     .where(
       and(
         eq(multipartUploads.uploadId, uploadId),
-        eq(multipartUploads.userId, userId)
-      )
+        eq(multipartUploads.userId, userId),
+      ),
     );
 
   if (!upload) {
-    return NextResponse.json({ error: 'Upload not found' }, { status: 404 });
+    return NextResponse.json({ error: "Upload not found" }, { status: 404 });
   }
 
   // Abort multipart upload on S3
   try {
     await abortMultipartUpload(upload.storageKey, uploadId);
   } catch (s3Error) {
-    console.error('S3 abort failed:', s3Error);
+    console.error("S3 abort failed:", s3Error);
     // Continue anyway to clean up database
   }
 
@@ -548,27 +592,27 @@ async function handleUploadAbort(
   await db
     .update(multipartUploads)
     .set({
-      status: 'cancelled',
+      status: "cancelled",
       updatedAt: new Date(),
     })
     .where(eq(multipartUploads.uploadId, uploadId));
 
   // Log upload abort
   await AuditLogger.logSuccess(
-    'multipart_upload_abort',
-    'image',
+    "multipart_upload_abort",
+    "image",
     userId,
     upload.projectId,
     {
       uploadId,
       filename: upload.filename,
-      reason: 'Client requested abort',
+      reason: "Client requested abort",
     },
-    request
+    request,
   );
 
   return NextResponse.json({
     success: true,
-    message: 'Upload aborted successfully',
+    message: "Upload aborted successfully",
   });
 }

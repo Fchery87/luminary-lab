@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { Slider } from '@/components/ui/slider';
-import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import * as React from "react";
+import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface IntensitySliderProps {
   value: number;
@@ -27,15 +27,13 @@ export function IntensitySlider({
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
-    <div 
+    <div
       className={cn("w-full space-y-3", className)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex justify-between items-center">
-        <label className="text-sm font-medium text-foreground">
-          Intensity
-        </label>
+        <label className="text-sm font-medium text-foreground">Intensity</label>
         <AnimatePresence mode="wait">
           <motion.span
             key={value}
@@ -48,19 +46,19 @@ export function IntensitySlider({
           </motion.span>
         </AnimatePresence>
       </div>
-      
+
       <div className="relative group">
-         {/* Custom glow effect behind the slider */}
-        <div 
-            className={cn(
-                "absolute -inset-1 rounded-sm bg-gradient-to-r from-primary/20 to-primary/0 blur-md transition-opacity duration-300",
-                isHovered ? "opacity-100" : "opacity-0"
-            )}
-            style={{
-                width: `${(value / (max - min)) * 100}%`
-            }}
+        {/* Custom glow effect behind the slider */}
+        <div
+          className={cn(
+            "absolute -inset-1 rounded-sm bg-gradient-to-r from-primary/20 to-primary/0 blur-md transition-opacity duration-300",
+            isHovered ? "opacity-100" : "opacity-0",
+          )}
+          style={{
+            width: `${(value / (max - min)) * 100}%`,
+          }}
         />
-        
+
         <Slider
           value={[value]}
           onValueChange={(vals) => onValueChange(vals[0])}
@@ -71,7 +69,7 @@ export function IntensitySlider({
           className="relative z-10 cursor-pointer"
         />
       </div>
-      
+
       <div className="flex justify-between text-xs text-muted-foreground px-1">
         <span>Subtle</span>
         <span>Balanced</span>

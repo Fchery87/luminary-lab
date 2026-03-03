@@ -1,6 +1,6 @@
-import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { getDb, schema } from '@/db';
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { getDb, schema } from "@/db";
 
 type AuthInstance = ReturnType<typeof betterAuth>;
 
@@ -27,13 +27,13 @@ export function getAuth(): AuthInstance {
 
   authSingleton = betterAuth({
     database: drizzleAdapter(db, {
-      provider: 'pg',
+      provider: "pg",
       usePlural: true,
       schema,
     }),
     advanced: {
       database: {
-        generateId: 'uuid',
+        generateId: "uuid",
       },
     },
     emailAndPassword: {
@@ -53,9 +53,7 @@ export function getAuth(): AuthInstance {
         enabled: false,
       },
     },
-    ...(Object.keys(socialProviders).length
-      ? { socialProviders }
-      : {}),
+    ...(Object.keys(socialProviders).length ? { socialProviders } : {}),
   });
 
   return authSingleton;
@@ -67,5 +65,5 @@ export const auth = new Proxy(
     get(_target, prop) {
       return (getAuth() as any)[prop];
     },
-  }
+  },
 ) as unknown as AuthInstance;

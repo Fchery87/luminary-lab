@@ -1,11 +1,20 @@
-'use client';
+"use client";
 
-import { Button } from '@/components/ui/button';
-import { Header } from '@/components/ui/header';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Aperture, Layers, Cpu, ArrowRight, Camera, Zap, Shield, Check } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Header } from "@/components/ui/header";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Aperture,
+  Layers,
+  Cpu,
+  ArrowRight,
+  Camera,
+  Zap,
+  Shield,
+  Check,
+} from "lucide-react";
 
 export default function ModernHomePage() {
   return (
@@ -61,7 +70,9 @@ export default function ModernHomePage() {
               >
                 Advanced neural processing for professional photographers.
                 <br className="md:block" />
-                <span className="text-foreground font-medium">Zero latency. 16-bit fidelity.</span>
+                <span className="text-foreground font-medium">
+                  Zero latency. 16-bit fidelity.
+                </span>
               </motion.p>
 
               {/* Clean CTAs - No glow, no scale */}
@@ -77,7 +88,10 @@ export default function ModernHomePage() {
                   className="inline-block"
                 >
                   <Button className="bg-primary text-primary-foreground px-8 py-4 rounded-sm font-medium uppercase tracking-wide hover:-translate-y-[-2px] transition-all duration-200">
-                    <Link href="/register" className="text-inherit no-underline">
+                    <Link
+                      href="/register"
+                      className="text-inherit no-underline"
+                    >
                       Start Free Trial
                     </Link>
                   </Button>
@@ -87,7 +101,10 @@ export default function ModernHomePage() {
                   whileTap={{ scale: 0.98 }}
                   className="inline-block"
                 >
-                  <Button variant="outline" className="border-border/50 bg-background/50 hover:border-primary/30 hover:bg-primary/5 px-8 py-4 rounded-sm font-medium uppercase tracking-wide transition-colors duration-200">
+                  <Button
+                    variant="outline"
+                    className="border-border/50 bg-background/50 hover:border-primary/30 hover:bg-primary/5 px-8 py-4 rounded-sm font-medium uppercase tracking-wide transition-colors duration-200"
+                  >
                     <Link href="/login" className="text-inherit no-underline">
                       Sign In
                     </Link>
@@ -113,25 +130,29 @@ export default function ModernHomePage() {
                 {[
                   {
                     icon: Camera,
-                    title: 'RAW Processing',
-                    desc: 'Native CR3/ARW/NEF decoding with linear data processing for maximum dynamic range'
+                    title: "RAW Processing",
+                    desc: "Native CR3/ARW/NEF decoding with linear data processing for maximum dynamic range",
                   },
                   {
                     icon: Zap,
-                    title: 'Neural Engine',
-                    desc: 'Distributed GPU cluster for sub-300ms rendering with AI-enhanced results'
+                    title: "Neural Engine",
+                    desc: "Distributed GPU cluster for sub-300ms rendering with AI-enhanced results",
                   },
                   {
                     icon: Shield,
-                    title: 'Non-Destructive',
-                    desc: 'Layer-based operations with full revision history and atomic rollback'
-                  }
+                    title: "Non-Destructive",
+                    desc: "Layer-based operations with full revision history and atomic rollback",
+                  },
                 ].map((feature, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.1 }}
+                    transition={{
+                      duration: 0.4,
+                      ease: "easeOut",
+                      delay: i * 0.1,
+                    }}
                     className="group"
                   >
                     <div className="h-full p-8 border border-white/5 rounded-xl bg-card/50 hover:border-white/10 hover:bg-card/80 hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.06)] transition-all duration-300">
@@ -168,16 +189,20 @@ export default function ModernHomePage() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                 {[
-                  { num: '5M+', label: 'Photos Processed' },
-                  { num: '300ms', label: 'Average Time' },
-                  { num: '99.9%', label: 'Satisfaction Rate' },
-                  { num: '16-bit', label: 'Color Fidelity' }
+                  { num: "5M+", label: "Photos Processed" },
+                  { num: "300ms", label: "Average Time" },
+                  { num: "99.9%", label: "Satisfaction Rate" },
+                  { num: "16-bit", label: "Color Fidelity" },
                 ].map((stat, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.1 }}
+                    transition={{
+                      duration: 0.4,
+                      ease: "easeOut",
+                      delay: i * 0.1,
+                    }}
                     className="p-8"
                   >
                     <div className="text-5xl font-bold mb-2 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
@@ -203,7 +228,8 @@ export default function ModernHomePage() {
                   Ready to Transform Your Photos?
                 </h2>
                 <p className="text-muted-foreground max-w-xl mx-auto mb-8 leading-relaxed">
-                  Join thousands of professional photographers using Luminary Lab for AI-powered photo editing.
+                  Join thousands of professional photographers using Luminary
+                  Lab for AI-powered photo editing.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/register">
@@ -221,9 +247,7 @@ export default function ModernHomePage() {
                     className="border-border/50 bg-background/50 hover:border-primary/30 hover:bg-primary/5 px-10 py-4 rounded-sm font-medium uppercase tracking-wide transition-colors duration-200"
                     asChild
                   >
-                    <Link href="/login">
-                      View Examples
-                    </Link>
+                    <Link href="/login">View Examples</Link>
                   </Button>
                 </div>
               </motion.div>

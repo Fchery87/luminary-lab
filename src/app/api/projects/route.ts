@@ -1,12 +1,23 @@
-import { NextResponse } from 'next/server';
-import { getDb } from '@/db';
-import { projects, images, processingJobs, systemStyles, tags, projectTags } from '@/db/schema';
-import { auth } from '@/lib/auth'; // Ensure this path is correct for Better Auth
-import { headers } from 'next/headers';
-import { desc, eq, and, sql, or, like, gte, lte, count } from 'drizzle-orm';
-import { v7 as uuidv7 } from 'uuid';
-import { generateDownloadUrl } from '@/lib/s3';
-import { extractPaginationParams, getPaginatedResponse, calculateOffset } from '@/lib/pagination';
+import { NextResponse } from "next/server";
+import { getDb } from "@/db";
+import {
+  projects,
+  images,
+  processingJobs,
+  systemStyles,
+  tags,
+  projectTags,
+} from "@/db/schema";
+import { auth } from "@/lib/auth"; // Ensure this path is correct for Better Auth
+import { headers } from "next/headers";
+import { desc, eq, and, sql, or, like, gte, lte, count } from "drizzle-orm";
+import { v7 as uuidv7 } from "uuid";
+import { generateDownloadUrl } from "@/lib/s3";
+import {
+  extractPaginationParams,
+  getPaginatedResponse,
+  calculateOffset,
+} from "@/lib/pagination";
 
 export async function GET(req: Request) {
   try {
@@ -15,29 +26,29 @@ export async function GET(req: Request) {
     });
 
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const db = getDb();
     const { searchParams } = new URL(req.url);
 
     // Extract filter parameters
-    const searchQuery = searchParams.get('search') || '';
-    const cameraMake = searchParams.get('cameraMake');
-    const cameraModel = searchParams.get('cameraModel');
-    const lensModel = searchParams.get('lensModel');
-    const dateFrom = searchParams.get('dateFrom');
-    const dateTo = searchParams.get('dateTo');
-    const isoMin = searchParams.get('isoMin');
-    const isoMax = searchParams.get('isoMax');
-    const tag = searchParams.get('tag');
-    const filterStatus = searchParams.get('status') || 'all';
+    const searchQuery = searchParams.get("search") || "";
+    const cameraMake = searchParams.get("cameraMake");
+    const cameraModel = searchParams.get("cameraModel");
+    const lensModel = searchParams.get("lensModel");
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    const isoMin = searchParams.get("isoMin");
+    const isoMax = searchParams.get("isoMax");
+    const tag = searchParams.get("tag");
+    const filterStatus = searchParams.get("status") || "all";
 
     // Build filter conditions
     const conditions = [eq(projects.userId, session.user.id)];
 
     // Status filter
-    if (filterStatus !== 'all') {
+    if (filterStatus !== "all") {
       conditions.push(eq(projects.status, filterStatus));
     }
 
@@ -45,7 +56,7 @@ export async function GET(req: Request) {
     if (searchQuery) {
       // Search in project name
       const nameCondition = like(projects.name, `%${searchQuery}%`);
-      
+
       // Search in tags
       const tagCondition = sql`${tags.id} IN (
         SELECT pt.tag_id FROM ${projectTags} pt
@@ -74,23 +85,33 @@ export async function GET(req: Request) {
 
     // Camera make/model filter from metadata
     if (cameraMake || cameraModel) {
-      conditions.push(sql`(images.metadata->>'make')::text ILIKE ${`%${cameraMake || ''}%`}`);
+      conditions.push(
+        sql`(images.metadata->>'make')::text ILIKE ${`%${cameraMake || ""}%`}`,
+      );
       if (cameraModel) {
-        conditions.push(sql`(images.metadata->>'model')::text ILIKE ${`%${cameraModel}%`}`);
+        conditions.push(
+          sql`(images.metadata->>'model')::text ILIKE ${`%${cameraModel}%`}`,
+        );
       }
     }
 
     // Lens filter from metadata
     if (lensModel) {
-      conditions.push(sql`(images.metadata->>'lensModel')::text ILIKE ${`%${lensModel}%`}`);
+      conditions.push(
+        sql`(images.metadata->>'lensModel')::text ILIKE ${`%${lensModel}%`}`,
+      );
     }
 
     // ISO range filter from metadata
     if (isoMin) {
-      conditions.push(sql`(images.metadata->>'iso')::numeric >= ${parseInt(isoMin)}`);
+      conditions.push(
+        sql`(images.metadata->>'iso')::numeric >= ${parseInt(isoMin)}`,
+      );
     }
     if (isoMax) {
-      conditions.push(sql`(images.metadata->>'iso')::numeric <= ${parseInt(isoMax)}`);
+      conditions.push(
+        sql`(images.metadata->>'iso')::numeric <= ${parseInt(isoMax)}`,
+      );
     }
 
     // Extract and validate pagination params
@@ -119,19 +140,10 @@ export async function GET(req: Request) {
       .from(projects)
       .leftJoin(
         images,
-        and(
-          eq(images.projectId, projects.id),
-          eq(images.type, 'original')
-        )
+        and(eq(images.projectId, projects.id), eq(images.type, "original")),
       )
-      .leftJoin(
-        processingJobs,
-        eq(processingJobs.projectId, projects.id)
-      )
-      .leftJoin(
-        systemStyles,
-        eq(systemStyles.id, processingJobs.styleId)
-      )
+      .leftJoin(processingJobs, eq(processingJobs.projectId, projects.id))
+      .leftJoin(systemStyles, eq(systemStyles.id, processingJobs.styleId))
       .where(and(...conditions))
       .orderBy(desc(projects.createdAt))
       .limit(pagination.limit)
@@ -144,18 +156,16 @@ export async function GET(req: Request) {
           .select({ storageKey: images.storageKey })
           .from(images)
           .where(
-            and(
-              eq(images.projectId, project.id),
-              eq(images.type, 'thumbnail')
-            )
+            and(eq(images.projectId, project.id), eq(images.type, "thumbnail")),
           )
           .limit(1);
 
         return {
           ...project,
-          thumbnailUrl: thumbnail?.storageKey || project.originalStorageKey || null,
+          thumbnailUrl:
+            thumbnail?.storageKey || project.originalStorageKey || null,
         };
-      })
+      }),
     );
 
     // Get tags for each project
@@ -174,7 +184,7 @@ export async function GET(req: Request) {
           ...project,
           tags: projectTagsList,
         };
-      })
+      }),
     );
 
     // Generate signed URLs for thumbnails from S3 and convert intensity to number
@@ -184,16 +194,23 @@ export async function GET(req: Request) {
         thumbnailUrl: p.thumbnailUrl
           ? await generateDownloadUrl(p.thumbnailUrl, 3600) // 1 hour expiry
           : null,
-        intensity: p.intensity ? parseFloat(p.intensity as string) * 100 : undefined,
-      }))
+        intensity: p.intensity
+          ? parseFloat(p.intensity as string) * 100
+          : undefined,
+      })),
     );
 
     return NextResponse.json(
-      getPaginatedResponse(formattedProjects, pagination.page, pagination.limit, totalCount)
+      getPaginatedResponse(
+        formattedProjects,
+        pagination.page,
+        pagination.limit,
+        totalCount,
+      ),
     );
   } catch (error) {
-    console.error('[PROJECTS_GET]', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    console.error("[PROJECTS_GET]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
 
@@ -204,7 +221,7 @@ export async function POST(req: Request) {
     });
 
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const db = getDb();
@@ -212,7 +229,7 @@ export async function POST(req: Request) {
     // Create 'Untitled Project' or named from body
     // We expect the client to possibly send a name
     const body = await req.json().catch(() => ({}));
-    const name = body.name || 'Untitled Project';
+    const name = body.name || "Untitled Project";
 
     const [newProject] = await db
       .insert(projects)
@@ -220,13 +237,13 @@ export async function POST(req: Request) {
         id: uuidv7(),
         userId: session.user.id,
         name: name,
-        status: 'pending',
+        status: "pending",
       })
       .returning();
 
     return NextResponse.json(newProject);
   } catch (error) {
-    console.error('[PROJECTS_POST]', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    console.error("[PROJECTS_POST]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }

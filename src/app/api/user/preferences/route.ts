@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db, userPreferences, systemStyles } from '@/db';
-import { eq, and } from 'drizzle-orm';
-import { auth } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { db, userPreferences, systemStyles } from "@/db";
+import { eq, and } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 
 // GET /api/user/preferences - Fetch user preferences
 export async function GET(request: NextRequest) {
@@ -12,10 +12,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Fetch user preferences
@@ -23,7 +20,10 @@ export async function GET(request: NextRequest) {
       .select()
       .from(userPreferences)
       .where(eq(userPreferences.userId, session.user.id))
-      .leftJoin(systemStyles, eq(userPreferences.lastUsedPresetId, systemStyles.id))
+      .leftJoin(
+        systemStyles,
+        eq(userPreferences.lastUsedPresetId, systemStyles.id),
+      )
       .limit(1);
 
     if (preferences.length === 0) {
@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
         preferences: {
           lastUsedPreset: null,
           lastUsedPresetId: null,
-          preferredIntensity: 0.70,
-          preferredViewMode: 'split',
+          preferredIntensity: 0.7,
+          preferredViewMode: "split",
           dismissedWhatNext: false,
           preferences: {},
         },
@@ -45,14 +45,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       preferences: {
-        lastUsedPreset: pref.system_styles ? {
-          id: pref.system_styles.id,
-          name: pref.system_styles.name,
-          description: pref.system_styles.description,
-          exampleImageUrl: pref.system_styles.exampleImageUrl,
-          category: pref.system_styles.category,
-          blendingParams: pref.system_styles.blendingParams,
-        } : null,
+        lastUsedPreset: pref.system_styles
+          ? {
+              id: pref.system_styles.id,
+              name: pref.system_styles.name,
+              description: pref.system_styles.description,
+              exampleImageUrl: pref.system_styles.exampleImageUrl,
+              category: pref.system_styles.category,
+              blendingParams: pref.system_styles.blendingParams,
+            }
+          : null,
         lastUsedPresetId: pref.user_preferences.lastUsedPresetId,
         preferredIntensity: Number(pref.user_preferences.preferredIntensity),
         preferredViewMode: pref.user_preferences.preferredViewMode,
@@ -61,10 +63,10 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching user preferences:', error);
+    console.error("Error fetching user preferences:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch preferences' },
-      { status: 500 }
+      { error: "Failed to fetch preferences" },
+      { status: 500 },
     );
   }
 }
@@ -78,10 +80,7 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -109,8 +108,8 @@ export async function PUT(request: NextRequest) {
         .values({
           userId: session.user.id,
           lastUsedPresetId: lastUsedPresetId || null,
-          preferredIntensity: preferredIntensity?.toString() || '0.70',
-          preferredViewMode: preferredViewMode || 'split',
+          preferredIntensity: preferredIntensity?.toString() || "0.70",
+          preferredViewMode: preferredViewMode || "split",
           dismissedWhatNext: dismissedWhatNext || false,
           preferences: preferences || {},
           updatedAt: new Date(),
@@ -124,7 +123,9 @@ export async function PUT(request: NextRequest) {
         .update(userPreferences)
         .set({
           ...(lastUsedPresetId !== undefined && { lastUsedPresetId }),
-          ...(preferredIntensity !== undefined && { preferredIntensity: preferredIntensity.toString() }),
+          ...(preferredIntensity !== undefined && {
+            preferredIntensity: preferredIntensity.toString(),
+          }),
           ...(preferredViewMode !== undefined && { preferredViewMode }),
           ...(dismissedWhatNext !== undefined && { dismissedWhatNext }),
           ...(preferences !== undefined && { preferences }),
@@ -147,10 +148,10 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error updating user preferences:', error);
+    console.error("Error updating user preferences:", error);
     return NextResponse.json(
-      { error: 'Failed to update preferences' },
-      { status: 500 }
+      { error: "Failed to update preferences" },
+      { status: 500 },
     );
   }
 }

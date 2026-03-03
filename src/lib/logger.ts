@@ -2,9 +2,9 @@
  * Structured logger with request context
  */
 
-import { getRequestContext, getContextDuration } from './request-context';
+import { getRequestContext, getContextDuration } from "./request-context";
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogEntry {
   level: LogLevel;
@@ -27,7 +27,7 @@ class Logger {
   private formatLog(
     level: LogLevel,
     message: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): LogEntry {
     const context = getRequestContext();
     const duration = context ? getContextDuration() : undefined;
@@ -41,30 +41,30 @@ class Logger {
       endpoint: context?.endpoint,
       duration,
       tags: context?.tags,
-      metadata
+      metadata,
     };
   }
 
   debug(message: string, metadata?: Record<string, any>): void {
-    const entry = this.formatLog('debug', message, metadata);
+    const entry = this.formatLog("debug", message, metadata);
     this.store(entry);
     console.debug(JSON.stringify(entry));
   }
 
   info(message: string, metadata?: Record<string, any>): void {
-    const entry = this.formatLog('info', message, metadata);
+    const entry = this.formatLog("info", message, metadata);
     this.store(entry);
     console.info(JSON.stringify(entry));
   }
 
   warn(message: string, metadata?: Record<string, any>): void {
-    const entry = this.formatLog('warn', message, metadata);
+    const entry = this.formatLog("warn", message, metadata);
     this.store(entry);
     console.warn(JSON.stringify(entry));
   }
 
   error(message: string, error?: Error, metadata?: Record<string, any>): void {
-    const entry = this.formatLog('error', message, metadata);
+    const entry = this.formatLog("error", message, metadata);
     if (error) {
       entry.error = error.message;
       entry.stack = error.stack;
@@ -80,10 +80,14 @@ class Logger {
     }
   }
 
-  getLogs(filter?: { level?: LogLevel; userId?: string; endpoint?: string }): LogEntry[] {
+  getLogs(filter?: {
+    level?: LogLevel;
+    userId?: string;
+    endpoint?: string;
+  }): LogEntry[] {
     if (!filter) return [...this.logs];
 
-    return this.logs.filter(log => {
+    return this.logs.filter((log) => {
       if (filter.level && log.level !== filter.level) return false;
       if (filter.userId && log.userId !== filter.userId) return false;
       if (filter.endpoint && log.endpoint !== filter.endpoint) return false;
