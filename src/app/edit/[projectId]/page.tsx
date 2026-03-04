@@ -220,6 +220,8 @@ export default function EditPage() {
       const data = await res.json();
       return data.presets || (data as Preset[]);
     },
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true,
   });
 
   // Save user preferences mutation
