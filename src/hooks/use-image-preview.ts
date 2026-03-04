@@ -9,6 +9,10 @@ export interface FilterSettings {
   warmth: number;
   clarity: number;
   exposure: number;
+  grayscale: number;
+  sepia: number;
+  hueRotate: number;
+  blur: number;
 }
 
 export interface UseImagePreviewOptions {
@@ -24,6 +28,10 @@ const DEFAULT_SETTINGS: FilterSettings = {
   warmth: 0,
   clarity: 0,
   exposure: 0,
+  grayscale: 0,
+  sepia: 0,
+  hueRotate: 0,
+  blur: 0,
 };
 
 export function useImagePreview({
@@ -45,25 +53,45 @@ export function useImagePreview({
 
   const previewStyle = useMemo(() => {
     const filters: string[] = [];
-    
-    if (filterSettings.brightness !== 100) {
-      filters.push(`brightness(${filterSettings.brightness}%)`);
+
+    // Brightness (combined with exposure for overall brightness control)
+    const totalBrightness = filterSettings.brightness + filterSettings.exposure;
+    if (totalBrightness !== 100) {
+      filters.push(`brightness(${Math.max(0, totalBrightness)}%)`);
     }
-    
+
+    // Contrast
     if (filterSettings.contrast !== 100) {
       filters.push(`contrast(${filterSettings.contrast}%)`);
     }
-    
+
+    // Saturation
     if (filterSettings.saturation !== 100) {
       filters.push(`saturate(${filterSettings.saturation}%)`);
     }
-    
-    if (filterSettings.exposure !== 0) {
-      const exposureAdjust = 100 + filterSettings.exposure;
-      filters.push(`brightness(${exposureAdjust}%)`);
+
+    // Grayscale (for B&W effects)
+    if (filterSettings.grayscale > 0) {
+      filters.push(`grayscale(${filterSettings.grayscale}%)`);
     }
-    
-    if (filterSettings.warmth !== 0) {
+
+    // Sepia (for warmth/vintage effects)
+    if (filterSettings.sepia > 0) {
+      filters.push(`sepia(${filterSettings.sepia}%)`);
+    }
+
+    // Hue Rotate (for color shifts like teal/orange)
+    if (filterSettings.hueRotate !== 0) {
+      filters.push(`hue-rotate(${filterSettings.hueRotate}deg)`);
+    }
+
+    // Blur (for soft focus effects)
+    if (filterSettings.blur > 0) {
+      filters.push(`blur(${filterSettings.blur}px)`);
+    }
+
+    // Warmth (legacy support - maps to sepia + hue-rotate)
+    if (filterSettings.warmth !== 0 && filterSettings.sepia === 0) {
       if (filterSettings.warmth > 0) {
         filters.push(`sepia(${filterSettings.warmth}%)`);
         filters.push(`hue-rotate(${filterSettings.warmth * 0.15}deg)`);

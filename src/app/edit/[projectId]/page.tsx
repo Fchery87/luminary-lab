@@ -316,13 +316,43 @@ export default function EditPage() {
     // Map preset blendingParams to real-time CSS filter settings
     const params = (preset as any).blendingParams || {};
     const scale = intensity / 100;
+
+    // Apply base filter settings from preset, scaled by intensity
+    // Default values are set for a neutral starting point
+    const baseBrightness = params.brightness ?? 100;
+    const baseContrast = params.contrast ?? 100;
+    const baseSaturate = params.saturate ?? params.saturation ?? 100;
+    const baseGrayscale = params.grayscale ?? 0;
+    const baseSepia = params.sepia ?? 0;
+    const baseHueRotate = params.hueRotate ?? 0;
+    const baseBlur = params.blur ?? 0;
+    const baseWarmth = params.warmth ?? 0;
+    const baseExposure = params.exposure ?? 0;
+    const baseClarity = params.clarity ?? 0;
+
+    // Scale the effect based on intensity (100% = full effect, 0% = no effect)
+    // For values > 100 (boost), scale toward the base value
+    // For values < 100 (reduce), scale toward 100
+    const applyScale = (base: number, neutral: number = 100) => {
+      if (base === neutral) return neutral;
+      const diff = base - neutral;
+      return neutral + diff * scale;
+    };
+
+    // For 0-100 range values (like grayscale, sepia), scale from 0
+    const applyScaleFromZero = (base: number) => base * scale;
+
     updateMultipleFilters({
-      brightness: 100 + (params.exposureBoost || 0) * 100 * scale,
-      contrast: (params.contrastBoost || 1) * 100 * scale + (1 - scale) * 100,
-      saturation: 100 + (params.warmth || 0) * 50 * scale,
-      warmth: (params.warmth || 0) * 100 * scale,
-      exposure: (params.shadowLift || 0) * 50 * scale,
-      clarity: (params.clarity ? (params.clarity - 1) * 100 : 0) * scale,
+      brightness: applyScale(baseBrightness),
+      contrast: applyScale(baseContrast),
+      saturation: applyScale(baseSaturate),
+      grayscale: applyScaleFromZero(baseGrayscale),
+      sepia: applyScaleFromZero(baseSepia),
+      hueRotate: baseHueRotate * scale,
+      blur: baseBlur * scale,
+      warmth: baseWarmth * scale,
+      exposure: baseExposure * scale,
+      clarity: baseClarity * scale,
     });
 
     // Save to localStorage
@@ -336,20 +366,44 @@ export default function EditPage() {
   };
 
   // Handle intensity change
-  const handleIntensityChange = (value: number) => {
+  const handleIntensityChange = useCallback((value: number) => {
     setIntensity(value);
 
     // Re-apply preset filters at new intensity
     if (selectedPreset) {
       const params = (selectedPreset as any).blendingParams || {};
       const scale = value / 100;
+
+      const baseBrightness = params.brightness ?? 100;
+      const baseContrast = params.contrast ?? 100;
+      const baseSaturate = params.saturate ?? params.saturation ?? 100;
+      const baseGrayscale = params.grayscale ?? 0;
+      const baseSepia = params.sepia ?? 0;
+      const baseHueRotate = params.hueRotate ?? 0;
+      const baseBlur = params.blur ?? 0;
+      const baseWarmth = params.warmth ?? 0;
+      const baseExposure = params.exposure ?? 0;
+      const baseClarity = params.clarity ?? 0;
+
+      const applyScale = (base: number, neutral: number = 100) => {
+        if (base === neutral) return neutral;
+        const diff = base - neutral;
+        return neutral + diff * scale;
+      };
+
+      const applyScaleFromZero = (base: number) => base * scale;
+
       updateMultipleFilters({
-        brightness: 100 + (params.exposureBoost || 0) * 100 * scale,
-        contrast: (params.contrastBoost || 1) * 100 * scale + (1 - scale) * 100,
-        saturation: 100 + (params.warmth || 0) * 50 * scale,
-        warmth: (params.warmth || 0) * 100 * scale,
-        exposure: (params.shadowLift || 0) * 50 * scale,
-        clarity: (params.clarity ? (params.clarity - 1) * 100 : 0) * scale,
+        brightness: applyScale(baseBrightness),
+        contrast: applyScale(baseContrast),
+        saturation: applyScale(baseSaturate),
+        grayscale: applyScaleFromZero(baseGrayscale),
+        sepia: applyScaleFromZero(baseSepia),
+        hueRotate: baseHueRotate * scale,
+        blur: baseBlur * scale,
+        warmth: baseWarmth * scale,
+        exposure: baseExposure * scale,
+        clarity: baseClarity * scale,
       });
     }
 
@@ -357,7 +411,7 @@ export default function EditPage() {
     savePreferencesMutation.mutate({
       preferredIntensity: value / 100,
     });
-  };
+  }, [selectedPreset, setIntensity, updateMultipleFilters, savePreferencesMutation]);
 
   // Handle what's next dismiss
   const handleDismissWhatsNext = () => {
@@ -382,9 +436,49 @@ export default function EditPage() {
 
   // Handle reset intensity only
   const handleResetIntensity = useCallback(() => {
-    handleIntensityChange(70);
+    setIntensity(70);
+    // Re-apply preset filters at default intensity
+    if (selectedPreset) {
+      const params = (selectedPreset as any).blendingParams || {};
+      const scale = 0.7; // 70% intensity
+
+      const baseBrightness = params.brightness ?? 100;
+      const baseContrast = params.contrast ?? 100;
+      const baseSaturate = params.saturate ?? params.saturation ?? 100;
+      const baseGrayscale = params.grayscale ?? 0;
+      const baseSepia = params.sepia ?? 0;
+      const baseHueRotate = params.hueRotate ?? 0;
+      const baseBlur = params.blur ?? 0;
+      const baseWarmth = params.warmth ?? 0;
+      const baseExposure = params.exposure ?? 0;
+      const baseClarity = params.clarity ?? 0;
+
+      const applyScale = (base: number, neutral: number = 100) => {
+        if (base === neutral) return neutral;
+        const diff = base - neutral;
+        return neutral + diff * scale;
+      };
+
+      const applyScaleFromZero = (base: number) => base * scale;
+
+      updateMultipleFilters({
+        brightness: applyScale(baseBrightness),
+        contrast: applyScale(baseContrast),
+        saturation: applyScale(baseSaturate),
+        grayscale: applyScaleFromZero(baseGrayscale),
+        sepia: applyScaleFromZero(baseSepia),
+        hueRotate: baseHueRotate * scale,
+        blur: baseBlur * scale,
+        warmth: baseWarmth * scale,
+        exposure: baseExposure * scale,
+        clarity: baseClarity * scale,
+      });
+    }
+    savePreferencesMutation.mutate({
+      preferredIntensity: 0.7,
+    });
     toast.info("Intensity reset to 70%");
-  }, [handleIntensityChange]);
+  }, [selectedPreset, setIntensity, updateMultipleFilters, savePreferencesMutation]);
 
   // Filter presets by category
   const filteredPresets = presets.filter(
