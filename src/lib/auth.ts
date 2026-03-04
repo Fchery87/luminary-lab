@@ -5,7 +5,7 @@ import { getDb, schema } from "@/db";
 // Development bypass - allows testing without authentication
 const DEV_BYPASS_ENABLED = process.env.DEV_BYPASS_AUTH === "true";
 const DEV_BYPASS_USER = {
-  id: "dev-user-123",
+  id: "00000000-0000-0000-0000-000000000001",
   email: "dev@localhost",
   name: "Development User",
   emailVerified: true,
@@ -98,7 +98,7 @@ export const auth = new Proxy(authInstance, {
                 return {
                   user: DEV_BYPASS_USER,
                   session: {
-                    id: "dev-session-123",
+                    id: "00000000-0000-0000-0000-000000000002",
                     token: "dev-token-123",
                     userId: DEV_BYPASS_USER.id,
                     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),

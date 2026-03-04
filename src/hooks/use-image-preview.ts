@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 
 export interface FilterSettings {
   brightness: number;
@@ -38,6 +38,11 @@ export function useImagePreview({
 
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // History tracking for undo functionality
+  const historyRef = useRef<FilterSettings[]>([{ ...DEFAULT_SETTINGS, ...initialSettings }]);
+  const historyIndexRef = useRef(0);
+  const MAX_HISTORY = 20;
+
   const previewStyle = useMemo(() => {
     const filters: string[] = [];
     
@@ -73,31 +78,63 @@ export function useImagePreview({
     };
   }, [filterSettings]);
 
+  const addToHistory = useCallback((settings: FilterSettings) => {
+    // Remove any future history if we're not at the end
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
+    }
+    // Add new state
+    historyRef.current.push({ ...settings });
+    // Keep only last MAX_HISTORY states
+    if (historyRef.current.length > MAX_HISTORY) {
+      historyRef.current.shift();
+    } else {
+      historyIndexRef.current++;
+    }
+  }, []);
+
   const updateFilter = useCallback((key: keyof FilterSettings, value: number) => {
     setFilterSettings((prev) => {
       const newSettings = { ...prev, [key]: value };
+      addToHistory(newSettings);
       onFilterChange?.(newSettings);
       return newSettings;
     });
-  }, [onFilterChange]);
+  }, [onFilterChange, addToHistory]);
 
   const updateMultipleFilters = useCallback((updates: Partial<FilterSettings>) => {
     setFilterSettings((prev) => {
       const newSettings = { ...prev, ...updates };
+      addToHistory(newSettings);
       onFilterChange?.(newSettings);
       return newSettings;
     });
-  }, [onFilterChange]);
+  }, [onFilterChange, addToHistory]);
 
   const resetFilters = useCallback(() => {
     setFilterSettings(DEFAULT_SETTINGS);
+    addToHistory(DEFAULT_SETTINGS);
     onFilterChange?.(DEFAULT_SETTINGS);
+  }, [onFilterChange, addToHistory]);
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current > 0) {
+      historyIndexRef.current--;
+      const previousSettings = historyRef.current[historyIndexRef.current];
+      setFilterSettings(previousSettings);
+      onFilterChange?.(previousSettings);
+      return true;
+    }
+    return false;
   }, [onFilterChange]);
+
+  const canUndo = historyIndexRef.current > 0;
 
   const applyPreset = useCallback((preset: FilterSettings) => {
     setFilterSettings(preset);
+    addToHistory(preset);
     onFilterChange?.(preset);
-  }, [onFilterChange]);
+  }, [onFilterChange, addToHistory]);
 
   return {
     filterSettings,
@@ -106,6 +143,8 @@ export function useImagePreview({
     updateFilter,
     updateMultipleFilters,
     resetFilters,
+    undo,
+    canUndo,
     applyPreset,
     setIsProcessing,
   };

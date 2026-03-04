@@ -6,3 +6,4 @@
 {"ts":"2026-02-10T23:58:45.90878544-05:00","cmd":"usage","flags":{"quiet":"true"},"session":"ses_b2d3f7","ok":true,"dur_ms":249}
 {"ts":"2026-02-11T01:14:30.230394201-05:00","cmd":"version","flags":{"short":"true"},"session":"ses_b2d3f7","ok":true,"dur_ms":0}
 {"ts":"2026-03-03T19:20:52.065230145-05:00","cmd":"usage","flags":{"new-session":"true"},"session":"ses_3de1b4","ok":true,"dur_ms":222}
+{"ts":"2026-03-03T22:13:25.77251597-05:00","cmd":"usage","flags":{"quiet":"true"},"session":"ses_3de1b4","ok":true,"dur_ms":328}

@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 const DEV_BYPASS_ENABLED = process.env.DEV_BYPASS_AUTH === "true";
 const DEV_USER_COOKIE = "dev_bypass_user";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
   // Set development bypass cookie if enabled

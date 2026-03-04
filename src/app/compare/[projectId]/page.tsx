@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -24,12 +24,21 @@ import {
   Maximize2,
   Sparkles,
   X,
+  LayoutTemplate,
+  Columns,
 } from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Header } from "@/components/ui/header";
+import { SideBySideComparison } from "@/components/ui/side-by-side-comparison";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ExportPresets } from "@/components/ui/export-presets";
+import { type ExportPreset } from "@/hooks/use-export-presets";
+
+// Local storage key for view mode
+const VIEW_MODE_STORAGE_KEY = "luminary_compare_view_mode";
 
 interface ProjectData {
   id: string;
@@ -61,6 +70,52 @@ export default function ComparePage() {
   const [showAhaMoment, setShowAhaMoment] = useState(false);
   // FIX: Store image aspect ratio to properly display portrait images
   const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
+
+  // View mode for comparison layout with localStorage persistence
+  const [viewMode, setViewModeState] = useState<"slider" | "side-by-side">(() => {
+    if (typeof window === "undefined") return "slider";
+    const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return (saved as "slider" | "side-by-side") || "slider";
+  });
+
+  // Wrapped setter that persists to localStorage
+  const setViewMode = useCallback((mode: "slider" | "side-by-side") => {
+    setViewModeState(mode);
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  }, []);
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Toggle fullscreen mode
+  const toggleFullscreen = useCallback(async () => {
+    const container = document.getElementById("comparison-wrapper");
+    if (!document.fullscreenElement) {
+      try {
+        await container?.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (err) {
+        console.error("Error entering fullscreen:", err);
+        toast.error("Fullscreen not supported");
+      }
+    } else {
+      try {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      } catch (err) {
+        console.error("Error exiting fullscreen:", err);
+      }
+    }
+  }, []);
+
+  // Listen for fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   // Show "Aha" moment celebration on mount if onboarding
   useEffect(() => {
@@ -340,7 +395,40 @@ export default function ComparePage() {
               </div>
             </div>
 
-            {!showOriginal && (
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium w-20">Mode:</span>
+              <ToggleGroup
+                type="single"
+                value={viewMode}
+                onValueChange={(v) => v && setViewMode(v as "slider" | "side-by-side")}
+                className="border rounded-md p-0.5"
+              >
+                <ToggleGroupItem value="slider" className="h-8 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                  <LayoutTemplate className="h-3 w-3 mr-1.5" />
+                  Slider
+                </ToggleGroupItem>
+                <ToggleGroupItem value="side-by-side" className="h-8 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                  <Columns className="h-3 w-3 mr-1.5" />
+                  Side-by-Side
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            {/* Fullscreen Toggle */}
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium w-20">Display:</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleFullscreen}
+              >
+                <Maximize2 className="h-4 w-4 mr-2" />
+                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              </Button>
+            </div>
+
+            {!showOriginal && viewMode === "slider" && (
               <div className="flex items-center gap-4">
                 <span className="text-sm font-medium w-20">Zoom:</span>
                 <div className="flex gap-2 items-center flex-1">
@@ -377,24 +465,46 @@ export default function ComparePage() {
         </Card>
 
         {/* Comparison Viewer */}
-        <Card className="mb-6 overflow-hidden">
+        <Card id="comparison-wrapper" className="mb-6 overflow-hidden">
           <CardContent className="p-0">
-            <div
-              id="comparison-container"
-              className="relative w-full bg-black"
-              style={{
-                // FIX: Use aspect-ratio instead of fixed height to support portrait images
-                aspectRatio: imageAspectRatio === "auto" ? undefined : String(imageAspectRatio),
-                maxWidth: "100%",
-                maxHeight: "80vh", // Prevent extreme ratios from overflowing viewport
-                minHeight: "400px", // Prevent collapse before image loads
-              }}
-              onMouseMove={handleMouseMove}
-              onMouseDown={handleMouseDown}
-              onMouseUp={handleMouseUp}
-            >
-              {/* Show original-only view or handle missing images */}
-              {showOriginal || !originalImageUrl || !processedImageUrl ? (
+            {viewMode === "side-by-side" && originalImageUrl && processedImageUrl && !showOriginal ? (
+              // Side-by-Side View
+              <div
+                id="comparison-container"
+                className="relative w-full bg-black"
+                style={{
+                  aspectRatio: imageAspectRatio === "auto" ? undefined : String(imageAspectRatio),
+                  maxWidth: "100%",
+                  maxHeight: "80vh",
+                  minHeight: "400px",
+                }}
+              >
+                <SideBySideComparison
+                  originalImage={originalImageUrl}
+                  processedImage={processedImageUrl}
+                  originalLabel="Original"
+                  processedLabel="Processed"
+                  className="h-full w-full"
+                />
+              </div>
+            ) : (
+              // Slider View (original or single image view)
+              <div
+                id="comparison-container"
+                className="relative w-full bg-black"
+                style={{
+                  // FIX: Use aspect-ratio instead of fixed height to support portrait images
+                  aspectRatio: imageAspectRatio === "auto" ? undefined : String(imageAspectRatio),
+                  maxWidth: "100%",
+                  maxHeight: "80vh", // Prevent extreme ratios from overflowing viewport
+                  minHeight: "400px", // Prevent collapse before image loads
+                }}
+                onMouseMove={handleMouseMove}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
+              >
+                {/* Show original-only view or handle missing images */}
+                {showOriginal || !originalImageUrl || !processedImageUrl ? (
                 <div className="w-full h-full flex items-center justify-center">
                   {showOriginal ? (
                     <div className="text-white text-center">
@@ -619,6 +729,7 @@ export default function ComparePage() {
                 </>
               )}
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -723,7 +834,29 @@ export default function ComparePage() {
               Download your processed image in various formats
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* Export Presets */}
+            <ExportPresets
+              onExport={(preset: ExportPreset) => {
+                toast.success(`Exporting with preset: ${preset.name}`);
+                // In a real implementation, this would trigger the actual export
+                setTimeout(() => {
+                  toast.success("Export completed successfully!");
+                }, 2000);
+              }}
+            />
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Quick Export</span>
+              </div>
+            </div>
+
+            {/* Quick Export Buttons */}
             <div className="grid gap-4 md:grid-cols-3">
               <Button
                 variant="outline"

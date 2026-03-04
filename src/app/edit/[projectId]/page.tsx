@@ -1,11 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Eye, Sparkles, ChevronLeft, Filter } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, Eye, Sparkles, ChevronLeft, Filter, RotateCcw, Undo, Keyboard, Check, LayoutTemplate, Columns, Layers } from "lucide-react";
+import { useZoomPan } from "@/hooks/use-zoom-pan";
+import { ZoomControls, ViewModeToggle } from "@/components/ui/zoom-controls";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { usePresetFavorites, useRecentPresets } from "@/hooks/use-preset-favorites";
+import { PresetSearch } from "@/components/ui/preset-search";
+import { Heart } from "lucide-react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,8 +29,11 @@ import { ExportMenu, type ExportOptions } from "@/components/ui/export-menu";
 import { Header } from "@/components/ui/header";
 import { WhatsNextPanel } from "@/components/ui/whats-next-panel";
 import { BlurHashImage } from "@/components/ui/blur-hash-image";
+import { BatchProcessingDialog } from "@/components/ui/batch-processing";
 import { motion, AnimatePresence } from "framer-motion";
 import { useImagePreview, type FilterSettings } from "@/hooks/use-image-preview";
+import { useEditPageState } from "@/hooks/use-url-state";
+import { cn } from "@/lib/utils";
 
 // Category configuration with icons
 const CATEGORIES = [
@@ -66,6 +81,7 @@ const POPULAR_PRESET_NAMES = [
 const STORAGE_KEYS = {
   LAST_USED_PRESET: "luminary_last_used_preset",
   DISMISSED_WHATS_NEXT: "luminary_dismissed_whats_next",
+  VIEW_MODE: "luminary_edit_view_mode",
 };
 
 export default function EditPage() {
@@ -74,9 +90,12 @@ export default function EditPage() {
   const projectId = params.projectId as string;
   const queryClient = useQueryClient();
 
-  const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [intensity, setIntensity] = useState(70);
+  // URL state for shareable links
+  const [urlState, setUrlState] = useEditPageState();
+
+  const [selectedPreset, setSelectedPresetState] = useState<Preset | null>(null);
+  const [selectedCategory, setSelectedCategoryState] = useState<string>(urlState.category);
+  const [intensity, setIntensityState] = useState(urlState.intensity);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showWhatsNext, setShowWhatsNext] = useState(true);
@@ -87,6 +106,55 @@ export default function EditPage() {
   // FIX: Store image aspect ratio to properly display portrait images
   const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
 
+  // View mode for split-screen layout with localStorage persistence
+  const [viewMode, setViewModeState] = useState<"standard" | "split">(() => {
+    if (typeof window === "undefined") return "standard";
+    const saved = localStorage.getItem(STORAGE_KEYS.VIEW_MODE);
+    return (saved as "standard" | "split") || "standard";
+  });
+
+  // Wrapped setter that persists to localStorage
+  const setViewMode = useCallback((mode: "standard" | "split") => {
+    setViewModeState(mode);
+    localStorage.setItem(STORAGE_KEYS.VIEW_MODE, mode);
+  }, []);
+
+  // Zoom and pan for image inspection
+  const {
+    zoom,
+    pan,
+    isPanning,
+    setZoom,
+    resetZoom,
+    zoomIn,
+    zoomOut,
+    handlePanStart,
+    handlePanMove,
+    handlePanEnd,
+    transform,
+    canPan,
+  } = useZoomPan({ minZoom: 50, maxZoom: 400 });
+
+  // Favorites and recent presets
+  const { favorites, toggleFavorite, isFavorite } = usePresetFavorites();
+  const { recentPresets, addRecentPreset } = useRecentPresets();
+
+  // Wrapped setters that also update URL
+  const setIntensity = useCallback((value: number) => {
+    setIntensityState(value);
+    setUrlState({ intensity: value });
+  }, [setUrlState]);
+
+  const setSelectedCategory = useCallback((value: string) => {
+    setSelectedCategoryState(value);
+    setUrlState({ category: value });
+  }, [setUrlState]);
+
+  const setSelectedPreset = useCallback((preset: Preset | null) => {
+    setSelectedPresetState(preset);
+    setUrlState({ preset: preset?.id || "" });
+  }, [setUrlState]);
+
   // Initialize hook with empty URL - will update when URL is available
   const {
     filterSettings,
@@ -94,6 +162,8 @@ export default function EditPage() {
     updateFilter,
     updateMultipleFilters,
     resetFilters,
+    undo,
+    canUndo,
     setIsProcessing: setPreviewProcessing,
   } = useImagePreview({
     previewImageUrl: "",
@@ -240,6 +310,9 @@ export default function EditPage() {
   const handlePresetSelect = (preset: Preset) => {
     setSelectedPreset(preset);
 
+    // Add to recent presets
+    addRecentPreset(preset.id);
+
     // Map preset blendingParams to real-time CSS filter settings
     const params = (preset as any).blendingParams || {};
     const scale = intensity / 100;
@@ -295,13 +368,31 @@ export default function EditPage() {
     });
   };
 
+  // Keyboard shortcuts state
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [isComparePressed, setIsComparePressed] = useState(false);
+
+  // Handle reset all settings
+  const handleResetAll = useCallback(() => {
+    setIntensity(70);
+    setSelectedPreset(null);
+    resetFilters();
+    toast.info("Settings reset to default");
+  }, [resetFilters]);
+
+  // Handle reset intensity only
+  const handleResetIntensity = useCallback(() => {
+    handleIntensityChange(70);
+    toast.info("Intensity reset to 70%");
+  }, [handleIntensityChange]);
+
   // Filter presets by category
   const filteredPresets = presets.filter(
     (preset: any) =>
       selectedCategory === "all" || preset.category === selectedCategory,
   );
 
-  // Start processing mutation
+  // Start processing mutation - defined before keyboard shortcuts
   const startProcessingMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/process", {
@@ -345,6 +436,84 @@ export default function EditPage() {
     setIsProcessing(true);
     startProcessingMutation.mutate();
   };
+
+  // Keyboard shortcuts - defined after all dependencies
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Undo: Cmd/Ctrl + Z
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      switch (e.key) {
+        case "Escape":
+          if (selectedPreset) {
+            e.preventDefault();
+            handleResetAll();
+          }
+          break;
+        case " ":
+          e.preventDefault();
+          setIsComparePressed(true);
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (selectedPreset && !isProcessing) {
+            handleStartProcessing();
+          }
+          break;
+        case "?":
+          e.preventDefault();
+          setShowShortcutsHelp(true);
+          break;
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+        case "9":
+          const index = parseInt(e.key) - 1;
+          if (filteredPresets[index]) {
+            e.preventDefault();
+            handlePresetSelect(filteredPresets[index]);
+          }
+          break;
+        case "ArrowUp":
+        case "+":
+          e.preventDefault();
+          handleIntensityChange(Math.min(100, intensity + 5));
+          break;
+        case "ArrowDown":
+        case "-":
+          e.preventDefault();
+          handleIntensityChange(Math.max(0, intensity - 5));
+          break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === " ") {
+        setIsComparePressed(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [selectedPreset, isProcessing, filteredPresets, intensity, undo, handleResetAll, handleStartProcessing]);
 
   const handleExport = async (options: ExportOptions) => {
     setIsExporting(true);
@@ -493,18 +662,72 @@ export default function EditPage() {
         showUserMenu={true}
       />
 
-      <main className="flex-1 container mx-auto px-4 py-6 lg:py-8 h-[calc(100vh-64px)] flex flex-col">
-        <div className="grid gap-6 lg:grid-cols-12 h-full">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md">
+        Skip to main content
+      </a>
+      <main id="main-content" className="flex-1 container mx-auto px-4 py-6 lg:py-8 h-[calc(100vh-64px)] flex flex-col" tabIndex={-1}>
+        <div className={cn(
+          "grid gap-6 h-full",
+          viewMode === "split" && "lg:grid-cols-2",
+          viewMode === "standard" && "lg:grid-cols-12"
+        )}>
           {/* Main Canvas Area */}
-          <div className="lg:col-span-9 flex flex-col gap-4 h-full min-h-[500px]">
+          <div className={cn(
+            "flex flex-col gap-4 h-full min-h-[500px]",
+            viewMode === "standard" && "lg:col-span-9",
+            viewMode === "split" && ""
+          )}>
             {/* Toolbar */}
             <div className="flex justify-between items-center bg-card/50 p-2 rounded-sm border border-border">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground px-3 py-1.5">
                   {hasProcessed ? "Compare Mode" : "Original Preview"}
                 </span>
+                {!hasProcessed && selectedPreset && (
+                  <Button
+                    variant={isComparePressed ? "default" : "outline"}
+                    size="sm"
+                    onMouseDown={() => setIsComparePressed(true)}
+                    onMouseUp={() => setIsComparePressed(false)}
+                    onMouseLeave={() => setIsComparePressed(false)}
+                    className="h-7 text-xs"
+                  >
+                    <Eye className="mr-1.5 h-3.5 w-3.5" />
+                    Hold to Compare
+                  </Button>
+                )}
+                {/* View Mode Toggle */}
+                <ToggleGroup
+                  type="single"
+                  value={viewMode}
+                  onValueChange={(v) => v && setViewMode(v as "standard" | "split")}
+                  className="border rounded-md p-0.5 ml-2"
+                >
+                  <ToggleGroupItem value="standard" className="h-6 px-2 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                    <LayoutTemplate className="h-3 w-3 mr-1" />
+                    Standard
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="split" className="h-6 px-2 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                    <Columns className="h-3 w-3 mr-1" />
+                    Split
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {/* Zoom Indicator */}
+                {zoom !== 100 && (
+                  <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                    {Math.round(zoom)}%
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowShortcutsHelp(true)}
+                  className="h-7 px-2"
+                >
+                  <Keyboard className="h-3.5 w-3.5" />
+                </Button>
                 <ExportMenu onExport={handleExport} isExporting={isExporting} hasPresetSelected={!!selectedPreset} />
               </div>
             </div>
@@ -552,19 +775,30 @@ export default function EditPage() {
                   </div>
                 </div>
               ) : (
-                <div className="h-full w-full flex items-center justify-center relative">
+                <div 
+                  className="h-full w-full flex items-center justify-center relative overflow-hidden"
+                  onMouseDown={handlePanStart}
+                  onMouseMove={handlePanMove}
+                  onMouseUp={handlePanEnd}
+                  onMouseLeave={handlePanEnd}
+                  onDoubleClick={resetZoom}
+                  title={canPan ? "Drag to pan, double-click to reset" : "Double-click to reset zoom"}
+                >
                   {selectedPreset ? (
-                    // Real-time filter preview with CSS filters
+                    // Real-time filter preview with CSS filters and zoom/pan
                     <div
-                      className="relative w-full h-full flex items-center justify-center"
-                      style={previewStyle}
+                      className="relative w-full h-full flex items-center justify-center transition-transform duration-100 ease-out"
+                      style={{
+                        ...previewStyle,
+                        ...transform,
+                      }}
                     >
                       <BlurHashImage
                         src={realTimePreviewUrl}
                         blurHash={previewImageObj?.blurHash || thumbnailImageObj?.blurHash}
                         alt="Real-time Preview"
                         fill
-                        className="object-contain"
+                        className="object-contain select-none"
                         onLoad={(e) => {
                           // FIX: Detect and set aspect ratio from loaded image
                           const img = e.currentTarget;
@@ -613,13 +847,77 @@ export default function EditPage() {
                       </div>
                     </div>
                   )}
+                  {/* Zoom Controls */}
+                  <ZoomControls
+                    zoom={zoom}
+                    onZoomIn={zoomIn}
+                    onZoomOut={zoomOut}
+                    onReset={resetZoom}
+                    position="bottom-right"
+                  />
+                  {/* Zoom Help Tooltip */}
+                  {zoom > 100 && (
+                    <div className="absolute top-4 left-4 px-3 py-1.5 bg-background/90 backdrop-blur-sm rounded-md border shadow-sm">
+                      <p className="text-xs text-muted-foreground">
+                        Drag to pan • Double-click to reset
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
           {/* Right Sidebar - Tools */}
-          <div className="lg:col-span-3 flex flex-col gap-6 h-full overflow-y-auto pr-1">
+          <div className={cn(
+            "flex flex-col gap-4 h-full pr-1",
+            viewMode === "standard" && "lg:col-span-3",
+            viewMode === "split" && ""
+          )}>
+            {/* Sticky Intensity Controls */}
+            <Card className="border-border shadow-md shrink-0">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Intensity
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono w-10 text-right">{intensity}%</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={handleResetIntensity}
+                      disabled={!selectedPreset || intensity === 70}
+                      title="Reset to 70%"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={undo}
+                      disabled={!canUndo}
+                      title="Undo (Ctrl+Z)"
+                    >
+                      <Undo className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <IntensitySlider
+                  value={intensity}
+                  onValueChange={handleIntensityChange}
+                  disabled={!selectedPreset}
+                />
+                {!selectedPreset && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Select a preset to adjust intensity
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
             {/* What's Next Panel */}
             <AnimatePresence>
               {showWhatsNext && (
@@ -634,19 +932,40 @@ export default function EditPage() {
                   }
                   onDownload={() => handleWhatsNextAction("download")}
                   onShare={() => handleWhatsNextAction("share")}
-                  className="shadow-lg"
+                  className="shadow-lg shrink-0"
                 />
               )}
             </AnimatePresence>
 
-            <Card className="border-border shadow-lg flex-1 flex flex-col">
-              <CardHeader className="pb-4 border-b border-border/50">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  Creative Suite
-                </CardTitle>
+            <Card className="border-border shadow-lg flex-1 flex flex-col min-h-0">
+              <CardHeader className="pb-3 border-b border-border/50 shrink-0">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Creative Suite
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setShowShortcutsHelp(true)}
+                  >
+                    <Keyboard className="h-3.5 w-3.5 mr-1" />
+                    Shortcuts
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-6 pt-6 flex-1 overflow-y-auto">
+              <CardContent className="space-y-5 pt-4 flex-1 overflow-y-auto min-h-0">
+                {/* Preset Search */}
+                <PresetSearch
+                  presets={presets}
+                  favoriteIds={favorites}
+                  recentIds={recentPresets}
+                  selectedId={selectedPreset?.id}
+                  onSelect={handlePresetSelect}
+                  onToggleFavorite={toggleFavorite}
+                />
+
                 {/* Category Tabs */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -696,22 +1015,53 @@ export default function EditPage() {
                         const isSelected = selectedPreset?.id === preset.id;
 
                         return (
-                          <div
+                          <button
                             key={preset.id}
                             onClick={() => handlePresetSelect(preset)}
                             className={`
-                                                group relative cursor-pointer overflow-hidden rounded-sm border transition-all duration-200
+                                                group relative cursor-pointer overflow-hidden rounded-md border-2 transition-all duration-200 text-left w-full
                                                 ${
                                                   isSelected
-                                                    ? "border-primary ring-1 ring-primary/50 shadow-[0_0_15px_rgba(212,160,86,0.2)]"
+                                                    ? "border-primary ring-2 ring-primary/30 shadow-lg shadow-primary/10 bg-primary/5"
                                                     : isRecommended
-                                                      ? "border-amber-500/60 hover:border-primary/50 hover:shadow-[0_0_12px_rgba(212,160,86,0.15)]"
-                                                      : "border-border hover:border-primary/50"
+                                                      ? "border-amber-500/50 hover:border-amber-500 hover:shadow-md"
+                                                      : "border-border hover:border-primary/50 hover:shadow-sm"
                                                 }
                                             `}
+                            aria-label={`Select ${preset.name} preset${preset.description ? `: ${preset.description}` : ""}`}
+                            aria-pressed={isSelected}
                           >
-                            <div className="flex items-center gap-3 p-2 bg-card">
-                              <div className="relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0">
+                            {/* Selected checkmark */}
+                            {isSelected && (
+                              <div className="absolute top-2 left-2 z-10">
+                                <div className="bg-primary text-primary-foreground rounded-full p-1 shadow-sm">
+                                  <Check className="h-3 w-3" />
+                                </div>
+                              </div>
+                            )}
+                            {/* Favorite button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(preset.id);
+                              }}
+                              className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-background/80 hover:bg-background transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              aria-label={isFavorite(preset.id) ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              <Heart
+                                className={cn(
+                                  "h-3.5 w-3.5 transition-colors",
+                                  isFavorite(preset.id)
+                                    ? "fill-red-500 text-red-500"
+                                    : "text-muted-foreground hover:text-red-500"
+                                )}
+                              />
+                            </button>
+                            <div className="flex items-center gap-3 p-3 bg-card">
+                              <div className={`
+                                relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0
+                                ${isSelected ? 'ring-2 ring-primary' : ''}
+                              `}>
                                 <Image
                                   src={preset.exampleImageUrl}
                                   alt={preset.name}
@@ -719,6 +1069,7 @@ export default function EditPage() {
                                   sizes="48px"
                                   className="object-cover"
                                 />
+                                {isSelected && <div className="absolute inset-0 bg-primary/10" />}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
@@ -754,7 +1105,7 @@ export default function EditPage() {
                                 </span>
                               </div>
                             )}
-                          </div>
+                          </button>
                         );
                       })
                     ) : (
@@ -768,43 +1119,56 @@ export default function EditPage() {
                   </div>
                 </div>
 
-                {/* Controls */}
-                <div
-                  id="intensity-slider"
-                  className="space-y-4 pt-4 border-t border-border/50"
-                >
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Fine Tune
-                  </label>
-
-                  <IntensitySlider
-                    value={intensity}
-                    onValueChange={handleIntensityChange}
-                    disabled={!selectedPreset}
-                  />
-                </div>
               </CardContent>
 
+              {/* Screen reader announcements */}
+              <div aria-live="polite" aria-atomic="true" className="sr-only">
+                {isProcessing ? "Processing started. This may take 2 to 3 minutes." : ""}
+              </div>
+
               {/* Action Footer */}
-              <div className="p-4 border-t border-border mt-auto bg-secondary/10">
+              <div className="p-4 border-t border-border mt-auto bg-secondary/10 space-y-2">
                 <Button
                   onClick={handleStartProcessing}
                   disabled={isProcessing || !selectedPreset}
                   className="w-full h-10 text-sm font-semibold shadow-md transition-all hover:scale-[1.02] uppercase tracking-wide"
                   size="default"
+                  aria-describedby={isProcessing ? "processing-status" : undefined}
                 >
                   {isProcessing ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      <span id="processing-status">Processing...</span>
                     </>
                   ) : (
                     <>
-                      <Eye className="mr-2 h-4 w-4" />
+                      <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
                       Apply Style
                     </>
                   )}
                 </Button>
+
+                {/* Batch Processing Button */}
+                <BatchProcessingDialog
+                  selectedPresetName={selectedPreset?.name || "No preset selected"}
+                  intensity={intensity}
+                  onBatchProcess={async (projectIds) => {
+                    // Mock batch processing - in production this would call an API
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                    console.log("Batch processing projects:", projectIds);
+                  }}
+                  trigger={
+                    <Button
+                      variant="outline"
+                      disabled={!selectedPreset}
+                      className="w-full h-9 text-sm"
+                      size="sm"
+                    >
+                      <Layers className="mr-2 h-4 w-4" />
+                      Batch Process
+                    </Button>
+                  }
+                />
               </div>
             </Card>
 
@@ -825,6 +1189,69 @@ export default function EditPage() {
           </div>
         </div>
       </main>
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <Dialog open={showShortcutsHelp} onOpenChange={setShowShortcutsHelp}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Keyboard className="h-5 w-5" />
+              Keyboard Shortcuts
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">1</kbd>
+                <span className="text-muted-foreground">-</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">9</kbd>
+              </div>
+              <span>Select preset 1-9</span>
+
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑</kbd>
+                <span className="text-muted-foreground">/</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">+</kbd>
+              </div>
+              <span>Increase intensity</span>
+
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↓</kbd>
+                <span className="text-muted-foreground">/</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">-</kbd>
+              </div>
+              <span>Decrease intensity</span>
+
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Space</kbd>
+              </div>
+              <span>Hold to compare</span>
+
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
+              </div>
+              <span>Apply/Process</span>
+
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl</kbd>
+                <span className="text-muted-foreground">+</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Z</kbd>
+              </div>
+              <span>Undo</span>
+
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
+              </div>
+              <span>Reset all settings</span>
+
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">?</kbd>
+              </div>
+              <span>Show this help</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
