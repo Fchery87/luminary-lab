@@ -376,7 +376,7 @@ export default function EditPage() {
             Error Loading Project
           </h2>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">
-            The project could not be found or you don't have permission.
+            The project could not be found or you don&apos;t have permission.
           </p>
           <AmberButton href="/dashboard" variant="primary">
             Return to Dashboard
@@ -425,82 +425,76 @@ export default function EditPage() {
         showUserMenu={true}
       />
 
-      <main className="flex-1 container mx-auto px-3 py-4 lg:py-6">
+      <main className="flex-1 w-full px-4 lg:px-8 py-4 lg:py-6">
         <div className={cn(
           "grid gap-4 h-[calc(100vh-120px)]",
           viewMode === "split" ? "lg:grid-cols-2" : "lg:grid-cols-12"
         )}>
           {/* Main Canvas Area */}
           <div className={cn(
-            "flex flex-col gap-3 h-full min-h-[400px]",
+            "flex flex-col h-full min-h-[400px] min-w-0 relative rounded-xl overflow-hidden bg-black/40 border border-[hsl(var(--border))]/30 shadow-2xl",
             viewMode === "standard" && "lg:col-span-8 xl:col-span-9",
           )}>
-            {/* Toolbar */}
-            <IndustrialCard className="p-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))] px-2">
-                    {hasProcessed ? "Compare" : "Preview"}
-                  </span>
-                  
-                  {!hasProcessed && selectedPreset && (
+            {/* Floating Toolbar */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center justify-between gap-4 p-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
+              <div className="flex items-center gap-2">
+                {!hasProcessed && selectedPreset && (
+                  <button
+                    onMouseDown={() => setIsComparePressed(true)}
+                    onMouseUp={() => setIsComparePressed(false)}
+                    onMouseLeave={() => setIsComparePressed(false)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-full border transition-all flex items-center gap-1.5",
+                      isComparePressed
+                        ? "bg-[hsl(var(--gold))] text-black border-[hsl(var(--gold))]"
+                        : "border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Hold to Compare
+                  </button>
+                )}
+
+                <div className="flex gap-1 p-1 bg-black/50 rounded-full border border-white/5">
+                  {[
+                    { id: "standard", icon: LayoutTemplate, label: "Single" },
+                    { id: "split", icon: Columns, label: "Split" },
+                  ].map((mode) => (
                     <button
-                      onMouseDown={() => setIsComparePressed(true)}
-                      onMouseUp={() => setIsComparePressed(false)}
-                      onMouseLeave={() => setIsComparePressed(false)}
+                      key={mode.id}
+                      onClick={() => setViewMode(mode.id as typeof viewMode)}
                       className={cn(
-                        "px-3 py-1.5 text-xs font-medium rounded-sm border transition-all",
-                        isComparePressed
-                          ? "bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] border-[hsl(var(--gold))]"
-                          : "border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--gold))]"
+                        "px-3 py-1.5 text-xs font-medium rounded-full transition-all flex items-center gap-1.5",
+                        viewMode === mode.id
+                          ? "bg-white/20 text-white shadow-sm"
+                          : "text-white/50 hover:text-white hover:bg-white/10"
                       )}
                     >
-                      <Eye className="w-3 h-3 mr-1.5 inline" />
-                      Hold to Compare
+                      <mode.icon className="w-3.5 h-3.5" />
+                      {mode.label}
                     </button>
-                  )}
-
-                  <div className="flex gap-1 p-0.5 bg-[hsl(var(--secondary))] rounded-sm">
-                    {[
-                      { id: "standard", icon: LayoutTemplate, label: "Single" },
-                      { id: "split", icon: Columns, label: "Split" },
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        onClick={() => setViewMode(mode.id as typeof viewMode)}
-                        className={cn(
-                          "px-2 py-1 text-xs font-medium rounded-sm transition-all flex items-center gap-1.5",
-                          viewMode === mode.id
-                            ? "bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))]"
-                            : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                        )}
-                      >
-                        <mode.icon className="w-3 h-3" />
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {zoom !== 100 && (
-                    <span className="font-mono text-xs text-[hsl(var(--gold))]">
-                      {Math.round(zoom)}%
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setShowShortcutsHelp(true)}
-                    className="p-2 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] transition-colors"
-                  >
-                    <Keyboard className="w-3.5 h-3.5" />
-                  </button>
-                  <ExportMenu onExport={handleExport} isExporting={isExporting} hasPresetSelected={!!selectedPreset} />
+                  ))}
                 </div>
               </div>
-            </IndustrialCard>
+
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+                {zoom !== 100 && (
+                  <span className="font-mono text-xs text-[hsl(var(--gold))]">
+                    {Math.round(zoom)}%
+                  </span>
+                )}
+                <button
+                  onClick={() => setShowShortcutsHelp(true)}
+                  className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+                >
+                  <Keyboard className="w-4 h-4" />
+                </button>
+                <ExportMenu onExport={handleExport} isExporting={isExporting} hasPresetSelected={!!selectedPreset} />
+              </div>
+            </div>
 
             {/* Viewport */}
-            <IndustrialCard className="flex-1 overflow-hidden relative" accent={hasProcessed}>
+            <div className="flex-1 w-full h-full relative">
               <div className="h-full w-full flex items-center justify-center bg-black relative overflow-hidden"
                 onMouseDown={handlePanStart}
                 onMouseMove={handlePanMove}
@@ -596,12 +590,12 @@ export default function EditPage() {
                   </div>
                 )}
               </div>
-            </IndustrialCard>
+            </div>
           </div>
 
           {/* Right Sidebar - Tools */}
           <div className={cn(
-            "flex flex-col gap-3 h-full",
+            "flex flex-col gap-3 h-full min-h-0 min-w-0",
             viewMode === "standard" && "lg:col-span-4 xl:col-span-3",
           )}>
             {/* Intensity Controls */}
@@ -642,8 +636,9 @@ export default function EditPage() {
               />
 
               {!selectedPreset && (
-                <p className="text-xs text-[hsl(var(--muted-foreground))] text-center mt-2">
-                  Select a preset to adjust intensity
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-3 flex items-center gap-2">
+                  <Sparkles className="w-3 h-3 text-[hsl(var(--gold))]" />
+                  Select preset to adjust
                 </p>
               )}
             </IndustrialCard>
@@ -658,9 +653,10 @@ export default function EditPage() {
                   </div>
                   <button
                     onClick={() => setShowShortcutsHelp(true)}
-                    className="text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors"
+                    className="p-1.5 rounded-sm hover:bg-[hsl(var(--secondary))] transition-colors text-[hsl(var(--muted-foreground))]"
+                    title="Shortcuts"
                   >
-                    Shortcuts
+                    <Keyboard className="w-4 h-4" />
                   </button>
                 </div>
               </div>

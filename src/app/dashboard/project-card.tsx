@@ -36,6 +36,7 @@ interface ProjectCardProps {
   onDelete: (id: string) => void;
   isDeleting?: boolean;
   viewMode?: "grid" | "list";
+  isPriority?: boolean;
 }
 
 export function ProjectCard({
@@ -43,6 +44,7 @@ export function ProjectCard({
   onDelete,
   isDeleting,
   viewMode = "grid",
+  isPriority = false,
 }: ProjectCardProps) {
   const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
   const [showActions, setShowActions] = useState(false);
@@ -106,6 +108,7 @@ export function ProjectCard({
           src={project.thumbnailUrl || project.originalImageUrl || "/placeholder.svg"}
           alt={project.name}
           fill
+          priority={isPriority}
           sizes={viewMode === "list" ? "200px" : "(max-width: 768px) 100vw, 400px"}
           className="object-contain transition-transform duration-500 group-hover:scale-105"
           onLoad={(e) => {

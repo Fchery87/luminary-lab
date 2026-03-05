@@ -150,6 +150,10 @@ export default function DashboardPage() {
     return sortOrder === "asc" ? comparison : -comparison;
   });
 
+  const uniqueSortedProjects = Array.from(
+    new Map(sortedProjects.map(p => [p.id, p])).values()
+  );
+
   const clearFilters = () => {
     setSearchQuery("");
     setFilterStatus("all");
@@ -426,7 +430,7 @@ export default function DashboardPage() {
           {/* Projects Count */}
           <div className="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
             {hasActiveFilters
-              ? `Showing ${sortedProjects.length} of ${projects.length} projects`
+              ? `Showing ${uniqueSortedProjects.length} of ${projects.length} projects`
               : `${projects.length} projects`}
           </div>
 
@@ -435,7 +439,7 @@ export default function DashboardPage() {
             {/* Projects Grid/List */}
             <div className="flex-1">
               <AnimatePresence mode="wait">
-                {sortedProjects.length === 0 ? (
+                {uniqueSortedProjects.length === 0 ? (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -478,7 +482,7 @@ export default function DashboardPage() {
                         : "flex flex-col gap-3"
                     )}
                   >
-                    {sortedProjects.map((project) => (
+                    {uniqueSortedProjects.map((project, index) => (
                       <motion.div
                         key={project.id}
                         variants={{
@@ -491,6 +495,7 @@ export default function DashboardPage() {
                           onDelete={handleDeleteProject}
                           isDeleting={deleteProjectMutation.isPending}
                           viewMode={viewMode}
+                          isPriority={index < 4}
                         />
                       </motion.div>
                     ))}

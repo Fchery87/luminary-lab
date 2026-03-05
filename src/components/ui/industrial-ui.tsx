@@ -51,7 +51,7 @@ export function IndustrialCard({
       {accent && (
         <div className="absolute -top-[1px] -left-[1px] w-8 h-8 border-t-2 border-l-2 border-[hsl(var(--gold))]" />
       )}
-      <div className="relative h-full w-full">{children}</div>
+      {children}
     </motion.div>
   );
 }
@@ -69,7 +69,7 @@ export function Frame({ children, className = "", accent = false }: FrameProps) 
       {accent && (
         <div className="absolute -top-[1px] -left-[1px] w-8 h-8 border-t-2 border-l-2 border-[hsl(var(--gold))]" />
       )}
-      <div className="relative h-full w-full">{children}</div>
+      {children}
     </div>
   );
 }
