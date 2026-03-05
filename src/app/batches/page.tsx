@@ -2,20 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { Layers, Plus, ChevronRight, Loader2 } from "lucide-react";
+
+import { Header } from "@/components/ui/header";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+  IndustrialCard,
+  AmberButton,
+  SectionHeader,
+  StatusBadge,
+} from "@/components/ui/industrial-ui";
+import { cn } from "@/lib/utils";
 
 interface Batch {
   id: string;
   name: string;
-  status: string;
+  status: "pending" | "processing" | "completed" | "partial_failure" | "failed" | "cancelled";
   totalJobs: number;
   completedJobs: number;
   failedJobs: number;
@@ -23,13 +25,13 @@ interface Batch {
   completedAt?: string;
 }
 
-const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  processing: "bg-blue-100 text-blue-800",
-  completed: "bg-green-100 text-green-800",
-  partial_failure: "bg-orange-100 text-orange-800",
-  failed: "bg-red-100 text-red-800",
-  cancelled: "bg-gray-100 text-gray-800",
+const statusConfig: Record<Batch["status"], { status: "idle" | "processing" | "complete" | "error"; label: string }> = {
+  pending: { status: "idle", label: "Pending" },
+  processing: { status: "processing", label: "Processing" },
+  completed: { status: "complete", label: "Completed" },
+  partial_failure: { status: "error", label: "Partial" },
+  failed: { status: "error", label: "Failed" },
+  cancelled: { status: "idle", label: "Cancelled" },
 };
 
 export default function BatchesPage() {
@@ -45,9 +47,7 @@ export default function BatchesPage() {
   useEffect(() => {
     const fetchBatches = async () => {
       try {
-        const response = await fetch(
-          `/api/batches?page=${page}&limit=${limit}`,
-        );
+        const response = await fetch(`/api/batches?page=${page}&limit=${limit}`);
         if (!response.ok) throw new Error("Failed to fetch batches");
         const data = await response.json();
         setBatches(data.items);
@@ -66,115 +66,167 @@ export default function BatchesPage() {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="flex min-h-screen flex-col bg-[hsl(var(--charcoal))]">
+      <div className="film-grain" />
+      <div className="scanlines" />
+
+      <Header variant="minimal" showUserMenu={true} />
+
+      <main className="flex-1 container mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
+        >
           <div>
-            <h1 className="text-3xl font-bold">Batches</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your batch uploads
-            </p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-[1px] bg-[hsl(var(--gold))]" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-[hsl(var(--muted-foreground))]">
+                Batch Processing
+              </span>
+            </div>
+            <h1 className="font-display text-3xl font-bold">Batches</h1>
           </div>
-          <Button onClick={() => router.push("/upload/batch")}>
+
+          <AmberButton href="/upload/batch" icon={<Plus className="w-4 h-4" />}>
             New Batch
-          </Button>
-        </div>
+          </AmberButton>
+        </motion.div>
 
-        {/* Error message */}
-        {error && (
-          <Card className="border-destructive">
-            <CardContent className="pt-6">
-              <p className="text-sm text-destructive">{error}</p>
-            </CardContent>
-          </Card>
-        )}
+        <div className="max-w-4xl">
+          {/* Error */}
+          {error && (
+            <IndustrialCard className="mb-6 border-red-500/30">
+              <div className="p-4 text-sm text-red-400">{error}</div>
+            </IndustrialCard>
+          )}
 
-        {/* Loading state */}
-        {isLoading && (
-          <Card>
-            <CardContent className="pt-6">
-              <p>Loading batches...</p>
-            </CardContent>
-          </Card>
-        )}
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="w-10 h-10 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+              />
+            </div>
+          )}
 
-        {/* Empty state */}
-        {!isLoading && batches.length === 0 && (
-          <Card>
-            <CardContent className="pt-12 text-center">
-              <p className="text-muted-foreground mb-4">No batches yet</p>
-              <Button onClick={() => router.push("/upload/batch")}>
+          {/* Empty State */}
+          {!isLoading && batches.length === 0 && (
+            <IndustrialCard className="text-center py-16">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-sm bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] flex items-center justify-center">
+                <Layers className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
+              </div>
+              <h3 className="font-display text-lg font-semibold mb-2">No Batches Yet</h3>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">
+                Process multiple images at once with batch processing
+              </p>
+              <AmberButton href="/upload/batch">
                 Create First Batch
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+              </AmberButton>
+            </IndustrialCard>
+          )}
 
-        {/* Batch list */}
-        {batches.length > 0 && (
-          <div className="space-y-3">
-            {batches.map((batch) => (
-              <Card
-                key={batch.id}
-                className="cursor-pointer hover:shadow-md transition"
-                onClick={() => router.push(`/batches/${batch.id}`)}
-              >
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold">{batch.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {batch.completedJobs}/{batch.totalJobs} completed
-                        {batch.failedJobs > 0 &&
-                          ` • ${batch.failedJobs} failed`}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Created: {new Date(batch.createdAt).toLocaleString()}
-                        {batch.completedAt &&
-                          ` • Completed: ${new Date(batch.completedAt).toLocaleString()}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        className={statusColors[batch.status] || "bg-gray-100"}
-                      >
-                        {batch.status}
-                      </Badge>
-                      <Button variant="ghost" size="sm">
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+          {/* Batch List */}
+          {!isLoading && batches.length > 0 && (
+            <div className="space-y-3">
+              {batches.map((batch, index) => {
+                const config = statusConfig[batch.status];
+                const progress = Math.round((batch.completedJobs / batch.totalJobs) * 100);
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        )}
-      </div>
+                return (
+                  <motion.div
+                    key={batch.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <IndustrialCard
+                      className="cursor-pointer group"
+                      hover
+                      onClick={() => router.push(`/batches/${batch.id}`)}
+                    >
+                      <div className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-display font-semibold truncate group-hover:text-[hsl(var(--gold))] transition-colors">
+                              {batch.name}
+                            </h3>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                              <span>
+                                {batch.completedJobs}/{batch.totalJobs} completed
+                              </span>
+                              {batch.failedJobs > 0 && (
+                                <span className="text-red-400">
+                                  • {batch.failedJobs} failed
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-[hsl(var(--muted-foreground))] mt-2">
+                              Created: {new Date(batch.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            <StatusBadge status={config.status}>
+                              {config.label}
+                            </StatusBadge>
+
+                            {/* Progress Bar */}
+                            <div className="w-24 hidden sm:block">
+                              <div className="h-1 bg-[hsl(var(--secondary))] rounded-full overflow-hidden">
+                                <div
+                                  className={cn(
+                                    "h-full transition-all",
+                                    batch.status === "completed"
+                                      ? "bg-emerald-500"
+                                      : "bg-[hsl(var(--gold))]"
+                                  )}
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                                {progress}%
+                              </span>
+                            </div>
+
+                            <ChevronRight className="w-5 h-5 text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--gold))] transition-colors" />
+                          </div>
+                        </div>
+                      </div>
+                    </IndustrialCard>
+                  </motion.div>
+                );
+              })}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-4 py-2 text-xs border border-[hsl(var(--border))] rounded-sm hover:border-[hsl(var(--gold))] disabled:opacity-50 transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="font-mono text-xs">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="px-4 py-2 text-xs border border-[hsl(var(--border))] rounded-sm hover:border-[hsl(var(--gold))] disabled:opacity-50 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

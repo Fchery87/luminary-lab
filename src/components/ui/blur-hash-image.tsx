@@ -11,6 +11,7 @@ interface BlurHashImageProps {
   width?: number;
   height?: number;
   fill?: boolean;
+  sizes?: string;
   className?: string;
   onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }
@@ -22,6 +23,7 @@ export function BlurHashImage({
   width,
   height,
   fill = false,
+  sizes,
   className,
   onLoad,
 }: BlurHashImageProps) {
@@ -63,6 +65,7 @@ export function BlurHashImage({
         width={fill ? undefined : width}
         height={fill ? undefined : height}
         fill={fill}
+        sizes={sizes}
         className={className}
         onLoad={onLoad}
       />
@@ -92,6 +95,7 @@ export function BlurHashImage({
         width={fill ? undefined : width}
         height={fill ? undefined : height}
         fill={fill}
+        sizes={sizes}
         className={`${className} transition-opacity duration-300 ${
           isLoaded ? "opacity-100" : "opacity-0"
         }`}

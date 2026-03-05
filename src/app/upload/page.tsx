@@ -2,29 +2,27 @@
 
 import { useState, useCallback, useRef, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useDropzone } from "react-dropzone";
-import { Upload, FileImage, Loader2, Aperture, XCircle } from "lucide-react";
-import Link from "next/link";
+import { Upload, FileImage, Loader2, XCircle, Camera, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import Link from "next/link";
+
+import { Header } from "@/components/ui/header";
 import {
   OnboardingChecklist,
   type OnboardingStep,
 } from "@/components/ui/onboarding-checklist";
-import { Header } from "@/components/ui/header";
+import {
+  IndustrialCard,
+  AmberButton,
+  SectionHeader,
+  Frame,
+} from "@/components/ui/industrial-ui";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
+const CHUNK_SIZE = 10 * 1024 * 1024;
 
 interface MultipartUploadData {
   uploadType: "single-part" | "multipart";
@@ -36,6 +34,17 @@ interface MultipartUploadData {
   chunkSize?: number;
   partUrls?: Array<{ partNumber: number; url: string }>;
 }
+
+const SUPPORTED_FORMATS = [
+  { ext: "CR2", name: "Canon" },
+  { ext: "NEF", name: "Nikon" },
+  { ext: "ARW", name: "Sony" },
+  { ext: "DNG", name: "Adobe" },
+  { ext: "RAF", name: "Fuji" },
+  { ext: "RW2", name: "Panasonic" },
+  { ext: "ORF", name: "Olympus" },
+  { ext: "PEF", name: "Pentax" },
+];
 
 function UploadPageContent() {
   const router = useRouter();
@@ -59,7 +68,6 @@ function UploadPageContent() {
   const [uploadStatus, setUploadStatus] = useState("");
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Refs for stable function references to avoid useCallback dependency issues
   const handleSinglePartUploadRef = useRef<
     ((file: File, data: MultipartUploadData) => Promise<void>) | null
   >(null);
@@ -67,7 +75,6 @@ function UploadPageContent() {
     ((file: File, data: MultipartUploadData) => Promise<void>) | null
   >(null);
 
-  // Onboarding state
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("name");
   const [completedSteps, setCompletedSteps] = useState<OnboardingStep[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -78,17 +85,7 @@ function UploadPageContent() {
 
       const file = acceptedFiles[0];
 
-      // Validate file type
-      const rawExtensions = [
-        ".cr2",
-        ".nef",
-        ".arw",
-        ".dng",
-        ".raf",
-        ".rw2",
-        ".orf",
-        ".pef",
-      ];
+      const rawExtensions = [".cr2", ".nef", ".arw", ".dng", ".raf", ".rw2", ".orf", ".pef"];
       const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
 
       if (!rawExtensions.includes(fileExtension)) {
@@ -96,13 +93,11 @@ function UploadPageContent() {
         return;
       }
 
-      // Validate file size (100MB)
       if (file.size > 100 * 1024 * 1024) {
         toast.error("File size must be less than 100MB");
         return;
       }
 
-      // Update onboarding state
       if (isOnboarding) {
         setSelectedFile(file);
         setCompletedSteps((prev) => [...new Set([...prev, "upload" as const])]);
@@ -115,13 +110,10 @@ function UploadPageContent() {
       abortControllerRef.current = new AbortController();
 
       try {
-        // Get upload configuration from API
         const response = await fetch("/api/upload", {
           method: "POST",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             filename: file.name,
             fileSize: file.size,
@@ -137,105 +129,24 @@ function UploadPageContent() {
           throw new Error(errorBody.error || "Failed to get upload URL");
         }
 
-        // Handle multipart or single-part upload
         if (data.uploadType === "multipart" && data.uploadId) {
-          if (!handleMultipartUploadRef.current) {
-            throw new Error("Multipart upload handler not initialized");
-          }
-          console.log(
-            "[Upload] Starting multipart upload for project:",
-            data.projectId,
-          );
-          await handleMultipartUploadRef.current(file, data);
-          console.log(
-            "[Upload] Multipart upload completed for project:",
-            data.projectId,
-          );
+          await handleMultipartUploadRef.current!(file, data);
         } else if (data.uploadType === "single-part" && data.uploadUrl) {
-          if (!handleSinglePartUploadRef.current) {
-            throw new Error("Single part upload handler not initialized");
-          }
-          console.log(
-            "[Upload] Starting single-part upload for project:",
-            data.projectId,
-          );
-          await handleSinglePartUploadRef.current(file, data);
-          console.log(
-            "[Upload] Single-part upload completed for project:",
-            data.projectId,
-          );
+          await handleSinglePartUploadRef.current!(file, data);
         } else {
           throw new Error("Invalid upload response from server");
         }
 
-        // Verify image was created by fetching project
-        console.log(
-          "[Upload] Verifying image upload for project:",
-          data.projectId,
-        );
-        setUploadStatus("Verifying upload...");
-
-        try {
-          const verifyResponse = await fetch(
-            `/api/projects/${data.projectId}`,
-            {
-              credentials: "include",
-            },
-          );
-
-          if (verifyResponse.ok) {
-            const projectData = await verifyResponse.json();
-            const hasOriginalImage = projectData.images?.some(
-              (img: any) => img.type === "original",
-            );
-
-            if (!hasOriginalImage) {
-              console.warn(
-                "[Upload] Warning: No original image found after upload. Project data:",
-                projectData,
-              );
-              // Continue anyway but log warning
-            } else {
-              console.log(
-                "[Upload] Verification successful - original image exists",
-              );
-            }
-          } else {
-            console.warn(
-              "[Upload] Could not verify upload, but proceeding anyway",
-            );
-          }
-        } catch (verifyError) {
-          console.warn(
-            "[Upload] Verification failed, but proceeding:",
-            verifyError,
-          );
-          // Don't fail the upload if verification fails
-        }
-
         toast.success("File uploaded successfully!");
-
-        // Small delay to ensure database commit completes
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // For onboarding, redirect to compare page to show the "Aha" moment
-        // Otherwise, redirect to editing page
-        console.log(
-          "[Upload] Navigating to",
-          isOnboarding ? "compare" : "edit",
-          "page",
-        );
         if (isOnboarding) {
           router.push(`/compare/${data.projectId}?onboarding=true`);
         } else {
           router.push(`/edit/${data.projectId}`);
         }
       } catch (error) {
-        import("@/lib/logger").then(({ logger }) => {
-          logger.error("Upload failed", error as Error);
-        });
         toast.error(error instanceof Error ? error.message : "Upload failed");
-        // Reset onboarding state on error
         if (isOnboarding) {
           setSelectedFile(null);
           setCompletedSteps((prev) => prev.filter((s) => s !== "upload"));
@@ -248,7 +159,7 @@ function UploadPageContent() {
         abortControllerRef.current = null;
       }
     },
-    [projectName, router, isOnboarding],
+    [projectName, router, isOnboarding]
   );
 
   const handleSinglePartUpload = useCallback(
@@ -279,55 +190,34 @@ function UploadPageContent() {
         xhr.send(file);
       });
     },
-    [],
+    []
   );
 
-  // Assign the function to the ref for stable reference
   handleSinglePartUploadRef.current = handleSinglePartUpload;
 
   const uploadPartToS3 = useCallback(
     async (url: string, chunk: Blob, partNumber: number): Promise<string> => {
-      console.log(`[Upload] Part ${partNumber}: PUT to ${new URL(url).hostname}, size=${chunk.size}`);
-
-      const response = await fetch(url, {
-        method: "PUT",
-        body: chunk,
-      });
+      const response = await fetch(url, { method: "PUT", body: chunk });
 
       if (!response.ok) {
-        const body = await response.text().catch(() => "");
-        throw new Error(
-          `Failed to upload part ${partNumber}. Status: ${response.status}, Response: ${body}`,
-        );
+        throw new Error(`Failed to upload part ${partNumber}`);
       }
 
       let etag = response.headers.get("ETag");
       if (!etag) {
-        throw new Error(
-          "Missing ETag from storage response. Ensure your bucket CORS exposes the ETag header.",
-        );
+        throw new Error("Missing ETag from storage response");
       }
-      // ETag may be returned with quotes, strip them for consistency
-      etag = etag.replace(/^"|"$/g, "");
-      console.log(`Part ${partNumber} uploaded successfully, ETag:`, etag);
-      return etag;
+      return etag.replace(/^"|"$/g, "");
     },
-    [],
+    []
   );
 
   const registerPart = useCallback(
-    async (
-      uploadId: string,
-      partNumber: number,
-      sizeBytes: number,
-      etag: string,
-    ): Promise<void> => {
+    async (uploadId: string, partNumber: number, sizeBytes: number, etag: string): Promise<void> => {
       const response = await fetch("/api/upload/chunk", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "register",
           uploadId,
@@ -342,7 +232,7 @@ function UploadPageContent() {
         throw new Error(errorData.error || "Failed to register part");
       }
     },
-    [],
+    []
   );
 
   const completeMultipartUpload = useCallback(
@@ -350,9 +240,7 @@ function UploadPageContent() {
       const response = await fetch("/api/upload/chunk", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "complete",
           uploadId: data.uploadId,
@@ -364,22 +252,13 @@ function UploadPageContent() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Complete upload failed:", {
-          status: response.status,
-          statusText: response.statusText,
-          errorData,
-        });
-        throw new Error(
-          errorData.error ||
-            `Failed to complete upload (HTTP ${response.status})`,
-        );
+        throw new Error("Failed to complete upload");
       }
 
       setUploadProgress(100);
       setUploadStatus("Upload complete!");
     },
-    [],
+    []
   );
 
   const handleMultipartUpload = useCallback(
@@ -407,10 +286,7 @@ function UploadPageContent() {
 
         setUploadStatus(`Uploading part ${partNumber} of ${totalParts}...`);
 
-        // Upload part to S3
         const etag = await uploadPartToS3(partUrl, chunk, partNumber);
-
-        // Register part with server
         await registerPart(data.uploadId!, partNumber, chunk.size, etag);
 
         uploadedParts++;
@@ -418,14 +294,12 @@ function UploadPageContent() {
         setUploadProgress(progress);
       }
 
-      // Complete the multipart upload
       setUploadStatus("Finalizing upload...");
       await completeMultipartUpload(file, data);
     },
-    [uploadPartToS3, registerPart, completeMultipartUpload],
+    [uploadPartToS3, registerPart, completeMultipartUpload]
   );
 
-  // Assign to ref for stable reference
   handleMultipartUploadRef.current = handleMultipartUpload;
 
   const cancelUpload = useCallback(() => {
@@ -436,7 +310,6 @@ function UploadPageContent() {
       setUploadStatus("");
       abortControllerRef.current = null;
       toast.info("Upload cancelled");
-      // Reset onboarding state on cancel
       if (isOnboarding) {
         setSelectedFile(null);
         setCompletedSteps([]);
@@ -447,18 +320,12 @@ function UploadPageContent() {
 
   const handleProjectNameChange = (value: string) => {
     setProjectName(value);
-    // Update onboarding state
-    if (
-      isOnboarding &&
-      value.trim().length > 0 &&
-      !completedSteps.includes("name")
-    ) {
+    if (isOnboarding && value.trim().length > 0 && !completedSteps.includes("name")) {
       setCompletedSteps((prev) => [...prev, "name"]);
     }
   };
 
   const handleStepClick = (step: OnboardingStep) => {
-    // Only allow navigating to completed steps or next step
     const steps: OnboardingStep[] = ["name", "upload", "preview", "complete"];
     const currentIndex = steps.indexOf(currentStep);
     const targetIndex = steps.indexOf(step);
@@ -468,36 +335,32 @@ function UploadPageContent() {
     }
   };
 
-  const { getRootProps, getInputProps, isDragActive, isDragReject } =
-    useDropzone({
-      onDrop,
-      accept: {
-        "image/x-canon-cr2": [".cr2"],
-        "image/x-nikon-nef": [".nef"],
-        "image/x-sony-arw": [".arw"],
-        "image/x-adobe-dng": [".dng"],
-        "image/x-fuji-raf": [".raf"],
-        "image/x-panasonic-rw2": [".rw2"],
-        "image/x-olympus-orf": [".orf"],
-        "image/x-pentax-pef": [".pef"],
-      },
-      maxFiles: 1,
-      maxSize: 100 * 1024 * 1024, // 100MB
-    });
+  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
+    onDrop,
+    accept: {
+      "image/x-canon-cr2": [".cr2"],
+      "image/x-nikon-nef": [".nef"],
+      "image/x-sony-arw": [".arw"],
+      "image/x-adobe-dng": [".dng"],
+      "image/x-fuji-raf": [".raf"],
+      "image/x-panasonic-rw2": [".rw2"],
+      "image/x-olympus-orf": [".orf"],
+      "image/x-pentax-pef": [".pef"],
+    },
+    maxFiles: 1,
+    maxSize: 100 * 1024 * 1024,
+  });
 
   return (
-    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
-      {/* Texture overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.02]">
-        <div className="absolute inset-0 grid-pattern" />
-      </div>
+    <div className="flex min-h-screen flex-col bg-[hsl(var(--charcoal))]">
+      <div className="film-grain" />
+      <div className="scanlines" />
 
       <Header variant="minimal" showUserMenu={true} />
 
-      <main className="flex-1 flex items-center justify-center p-6 relative z-10">
+      <main className="flex-1 container mx-auto px-4 py-6 flex items-center justify-center">
         {isOnboarding ? (
-          <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-[320px_1fr] gap-8 items-start">
-            {/* Onboarding Checklist Sidebar */}
+          <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-[280px_1fr] gap-6 items-start">
             <div className="hidden lg:block">
               <OnboardingChecklist
                 currentStep={currentStep}
@@ -506,235 +369,198 @@ function UploadPageContent() {
               />
             </div>
 
-            {/* Main Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="w-full"
-            >
-              <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] rounded-sm overflow-hidden relative">
-                {/* Top amber accent line */}
-                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[hsl(var(--gold-light))]/50 to-transparent opacity-40" />
-                <div className="absolute -top-2 -left-2 w-8 h-8 border-l-2 border-t-2 border-[hsl(var(--gold))]/30 rounded-tl-sm" />
+            <UploadCard
+              projectName={projectName}
+              setProjectName={handleProjectNameChange}
+              isUploading={isUploading}
+              uploadProgress={uploadProgress}
+              uploadStatus={uploadStatus}
+              isDragActive={isDragActive}
+              isDragReject={isDragReject}
+              getRootProps={getRootProps}
+              getInputProps={getInputProps}
+              cancelUpload={cancelUpload}
+            />
 
-                <CardHeader className="pb-4">
-                  <CardTitle className="font-display text-2xl font-bold tracking-tight">
-                    Upload RAW File
-                  </CardTitle>
-                  <CardDescription className="font-body text-[hsl(var(--muted-foreground))]">
-                    Upload your RAW file to start AI editing process. Supported
-                    formats: CR2, NEF, ARW, DNG, RAF, RW2, ORF, PEF
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-6 pt-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="projectName"
-                      className="font-body text-xs uppercase tracking-wider text-[hsl(var(--foreground))]"
-                    >
-                      Project Name (Optional)
-                    </Label>
-                    <Input
-                      id="projectName"
-                      type="text"
-                      placeholder="My Project"
-                      value={projectName}
-                      onChange={(e) => handleProjectNameChange(e.target.value)}
-                      disabled={isUploading}
-                      className="rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--secondary))] focus:border-[hsl(var(--gold))] font-body"
-                    />
-                  </div>
-
-                  <div
-                    {...getRootProps()}
-                    className={`relative border-2 border-dashed rounded-sm p-12 text-center cursor-pointer transition-all duration-300 ${
-                      isDragActive
-                        ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
-                        : isDragReject
-                          ? "border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5"
-                          : "border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50"
-                    } ${isUploading ? "pointer-events-none opacity-50" : ""}`}
-                  >
-                    <input {...getInputProps()} />
-
-                    {isUploading ? (
-                      <div className="flex flex-col items-center space-y-4">
-                        <Loader2 className="h-10 w-10 text-[hsl(var(--gold))] animate-spin" />
-                        <div className="space-y-3 w-full max-w-xs">
-                          <div className="h-1 bg-[hsl(var(--border))] rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${uploadProgress}%` }}
-                              transition={{ duration: 0.3 }}
-                              className="h-full bg-[hsl(var(--gold))]"
-                            />
-                          </div>
-                          <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                            {uploadStatus ||
-                              `Uploading file... ${uploadProgress}%`}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={cancelUpload}
-                            className="rounded-sm border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive))]"
-                          >
-                            <XCircle className="h-3 w-3 mr-2" />
-                            Cancel Upload
-                          </Button>
-                        </div>
-                      </div>
-                    ) : isDragActive ? (
-                      <div className="flex flex-col items-center space-y-2">
-                        <Upload className="h-10 w-10 text-[hsl(var(--gold))]" />
-                        <p className="font-body text-sm text-[hsl(var(--gold))] font-medium">
-                          Drop your RAW file here
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center space-y-3">
-                        <div className="w-16 h-16 rounded-sm bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] flex items-center justify-center">
-                          <FileImage className="h-8 w-8 text-[hsl(var(--muted-foreground))]/40" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-body text-sm text-[hsl(var(--foreground))] font-medium">
-                            Drag & drop your RAW file here, or click to select
-                          </p>
-                          <p className="font-body text-xs text-[hsl(var(--muted-foreground))]">
-                            Maximum file size: 100MB. Large files (&gt;10MB)
-                            will be uploaded in chunks.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Mobile Onboarding Checklist */}
-              <div className="mt-6 lg:hidden">
-                <OnboardingChecklist
-                  currentStep={currentStep}
-                  completedSteps={completedSteps}
-                  onStepClick={handleStepClick}
-                />
-              </div>
-            </motion.div>
+            <div className="mt-6 lg:hidden">
+              <OnboardingChecklist
+                currentStep={currentStep}
+                completedSteps={completedSteps}
+                onStepClick={handleStepClick}
+              />
+            </div>
           </div>
         ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="w-full max-w-2xl mx-auto"
-          >
-            <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] rounded-sm overflow-hidden relative">
-              {/* Top amber accent line */}
-              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[hsl(var(--gold-light))]/50 to-transparent opacity-40" />
-              <div className="absolute -top-2 -left-2 w-8 h-8 border-l-2 border-t-2 border-[hsl(var(--gold))]/30 rounded-tl-sm" />
-
-              <CardHeader className="pb-4">
-                <CardTitle className="font-display text-2xl font-bold tracking-tight">
-                  Upload RAW File
-                </CardTitle>
-                <CardDescription className="font-body text-[hsl(var(--muted-foreground))]">
-                  Upload your RAW file to start AI editing process. Supported
-                  formats: CR2, NEF, ARW, DNG, RAF, RW2, ORF, PEF
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-6 pt-2">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="projectName"
-                    className="font-body text-xs uppercase tracking-wider text-[hsl(var(--foreground))]"
-                  >
-                    Project Name (Optional)
-                  </Label>
-                  <Input
-                    id="projectName"
-                    type="text"
-                    placeholder="My Project"
-                    value={projectName}
-                    onChange={(e) => handleProjectNameChange(e.target.value)}
-                    disabled={isUploading}
-                    className="rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--secondary))] focus:border-[hsl(var(--gold))] font-body"
-                  />
-                </div>
-
-                <div
-                  {...getRootProps()}
-                  className={`relative border-2 border-dashed rounded-sm p-12 text-center cursor-pointer transition-all duration-300 ${
-                    isDragActive
-                      ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
-                      : isDragReject
-                        ? "border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5"
-                        : "border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50"
-                  } ${isUploading ? "pointer-events-none opacity-50" : ""}`}
-                >
-                  <input {...getInputProps()} />
-
-                  {isUploading ? (
-                    <div className="flex flex-col items-center space-y-4">
-                      <Loader2 className="h-10 w-10 text-[hsl(var(--gold))] animate-spin" />
-                      <div className="space-y-3 w-full max-w-xs">
-                        <div className="h-1 bg-[hsl(var(--border))] rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${uploadProgress}%` }}
-                            transition={{ duration: 0.3 }}
-                            className="h-full bg-[hsl(var(--gold))]"
-                          />
-                        </div>
-                        <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                          {uploadStatus ||
-                            `Uploading file... ${uploadProgress}%`}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={cancelUpload}
-                          className="rounded-sm border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive))]"
-                        >
-                          <XCircle className="h-3 w-3 mr-2" />
-                          Cancel Upload
-                        </Button>
-                      </div>
-                    </div>
-                  ) : isDragActive ? (
-                    <div className="flex flex-col items-center space-y-2">
-                      <Upload className="h-10 w-10 text-[hsl(var(--gold))]" />
-                      <p className="font-body text-sm text-[hsl(var(--gold))] font-medium">
-                        Drop your RAW file here
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-16 h-16 rounded-sm bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] flex items-center justify-center">
-                        <FileImage className="h-8 w-8 text-[hsl(var(--muted-foreground))]/40" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-body text-sm text-[hsl(var(--foreground))] font-medium">
-                          Drag & drop your RAW file here, or click to select
-                        </p>
-                        <p className="font-body text-xs text-[hsl(var(--muted-foreground))]">
-                          Maximum file size: 100MB. Large files (&gt;10MB) will
-                          be uploaded in chunks.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <UploadCard
+            projectName={projectName}
+            setProjectName={handleProjectNameChange}
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            uploadStatus={uploadStatus}
+            isDragActive={isDragActive}
+            isDragReject={isDragReject}
+            getRootProps={getRootProps}
+            getInputProps={getInputProps}
+            cancelUpload={cancelUpload}
+          />
         )}
       </main>
     </div>
+  );
+}
+
+interface UploadCardProps {
+  projectName: string;
+  setProjectName: (value: string) => void;
+  isUploading: boolean;
+  uploadProgress: number;
+  uploadStatus: string;
+  isDragActive: boolean;
+  isDragReject: boolean;
+  getRootProps: any;
+  getInputProps: any;
+  cancelUpload: () => void;
+}
+
+function UploadCard({
+  projectName,
+  setProjectName,
+  isUploading,
+  uploadProgress,
+  uploadStatus,
+  isDragActive,
+  isDragReject,
+  getRootProps,
+  getInputProps,
+  cancelUpload,
+}: UploadCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full max-w-2xl"
+    >
+      <IndustrialCard className="overflow-hidden" accent>
+        <div className="p-6">
+          <SectionHeader
+            label="Import"
+            title="Upload RAW File"
+            description="Upload your RAW file to start AI editing"
+            className="mb-6"
+          />
+
+          <div className="space-y-6">
+            {/* Project Name Input */}
+            <div className="space-y-2">
+              <label className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                Project Name (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="My Project"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                disabled={isUploading}
+                className="w-full px-4 py-3 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--gold))] focus:outline-none transition-colors disabled:opacity-50"
+              />
+            </div>
+
+            {/* Dropzone */}
+            <div
+              {...getRootProps()}
+              className={cn(
+                "relative border-2 border-dashed rounded-sm p-12 text-center cursor-pointer transition-all duration-300",
+                isDragActive
+                  ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
+                  : isDragReject
+                    ? "border-red-500 bg-red-500/5"
+                    : "border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50",
+                isUploading && "pointer-events-none opacity-50"
+              )}
+            >
+              <input {...getInputProps()} />
+
+              {isUploading ? (
+                <div className="flex flex-col items-center space-y-4">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="w-10 h-10 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+                  />
+                  <div className="space-y-3 w-full max-w-xs">
+                    <div className="h-1.5 bg-[hsl(var(--border))] rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        className="h-full bg-[hsl(var(--gold))]"
+                      />
+                    </div>
+                    <p className="font-mono text-xs text-[hsl(var(--muted-foreground))]">
+                      {uploadStatus || `Uploading... ${uploadProgress}%`}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={cancelUpload}
+                      className="px-4 py-2 text-xs border border-[hsl(var(--border))] rounded-sm hover:border-red-500 hover:text-red-400 transition-colors"
+                    >
+                      <XCircle className="w-3 h-3 mr-1.5 inline" />
+                      Cancel Upload
+                    </button>
+                  </div>
+                </div>
+              ) : isDragActive ? (
+                <div className="flex flex-col items-center space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-[hsl(var(--gold))]/10 flex items-center justify-center"
+                  >
+                    <Upload className="w-8 h-8 text-[hsl(var(--gold))]" />
+                  </div>
+                  <p className="font-display font-semibold text-[hsl(var(--gold))]">
+                    Drop your RAW file here
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="w-16 h-16 rounded-sm bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] flex items-center justify-center"
+                  >
+                    <Camera className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-medium text-sm">
+                      Drag & drop your RAW file here, or click to select
+                    </p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Maximum file size: 100MB. Large files (&gt;10MB) will be uploaded in chunks.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Supported Formats */}
+            {!isUploading && (
+              <div className="flex flex-wrap justify-center gap-2">
+                {SUPPORTED_FORMATS.map((format) => (
+                  <div
+                    key={format.ext}
+                    className="px-2 py-1 text-[10px] uppercase tracking-wider bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-[hsl(var(--muted-foreground))]"
+                    title={format.name}
+                  >
+                    {format.ext}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </IndustrialCard>
+
+      <div className="mt-4 flex items-center justify-between">
+        <AmberButton variant="ghost" size="sm" href="/dashboard" icon={<ChevronLeft className="w-4 h-4" />}>
+          Back to Dashboard
+        </AmberButton>
+      </div>
+    </motion.div>
   );
 }
 
@@ -742,8 +568,12 @@ export default function UploadPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
-          Loading...
+        <div className="flex items-center justify-center min-h-screen bg-[hsl(var(--charcoal))]">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-10 h-10 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+          />
         </div>
       }
     >

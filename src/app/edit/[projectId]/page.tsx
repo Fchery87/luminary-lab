@@ -1,86 +1,74 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Loader2, Eye, Sparkles, ChevronLeft, Filter, RotateCcw, Undo, Keyboard, Check, LayoutTemplate, Columns, Layers } from "lucide-react";
-import { useZoomPan } from "@/hooks/use-zoom-pan";
-import { ZoomControls, ViewModeToggle } from "@/components/ui/zoom-controls";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { usePresetFavorites, useRecentPresets } from "@/hooks/use-preset-favorites";
-import { PresetSearch } from "@/components/ui/preset-search";
-import { Heart } from "lucide-react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  Loader2,
+  Eye,
+  Sparkles,
+  ChevronLeft,
+  Filter,
+  RotateCcw,
+  Undo,
+  Keyboard,
+  Check,
+  LayoutTemplate,
+  Columns,
+  Layers,
+  Search,
+  Heart,
+  Zap,
+  Download,
+  Image as ImageIcon,
+  Maximize2,
+  ZoomIn,
+  ZoomOut,
+  X,
+} from "lucide-react";
 
+import { useZoomPan } from "@/hooks/use-zoom-pan";
+import { usePresetFavorites, useRecentPresets } from "@/hooks/use-preset-favorites";
+import { useImagePreview } from "@/hooks/use-image-preview";
 import { type Preset } from "@/components/ui/preset-gallery";
-import { IntensitySlider } from "@/components/ui/intensity-slider";
 import { CompareSlider } from "@/components/ui/compare-slider";
 import { ExportMenu, type ExportOptions } from "@/components/ui/export-menu";
 import { Header } from "@/components/ui/header";
-import { WhatsNextPanel } from "@/components/ui/whats-next-panel";
 import { BlurHashImage } from "@/components/ui/blur-hash-image";
 import { BatchProcessingDialog } from "@/components/ui/batch-processing";
-import { motion, AnimatePresence } from "framer-motion";
-import { useImagePreview, type FilterSettings } from "@/hooks/use-image-preview";
-import { useEditPageState } from "@/hooks/use-url-state";
+import {
+  IndustrialCard,
+  AmberButton,
+  Frame,
+  SectionHeader,
+  ControlGroup,
+  DataLabel,
+  StatusBadge,
+  MetricDisplay,
+} from "@/components/ui/industrial-ui";
 import { cn } from "@/lib/utils";
 
-// Category configuration with icons
+// Categories with icons
 const CATEGORIES = [
-  { id: "all", label: "All Styles", description: "View all presets" },
-  {
-    id: "portrait",
-    label: "Portrait & Beauty",
-    description: "Beauty retouching & portraits",
-  },
-  {
-    id: "film",
-    label: "Film Emulation",
-    description: "Classic film stock looks",
-  },
-  {
-    id: "cinematic",
-    label: "Cinematic",
-    description: "Movie-style color grading",
-  },
-  {
-    id: "moody",
-    label: "Moody & Dramatic",
-    description: "Dark, dramatic looks",
-  },
-  { id: "creative", label: "Creative", description: "Modern artistic effects" },
-  { id: "b&w", label: "Black & White", description: "Monochrome styles" },
+  { id: "all", label: "All", description: "View all presets" },
+  { id: "portrait", label: "Portrait", description: "Beauty retouching" },
+  { id: "film", label: "Film", description: "Classic film stock" },
+  { id: "cinematic", label: "Cinematic", description: "Movie-style grading" },
+  { id: "moody", label: "Moody", description: "Dark, dramatic looks" },
+  { id: "creative", label: "Creative", description: "Artistic effects" },
+  { id: "b&w", label: "B&W", description: "Monochrome" },
   { id: "vintage", label: "Vintage", description: "Nostalgic looks" },
-  { id: "ai", label: "AI Enhanced", description: "Smart AI-powered edits" },
-  {
-    id: "specialized",
-    label: "Specialized",
-    description: "Food, product, landscape",
-  },
-];
-
-// Popular preset names for smart defaults
-const POPULAR_PRESET_NAMES = [
-  "Cinematic Teal & Orange",
-  "Clean Commercial Beauty",
-  "Soft Editorial",
-  "Kodak Portra 400",
+  { id: "ai", label: "AI", description: "Smart enhancements" },
+  { id: "specialized", label: "Special", description: "Food, product, landscape" },
 ];
 
 // Local storage keys
 const STORAGE_KEYS = {
   LAST_USED_PRESET: "luminary_last_used_preset",
-  DISMISSED_WHATS_NEXT: "luminary_dismissed_whats_next",
   VIEW_MODE: "luminary_edit_view_mode",
 };
 
@@ -90,40 +78,30 @@ export default function EditPage() {
   const projectId = params.projectId as string;
   const queryClient = useQueryClient();
 
-  // URL state for shareable links
-  const [urlState, setUrlState] = useEditPageState();
-
-  const [selectedPreset, setSelectedPresetState] = useState<Preset | null>(null);
-  const [selectedCategory, setSelectedCategoryState] = useState<string>(urlState.category);
-  const [intensity, setIntensityState] = useState(urlState.intensity);
+  const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [intensity, setIntensity] = useState(70);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [showWhatsNext, setShowWhatsNext] = useState(true);
-  const [recommendedPresetId, setRecommendedPresetId] = useState<string | null>(
-    null,
-  );
-  const [popularPresets, setPopularPresets] = useState<Preset[]>([]);
-  // FIX: Store image aspect ratio to properly display portrait images
   const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [isComparePressed, setIsComparePressed] = useState(false);
 
-  // View mode for split-screen layout with localStorage persistence
-  const [viewMode, setViewModeState] = useState<"standard" | "split">(() => {
+  // View mode for split-screen layout
+  const [viewMode, setViewMode] = useState<"standard" | "split">(() => {
     if (typeof window === "undefined") return "standard";
-    const saved = localStorage.getItem(STORAGE_KEYS.VIEW_MODE);
-    return (saved as "standard" | "split") || "standard";
+    return (localStorage.getItem(STORAGE_KEYS.VIEW_MODE) as "standard" | "split") || "standard";
   });
 
-  // Wrapped setter that persists to localStorage
-  const setViewMode = useCallback((mode: "standard" | "split") => {
-    setViewModeState(mode);
-    localStorage.setItem(STORAGE_KEYS.VIEW_MODE, mode);
-  }, []);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.VIEW_MODE, viewMode);
+  }, [viewMode]);
 
   // Zoom and pan for image inspection
   const {
     zoom,
     pan,
-    isPanning,
     setZoom,
     resetZoom,
     zoomIn,
@@ -139,356 +117,114 @@ export default function EditPage() {
   const { favorites, toggleFavorite, isFavorite } = usePresetFavorites();
   const { recentPresets, addRecentPreset } = useRecentPresets();
 
-  // Wrapped setters that also update URL
-  const setIntensity = useCallback((value: number) => {
-    setIntensityState(value);
-    setUrlState({ intensity: value });
-  }, [setUrlState]);
-
-  const setSelectedCategory = useCallback((value: string) => {
-    setSelectedCategoryState(value);
-    setUrlState({ category: value });
-  }, [setUrlState]);
-
-  const setSelectedPreset = useCallback((preset: Preset | null) => {
-    setSelectedPresetState(preset);
-    setUrlState({ preset: preset?.id || "" });
-  }, [setUrlState]);
-
-  // Initialize hook with empty URL - will update when URL is available
+  // Image preview hook
   const {
     filterSettings,
     previewStyle,
-    updateFilter,
     updateMultipleFilters,
     resetFilters,
     undo,
     canUndo,
-    setIsProcessing: setPreviewProcessing,
-  } = useImagePreview({
-    previewImageUrl: "",
-  });
+  } = useImagePreview({ previewImageUrl: "" });
 
-  // Fetch user preferences
-  const { data: userPreferences } = useQuery({
-    queryKey: ["userPreferences"],
-    queryFn: async () => {
-      try {
-        const res = await fetch("/api/user/preferences", {
-          credentials: "include",
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return data.preferences;
-      } catch (error) {
-        return null;
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Fetch Project Data
-  const {
-    data: project,
-    isLoading: projectLoading,
-    error: projectError,
-  } = useQuery({
+  // Fetch project data
+  const { data: project, isLoading: projectLoading, error: projectError } = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        if (res.status === 404) throw new Error("Project not found");
-        throw new Error("Failed to fetch project");
-      }
+      const res = await fetch(`/api/projects/${projectId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch project");
       return res.json();
     },
-    // Poll for status if processing
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "processing" || status === "queued" ? 2000 : false;
     },
   });
 
-  // Fetch presets from API
+  // Fetch presets
   const { data: presets = [], isLoading: presetsLoading } = useQuery({
     queryKey: ["presets"],
     queryFn: async () => {
       const res = await fetch("/api/presets", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch presets");
       const data = await res.json();
-      return data.presets || (data as Preset[]);
-    },
-    staleTime: 0, // Always fetch fresh data
-    refetchOnMount: true,
-  });
-
-  // Save user preferences mutation
-  const savePreferencesMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await fetch("/api/user/preferences", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to save preferences");
-      return res.json();
+      return data.presets || data;
     },
   });
 
-  // Pre-initialize aspect ratio from DB-stored image dimensions (post-rotation)
+  // Initialize aspect ratio
   useEffect(() => {
     if (!project?.images) return;
-    // Find the original or thumbnail image with stored dimensions
     const imgWithDims = project.images.find(
-      (img: any) => (img.type === 'original' || img.type === 'thumbnail') && img.width && img.height,
+      (img: any) => (img.type === 'original' || img.type === 'thumbnail') && img.width && img.height
     );
     if (imgWithDims?.width && imgWithDims?.height) {
       const ratio = imgWithDims.width / imgWithDims.height;
-      const clamped = Math.max(0.3, Math.min(3.33, ratio));
-      setImageAspectRatio(clamped);
+      setImageAspectRatio(Math.max(0.3, Math.min(3.33, ratio)));
     }
   }, [project]);
-
-  // Initialize smart defaults when presets are loaded
-  useEffect(() => {
-    if (presets.length === 0) return;
-
-    // Find popular presets
-    const popular = presets.filter((preset: Preset) =>
-      POPULAR_PRESET_NAMES.includes(preset.name),
-    );
-    setPopularPresets(popular);
-
-    // Check local storage for last used preset
-    const lastUsedPresetId = localStorage.getItem(
-      STORAGE_KEYS.LAST_USED_PRESET,
-    );
-    const dismissedWhatsNext = localStorage.getItem(
-      STORAGE_KEYS.DISMISSED_WHATS_NEXT,
-    );
-
-    // Set what's next visibility
-    setShowWhatsNext(dismissedWhatsNext !== "true");
-
-    // Determine recommended preset
-    let recommended: Preset | null = null;
-
-    // Priority 1: Last used preset from localStorage
-    if (lastUsedPresetId) {
-      recommended =
-        presets.find((p: Preset) => p.id === lastUsedPresetId) || null;
-    }
-
-    // Priority 2: Last used preset from user preferences
-    if (!recommended && userPreferences?.lastUsedPreset) {
-      recommended =
-        presets.find(
-          (p: Preset) => p.id === userPreferences.lastUsedPreset.id,
-        ) || null;
-    }
-
-    // Priority 3: Popular preset (Cinematic Teal & Orange)
-    if (!recommended) {
-      recommended =
-        presets.find((p: Preset) => p.name === "Cinematic Teal & Orange") ||
-        popular[0] ||
-        null;
-    }
-
-    if (recommended) {
-      setRecommendedPresetId(recommended.id);
-      setSelectedPreset(recommended);
-      // Also set preferred intensity
-      if (userPreferences?.preferredIntensity) {
-        setIntensity(Math.round(userPreferences.preferredIntensity * 100));
-      }
-    }
-  }, [presets, userPreferences]);
 
   // Handle preset selection
   const handlePresetSelect = (preset: Preset) => {
     setSelectedPreset(preset);
-
-    // Add to recent presets
     addRecentPreset(preset.id);
-
-    // Map preset blendingParams to real-time CSS filter settings
+    
     const params = (preset as any).blendingParams || {};
     const scale = intensity / 100;
 
-    // Apply base filter settings from preset, scaled by intensity
-    // Default values are set for a neutral starting point
-    const baseBrightness = params.brightness ?? 100;
-    const baseContrast = params.contrast ?? 100;
-    const baseSaturate = params.saturate ?? params.saturation ?? 100;
-    const baseGrayscale = params.grayscale ?? 0;
-    const baseSepia = params.sepia ?? 0;
-    const baseHueRotate = params.hueRotate ?? 0;
-    const baseBlur = params.blur ?? 0;
-    const baseWarmth = params.warmth ?? 0;
-    const baseExposure = params.exposure ?? 0;
-    const baseClarity = params.clarity ?? 0;
-
-    // Scale the effect based on intensity (100% = full effect, 0% = no effect)
-    // For values > 100 (boost), scale toward the base value
-    // For values < 100 (reduce), scale toward 100
     const applyScale = (base: number, neutral: number = 100) => {
       if (base === neutral) return neutral;
-      const diff = base - neutral;
-      return neutral + diff * scale;
+      return neutral + (base - neutral) * scale;
     };
 
-    // For 0-100 range values (like grayscale, sepia), scale from 0
     const applyScaleFromZero = (base: number) => base * scale;
 
     updateMultipleFilters({
-      brightness: applyScale(baseBrightness),
-      contrast: applyScale(baseContrast),
-      saturation: applyScale(baseSaturate),
-      grayscale: applyScaleFromZero(baseGrayscale),
-      sepia: applyScaleFromZero(baseSepia),
-      hueRotate: baseHueRotate * scale,
-      blur: baseBlur * scale,
-      warmth: baseWarmth * scale,
-      exposure: baseExposure * scale,
-      clarity: baseClarity * scale,
+      brightness: applyScale(params.brightness ?? 100),
+      contrast: applyScale(params.contrast ?? 100),
+      saturation: applyScale(params.saturate ?? params.saturation ?? 100),
+      grayscale: applyScaleFromZero(params.grayscale ?? 0),
+      sepia: applyScaleFromZero(params.sepia ?? 0),
+      hueRotate: (params.hueRotate ?? 0) * scale,
+      blur: (params.blur ?? 0) * scale,
+      warmth: (params.warmth ?? 0) * scale,
+      exposure: (params.exposure ?? 0) * scale,
+      clarity: (params.clarity ?? 0) * scale,
     });
 
-    // Save to localStorage
     localStorage.setItem(STORAGE_KEYS.LAST_USED_PRESET, preset.id);
-
-    // Save to user preferences (debounced in real app, here immediate)
-    savePreferencesMutation.mutate({
-      lastUsedPresetId: preset.id,
-      preferredIntensity: intensity / 100,
-    });
   };
 
   // Handle intensity change
   const handleIntensityChange = useCallback((value: number) => {
     setIntensity(value);
-
-    // Re-apply preset filters at new intensity
     if (selectedPreset) {
       const params = (selectedPreset as any).blendingParams || {};
       const scale = value / 100;
 
-      const baseBrightness = params.brightness ?? 100;
-      const baseContrast = params.contrast ?? 100;
-      const baseSaturate = params.saturate ?? params.saturation ?? 100;
-      const baseGrayscale = params.grayscale ?? 0;
-      const baseSepia = params.sepia ?? 0;
-      const baseHueRotate = params.hueRotate ?? 0;
-      const baseBlur = params.blur ?? 0;
-      const baseWarmth = params.warmth ?? 0;
-      const baseExposure = params.exposure ?? 0;
-      const baseClarity = params.clarity ?? 0;
-
       const applyScale = (base: number, neutral: number = 100) => {
         if (base === neutral) return neutral;
-        const diff = base - neutral;
-        return neutral + diff * scale;
+        return neutral + (base - neutral) * scale;
       };
 
       const applyScaleFromZero = (base: number) => base * scale;
 
       updateMultipleFilters({
-        brightness: applyScale(baseBrightness),
-        contrast: applyScale(baseContrast),
-        saturation: applyScale(baseSaturate),
-        grayscale: applyScaleFromZero(baseGrayscale),
-        sepia: applyScaleFromZero(baseSepia),
-        hueRotate: baseHueRotate * scale,
-        blur: baseBlur * scale,
-        warmth: baseWarmth * scale,
-        exposure: baseExposure * scale,
-        clarity: baseClarity * scale,
+        brightness: applyScale(params.brightness ?? 100),
+        contrast: applyScale(params.contrast ?? 100),
+        saturation: applyScale(params.saturate ?? params.saturation ?? 100),
+        grayscale: applyScaleFromZero(params.grayscale ?? 0),
+        sepia: applyScaleFromZero(params.sepia ?? 0),
+        hueRotate: (params.hueRotate ?? 0) * scale,
+        blur: (params.blur ?? 0) * scale,
+        warmth: (params.warmth ?? 0) * scale,
+        exposure: (params.exposure ?? 0) * scale,
+        clarity: (params.clarity ?? 0) * scale,
       });
     }
+  }, [selectedPreset, updateMultipleFilters]);
 
-    // Save to user preferences
-    savePreferencesMutation.mutate({
-      preferredIntensity: value / 100,
-    });
-  }, [selectedPreset, setIntensity, updateMultipleFilters, savePreferencesMutation]);
-
-  // Handle what's next dismiss
-  const handleDismissWhatsNext = () => {
-    setShowWhatsNext(false);
-    localStorage.setItem(STORAGE_KEYS.DISMISSED_WHATS_NEXT, "true");
-    savePreferencesMutation.mutate({
-      dismissedWhatNext: true,
-    });
-  };
-
-  // Keyboard shortcuts state
-  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [isComparePressed, setIsComparePressed] = useState(false);
-
-  // Handle reset all settings
-  const handleResetAll = useCallback(() => {
-    setIntensity(70);
-    setSelectedPreset(null);
-    resetFilters();
-    toast.info("Settings reset to default");
-  }, [resetFilters]);
-
-  // Handle reset intensity only
-  const handleResetIntensity = useCallback(() => {
-    setIntensity(70);
-    // Re-apply preset filters at default intensity
-    if (selectedPreset) {
-      const params = (selectedPreset as any).blendingParams || {};
-      const scale = 0.7; // 70% intensity
-
-      const baseBrightness = params.brightness ?? 100;
-      const baseContrast = params.contrast ?? 100;
-      const baseSaturate = params.saturate ?? params.saturation ?? 100;
-      const baseGrayscale = params.grayscale ?? 0;
-      const baseSepia = params.sepia ?? 0;
-      const baseHueRotate = params.hueRotate ?? 0;
-      const baseBlur = params.blur ?? 0;
-      const baseWarmth = params.warmth ?? 0;
-      const baseExposure = params.exposure ?? 0;
-      const baseClarity = params.clarity ?? 0;
-
-      const applyScale = (base: number, neutral: number = 100) => {
-        if (base === neutral) return neutral;
-        const diff = base - neutral;
-        return neutral + diff * scale;
-      };
-
-      const applyScaleFromZero = (base: number) => base * scale;
-
-      updateMultipleFilters({
-        brightness: applyScale(baseBrightness),
-        contrast: applyScale(baseContrast),
-        saturation: applyScale(baseSaturate),
-        grayscale: applyScaleFromZero(baseGrayscale),
-        sepia: applyScaleFromZero(baseSepia),
-        hueRotate: baseHueRotate * scale,
-        blur: baseBlur * scale,
-        warmth: baseWarmth * scale,
-        exposure: baseExposure * scale,
-        clarity: baseClarity * scale,
-      });
-    }
-    savePreferencesMutation.mutate({
-      preferredIntensity: 0.7,
-    });
-    toast.info("Intensity reset to 70%");
-  }, [selectedPreset, setIntensity, updateMultipleFilters, savePreferencesMutation]);
-
-  // Filter presets by category
-  const filteredPresets = presets.filter(
-    (preset: any) =>
-      selectedCategory === "all" || preset.category === selectedCategory,
-  );
-
-  // Start processing mutation - defined before keyboard shortcuts
+  // Start processing mutation
   const startProcessingMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/process", {
@@ -501,25 +237,16 @@ export default function EditPage() {
           intensity: intensity / 100,
         }),
       });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to start processing");
-      }
-
+      if (!res.ok) throw new Error("Failed to start processing");
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success("Processing started!");
-      toast.info(`Estimated time: ${data.estimatedTime || "2-3 minutes"}`);
-      queryClient.setQueryData(["project", projectId], (old: any) => ({
-        ...old,
-        status: "processing",
-      }));
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
       setIsProcessing(false);
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to apply style");
+      toast.error(error.message);
       setIsProcessing(false);
     },
   });
@@ -533,15 +260,38 @@ export default function EditPage() {
     startProcessingMutation.mutate();
   };
 
-  // Keyboard shortcuts - defined after all dependencies
+  // Handle reset
+  const handleResetAll = useCallback(() => {
+    setIntensity(70);
+    setSelectedPreset(null);
+    resetFilters();
+    toast.info("Settings reset to default");
+  }, [resetFilters]);
+
+  // Handle export
+  const handleExport = async (options: ExportOptions) => {
+    setIsExporting(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/export`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(options),
+      });
+      if (!res.ok) throw new Error("Export failed");
+      toast.success(`Export ready: ${options.format.toUpperCase()}`);
+    } catch {
+      toast.error("Failed to export image");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-      // Undo: Cmd/Ctrl + Z
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         undo();
@@ -561,28 +311,11 @@ export default function EditPage() {
           break;
         case "Enter":
           e.preventDefault();
-          if (selectedPreset && !isProcessing) {
-            handleStartProcessing();
-          }
+          if (selectedPreset && !isProcessing) handleStartProcessing();
           break;
         case "?":
           e.preventDefault();
           setShowShortcutsHelp(true);
-          break;
-        case "1":
-        case "2":
-        case "3":
-        case "4":
-        case "5":
-        case "6":
-        case "7":
-        case "8":
-        case "9":
-          const index = parseInt(e.key) - 1;
-          if (filteredPresets[index]) {
-            e.preventDefault();
-            handlePresetSelect(filteredPresets[index]);
-          }
           break;
         case "ArrowUp":
         case "+":
@@ -598,9 +331,7 @@ export default function EditPage() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === " ") {
-        setIsComparePressed(false);
-      }
+      if (e.key === " ") setIsComparePressed(false);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -609,58 +340,29 @@ export default function EditPage() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [selectedPreset, isProcessing, filteredPresets, intensity, undo, handleResetAll, handleStartProcessing]);
+  }, [selectedPreset, isProcessing, intensity, undo, handleResetAll, handleIntensityChange]);
 
-  const handleExport = async (options: ExportOptions) => {
-    setIsExporting(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/export`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(options),
-      });
-
-      if (!res.ok) throw new Error("Export failed");
-
-      const data = await res.json();
-      // Mock download
-      toast.success(`Export ready: ${options.format.toUpperCase()}`);
-      console.log("Download URL:", data.downloadUrl);
-    } catch (e) {
-      toast.error("Failed to export image");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // Handle what's next actions
-  const handleWhatsNextAction = (action: string) => {
-    switch (action) {
-      case "adjustSettings":
-        // Scroll to intensity slider
-        document
-          .getElementById("intensity-slider")
-          ?.scrollIntoView({ behavior: "smooth", block: "center" });
-        break;
-      case "download":
-        // Trigger export dialog
-        document.getElementById("export-button")?.click();
-        break;
-      case "share":
-        toast.success("Share functionality coming soon!");
-        break;
-    }
-  };
+  // Filter presets
+  const filteredPresets = presets.filter((preset: Preset) => {
+    const matchesCategory = selectedCategory === "all" || preset.category === selectedCategory;
+    const matchesSearch = !searchQuery || 
+      preset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      preset.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   if (projectLoading || presetsLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--charcoal))]">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground animate-pulse">
-            Loading workspace...
-          </p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-12 h-12 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+          />
+          <span className="font-mono text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+            Loading Workspace
+          </span>
         </div>
       </div>
     );
@@ -668,686 +370,511 @@ export default function EditPage() {
 
   if (projectError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background flex-col gap-4">
-        <h1 className="text-2xl font-bold text-destructive">
-          Error Loading Project
-        </h1>
-        <p className="text-muted-foreground">
-          The project could not be found or you don&apos;t have permission.
-        </p>
-        <Button asChild variant="secondary">
-          <Link href="/dashboard">Return to Dashboard</Link>
-        </Button>
+      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--charcoal))]">
+        <IndustrialCard className="p-8 max-w-md text-center" accent>
+          <h2 className="font-display text-xl font-bold mb-3 text-[hsl(var(--foreground))]">
+            Error Loading Project
+          </h2>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">
+            The project could not be found or you don't have permission.
+          </p>
+          <AmberButton href="/dashboard" variant="primary">
+            Return to Dashboard
+          </AmberButton>
+        </IndustrialCard>
       </div>
     );
   }
 
-  // Determine images to show
-  // For RAW files, we need to use the thumbnail since browsers can't display RAW
-  // Priority: large thumbnail > medium thumbnail > small thumbnail > original (for non-RAW)
-  const largeThumbnail = project.images?.find(
-    (img: any) =>
-      img.type === "thumbnail" && img.filename?.includes("thumb_large"),
+  // Get images
+  const largeThumbnail = project.images?.find((img: any) =>
+    img.type === "thumbnail" && img.filename?.includes("thumb_large")
   )?.url;
-  const mediumThumbnail = project.images?.find(
-    (img: any) =>
-      img.type === "thumbnail" && img.filename?.includes("thumb_medium"),
+  const mediumThumbnail = project.images?.find((img: any) =>
+    img.type === "thumbnail" && img.filename?.includes("thumb_medium")
   )?.url;
-  const anyThumbnail = project.images?.find(
-    (img: any) => img.type === "thumbnail",
-  )?.url;
-  const thumbnailImageObj = project.images?.find(
-    (img: any) => img.type === "thumbnail",
-  );
-  const originalImageObj = project.images?.find(
-    (img: any) => img.type === "original" || !img.type,
-  );
+  const anyThumbnail = project.images?.find((img: any) => img.type === "thumbnail")?.url;
+  const thumbnailImageObj = project.images?.find((img: any) => img.type === "thumbnail");
+  const originalImageObj = project.images?.find((img: any) => img.type === "original");
   const isRawFile = originalImageObj?.mimeType?.startsWith("image/x-");
+  const previewImageObj = project.images?.find((img: any) => img.isPreview === true);
   
-  // Get preview image for real-time editing
-  const previewImageObj = project.images?.find(
-    (img: any) => img.isPreview === true,
-  );
-  const previewImageUrl = previewImageObj?.url;
+  const originalImage = (isRawFile
+    ? largeThumbnail || mediumThumbnail || anyThumbnail
+    : originalImageObj?.url) || largeThumbnail || mediumThumbnail || anyThumbnail || originalImageObj?.url;
   
-  // Use preview image for real-time filter adjustments if available
-  const realTimePreviewUrl = previewImageUrl || largeThumbnail || mediumThumbnail || anyThumbnail;
-
-  // Use large thumbnail for RAW files, otherwise use original
-  const originalImage =
-    (isRawFile
-      ? largeThumbnail || mediumThumbnail || anyThumbnail
-      : originalImageObj?.url) ||
-    largeThumbnail || // Fallback to large thumbnail
-    mediumThumbnail || // Then medium
-    anyThumbnail || // Then any thumbnail
-    originalImageObj?.url || // Try original anyway
-    project.originalImageUrl ||
-    "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=2000&auto=format&fit=crop";
-
-  // Check if we have a processed image
-  const processedImageObj = project.images?.find(
-    (img: any) => img.type === "processed",
-  );
-  const processedImage = processedImageObj?.url || project.processedImageUrl;
-
-  // In this demo, we also want to simulate 'processing' state visually if just finished
+  const processedImage = project.images?.find((img: any) => img.type === "processed")?.url;
   const hasProcessed = !!processedImage;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-[hsl(var(--charcoal))]">
+      <div className="film-grain" />
+      <div className="scanlines" />
+
       <Header
         variant="minimal"
         navigation={
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Link href="/dashboard">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Link>
-            </Button>
-            <div className="h-4 w-px bg-border" />
-            <span className="font-semibold text-sm">{project.name}</span>
+          <div className="flex items-center gap-3">
+            <AmberButton variant="ghost" size="sm" href="/dashboard" icon={<ChevronLeft className="w-4 h-4" />}>
+              Back
+            </AmberButton>
+            <div className="h-4 w-px bg-[hsl(var(--border))]" />
+            <span className="font-semibold text-sm text-[hsl(var(--foreground))]">{project.name}</span>
           </div>
         }
         showUserMenu={true}
       />
 
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md">
-        Skip to main content
-      </a>
-      <main id="main-content" className="flex-1 container mx-auto px-4 py-6 lg:py-8 h-[calc(100vh-64px)] flex flex-col" tabIndex={-1}>
+      <main className="flex-1 container mx-auto px-3 py-4 lg:py-6">
         <div className={cn(
-          "grid gap-6 h-full",
-          viewMode === "split" && "lg:grid-cols-2",
-          viewMode === "standard" && "lg:grid-cols-12"
+          "grid gap-4 h-[calc(100vh-120px)]",
+          viewMode === "split" ? "lg:grid-cols-2" : "lg:grid-cols-12"
         )}>
           {/* Main Canvas Area */}
           <div className={cn(
-            "flex flex-col gap-4 h-full min-h-[500px]",
-            viewMode === "standard" && "lg:col-span-9",
-            viewMode === "split" && ""
+            "flex flex-col gap-3 h-full min-h-[400px]",
+            viewMode === "standard" && "lg:col-span-8 xl:col-span-9",
           )}>
             {/* Toolbar */}
-            <div className="flex justify-between items-center bg-card/50 p-2 rounded-sm border border-border">
-              <div className="flex gap-2 items-center">
-                <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground px-3 py-1.5">
-                  {hasProcessed ? "Compare Mode" : "Original Preview"}
-                </span>
-                {!hasProcessed && selectedPreset && (
-                  <Button
-                    variant={isComparePressed ? "default" : "outline"}
-                    size="sm"
-                    onMouseDown={() => setIsComparePressed(true)}
-                    onMouseUp={() => setIsComparePressed(false)}
-                    onMouseLeave={() => setIsComparePressed(false)}
-                    className="h-7 text-xs"
-                  >
-                    <Eye className="mr-1.5 h-3.5 w-3.5" />
-                    Hold to Compare
-                  </Button>
-                )}
-                {/* View Mode Toggle */}
-                <ToggleGroup
-                  type="single"
-                  value={viewMode}
-                  onValueChange={(v) => v && setViewMode(v as "standard" | "split")}
-                  className="border rounded-md p-0.5 ml-2"
-                >
-                  <ToggleGroupItem value="standard" className="h-6 px-2 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                    <LayoutTemplate className="h-3 w-3 mr-1" />
-                    Standard
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="split" className="h-6 px-2 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                    <Columns className="h-3 w-3 mr-1" />
-                    Split
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-              <div className="flex gap-2 items-center">
-                {/* Zoom Indicator */}
-                {zoom !== 100 && (
-                  <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                    {Math.round(zoom)}%
+            <IndustrialCard className="p-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))] px-2">
+                    {hasProcessed ? "Compare" : "Preview"}
                   </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowShortcutsHelp(true)}
-                  className="h-7 px-2"
-                >
-                  <Keyboard className="h-3.5 w-3.5" />
-                </Button>
-                <ExportMenu onExport={handleExport} isExporting={isExporting} hasPresetSelected={!!selectedPreset} />
-              </div>
-            </div>
+                  
+                  {!hasProcessed && selectedPreset && (
+                    <button
+                      onMouseDown={() => setIsComparePressed(true)}
+                      onMouseUp={() => setIsComparePressed(false)}
+                      onMouseLeave={() => setIsComparePressed(false)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs font-medium rounded-sm border transition-all",
+                        isComparePressed
+                          ? "bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] border-[hsl(var(--gold))]"
+                          : "border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--gold))]"
+                      )}
+                    >
+                      <Eye className="w-3 h-3 mr-1.5 inline" />
+                      Hold to Compare
+                    </button>
+                  )}
 
-            {/* Viewport */}
-            <div className="flex-1 relative rounded-md border border-border bg-secondary/20 overflow-hidden shadow-2xl flex items-center justify-center">
-              {hasProcessed ? (
-                <CompareSlider
-                  beforeImage={originalImage}
-                  afterImage={processedImage}
-                  className="h-full w-full"
-                  aspectRatio={imageAspectRatio === "auto" ? undefined : imageAspectRatio}
-                />
-              ) : isRawFile && !anyThumbnail ? (
-                // RAW file without thumbnail - show placeholder
-                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-secondary/40 to-secondary/20">
-                  <div className="text-center p-8">
-                    <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                      <svg
-                        className="w-12 h-12 text-primary"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                  <div className="flex gap-1 p-0.5 bg-[hsl(var(--secondary))] rounded-sm">
+                    {[
+                      { id: "standard", icon: LayoutTemplate, label: "Single" },
+                      { id: "split", icon: Columns, label: "Split" },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => setViewMode(mode.id as typeof viewMode)}
+                        className={cn(
+                          "px-2 py-1 text-xs font-medium rounded-sm transition-all flex items-center gap-1.5",
+                          viewMode === mode.id
+                            ? "bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))]"
+                            : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                        )}
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">
-                      RAW File Uploaded
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-1">
-                      {originalImageObj?.filename || "Unknown file"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Preview not available for RAW files.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Select a preset to process your image.
-                    </p>
+                        <mode.icon className="w-3 h-3" />
+                        {mode.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ) : (
-                <div 
-                  className="h-full w-full flex items-center justify-center relative overflow-hidden"
-                  onMouseDown={handlePanStart}
-                  onMouseMove={handlePanMove}
-                  onMouseUp={handlePanEnd}
-                  onMouseLeave={handlePanEnd}
-                  onDoubleClick={resetZoom}
-                  title={canPan ? "Drag to pan, double-click to reset" : "Double-click to reset zoom"}
-                >
-                  {selectedPreset ? (
-                    // Real-time filter preview with CSS filters and zoom/pan
-                    <div
-                      className="relative w-full h-full flex items-center justify-center transition-transform duration-100 ease-out"
-                      style={{
-                        ...previewStyle,
-                        ...transform,
-                      }}
-                    >
-                      <BlurHashImage
-                        src={realTimePreviewUrl}
-                        blurHash={previewImageObj?.blurHash || thumbnailImageObj?.blurHash}
-                        alt="Real-time Preview"
-                        fill
-                        className="object-contain select-none"
-                        onLoad={(e) => {
-                          // FIX: Detect and set aspect ratio from loaded image
-                          const img = e.currentTarget;
-                          if (img.naturalWidth && img.naturalHeight) {
-                            const ratio = img.naturalWidth / img.naturalHeight;
-                            setImageAspectRatio(ratio);
-                          }
-                        }}
-                      />
-                      {isProcessing && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50">
-                          <div className="flex flex-col items-center gap-4">
-                            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                            <p className="text-white font-medium animate-pulse">
-                              Generating Magic...
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    // Standard display without filters
+
+                <div className="flex items-center gap-2">
+                  {zoom !== 100 && (
+                    <span className="font-mono text-xs text-[hsl(var(--gold))]">
+                      {Math.round(zoom)}%
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setShowShortcutsHelp(true)}
+                    className="p-2 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] transition-colors"
+                  >
+                    <Keyboard className="w-3.5 h-3.5" />
+                  </button>
+                  <ExportMenu onExport={handleExport} isExporting={isExporting} hasPresetSelected={!!selectedPreset} />
+                </div>
+              </div>
+            </IndustrialCard>
+
+            {/* Viewport */}
+            <IndustrialCard className="flex-1 overflow-hidden relative" accent={hasProcessed}>
+              <div className="h-full w-full flex items-center justify-center bg-black relative overflow-hidden"
+                onMouseDown={handlePanStart}
+                onMouseMove={handlePanMove}
+                onMouseUp={handlePanEnd}
+                onMouseLeave={handlePanEnd}
+                onDoubleClick={resetZoom}
+              >
+                {hasProcessed ? (
+                  <CompareSlider
+                    beforeImage={originalImage}
+                    afterImage={processedImage}
+                    className="h-full w-full"
+                    aspectRatio={imageAspectRatio === "auto" ? undefined : imageAspectRatio}
+                  />
+                ) : selectedPreset ? (
+                  <div
+                    className="relative w-full h-full flex items-center justify-center transition-transform duration-100 ease-out"
+                    style={{ ...previewStyle, ...transform }}
+                  >
                     <BlurHashImage
-                      src={originalImage}
-                      blurHash={thumbnailImageObj?.blurHash}
+                      src={previewImageObj?.url || largeThumbnail || mediumThumbnail || anyThumbnail}
+                      blurHash={previewImageObj?.blurHash || thumbnailImageObj?.blurHash}
                       alt="Preview"
                       fill
-                      className="object-contain"
+                      sizes="(max-width: 768px) 100vw, 75vw"
+                      className="object-contain select-none"
                       onLoad={(e) => {
-                        // FIX: Detect and set aspect ratio from loaded image
                         const img = e.currentTarget;
                         if (img.naturalWidth && img.naturalHeight) {
-                          const ratio = img.naturalWidth / img.naturalHeight;
-                          setImageAspectRatio(ratio);
+                          setImageAspectRatio(img.naturalWidth / img.naturalHeight);
                         }
                       }}
                     />
-                  )}
-                  {isProcessing && !selectedPreset && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50">
-                      <div className="flex flex-col items-center gap-4">
-                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                        <p className="text-white font-medium animate-pulse">
-                          Generating Magic...
-                        </p>
+                    {isProcessing && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-3">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="w-10 h-10 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+                          />
+                          <span className="font-mono text-xs uppercase tracking-wider text-white">
+                            Generating Magic
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {/* Zoom Controls */}
-                  <ZoomControls
-                    zoom={zoom}
-                    onZoomIn={zoomIn}
-                    onZoomOut={zoomOut}
-                    onReset={resetZoom}
-                    position="bottom-right"
+                    )}
+                  </div>
+                ) : (
+                  <BlurHashImage
+                    src={originalImage}
+                    blurHash={thumbnailImageObj?.blurHash}
+                    alt="Original"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 75vw"
+                    className="object-contain"
+                    onLoad={(e) => {
+                      const img = e.currentTarget;
+                      if (img.naturalWidth && img.naturalHeight) {
+                        setImageAspectRatio(img.naturalWidth / img.naturalHeight);
+                      }
+                    }}
                   />
-                  {/* Zoom Help Tooltip */}
-                  {zoom > 100 && (
-                    <div className="absolute top-4 left-4 px-3 py-1.5 bg-background/90 backdrop-blur-sm rounded-md border shadow-sm">
-                      <p className="text-xs text-muted-foreground">
-                        Drag to pan • Double-click to reset
-                      </p>
-                    </div>
-                  )}
+                )}
+
+                {/* Zoom Controls */}
+                <div className="absolute bottom-4 right-4 flex flex-col gap-1">
+                  <button
+                    onClick={zoomIn}
+                    className="p-2 bg-[hsl(var(--card))]/90 backdrop-blur-sm rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] transition-colors"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={zoomOut}
+                    className="p-2 bg-[hsl(var(--card))]/90 backdrop-blur-sm rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] transition-colors"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={resetZoom}
+                    className="p-2 bg-[hsl(var(--card))]/90 backdrop-blur-sm rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] transition-colors"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
-            </div>
+
+                {zoom > 100 && (
+                  <div className="absolute top-4 left-4 px-3 py-1.5 bg-[hsl(var(--card))]/90 backdrop-blur-sm rounded-sm border border-[hsl(var(--border))]">
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Drag to pan • Double-click to reset
+                    </p>
+                  </div>
+                )}
+              </div>
+            </IndustrialCard>
           </div>
 
           {/* Right Sidebar - Tools */}
           <div className={cn(
-            "flex flex-col gap-4 h-full pr-1",
-            viewMode === "standard" && "lg:col-span-3",
-            viewMode === "split" && ""
+            "flex flex-col gap-3 h-full",
+            viewMode === "standard" && "lg:col-span-4 xl:col-span-3",
           )}>
-            {/* Sticky Intensity Controls */}
-            <Card className="border-border shadow-md shrink-0">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Intensity
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-mono w-10 text-right">{intensity}%</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={handleResetIntensity}
-                      disabled={!selectedPreset || intensity === 70}
-                      title="Reset to 70%"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={undo}
-                      disabled={!canUndo}
-                      title="Undo (Ctrl+Z)"
-                    >
-                      <Undo className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                <IntensitySlider
-                  value={intensity}
-                  onValueChange={handleIntensityChange}
-                  disabled={!selectedPreset}
-                />
-                {!selectedPreset && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    Select a preset to adjust intensity
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* What's Next Panel */}
-            <AnimatePresence>
-              {showWhatsNext && (
-                <WhatsNextPanel
-                  presets={presets}
-                  popularPresets={popularPresets}
-                  recommendedPresetId={recommendedPresetId}
-                  selectedPresetId={selectedPreset?.id || null}
-                  onApplyPreset={handlePresetSelect}
-                  onAdjustSettings={() =>
-                    handleWhatsNextAction("adjustSettings")
-                  }
-                  onDownload={() => handleWhatsNextAction("download")}
-                  onShare={() => handleWhatsNextAction("share")}
-                  className="shadow-lg shrink-0"
-                />
-              )}
-            </AnimatePresence>
-
-            <Card className="border-border shadow-lg flex-1 flex flex-col min-h-0">
-              <CardHeader className="pb-3 border-b border-border/50 shrink-0">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    Creative Suite
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setShowShortcutsHelp(true)}
+            {/* Intensity Controls */}
+            <IndustrialCard className="p-4 shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <label className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                  Intensity
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm text-[hsl(var(--gold))]">{intensity}%</span>
+                  <button
+                    onClick={() => handleIntensityChange(70)}
+                    disabled={!selectedPreset || intensity === 70}
+                    className="p-1.5 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] disabled:opacity-50 transition-colors"
+                    title="Reset to 70%"
                   >
-                    <Keyboard className="h-3.5 w-3.5 mr-1" />
-                    Shortcuts
-                  </Button>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={undo}
+                    disabled={!canUndo}
+                    className="p-1.5 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] disabled:opacity-50 transition-colors"
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-5 pt-4 flex-1 overflow-y-auto min-h-0">
-                {/* Preset Search */}
-                <PresetSearch
-                  presets={presets}
-                  favoriteIds={favorites}
-                  recentIds={recentPresets}
-                  selectedId={selectedPreset?.id}
-                  onSelect={handlePresetSelect}
-                  onToggleFavorite={toggleFavorite}
-                />
+              </div>
 
-                {/* Category Tabs */}
-                <div className="space-y-3">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={intensity}
+                onChange={(e) => handleIntensityChange(Number(e.target.value))}
+                disabled={!selectedPreset}
+                className="w-full h-2 bg-[hsl(var(--secondary))] rounded-sm appearance-none cursor-pointer accent-[hsl(var(--gold))] disabled:cursor-not-allowed"
+              />
+
+              {!selectedPreset && (
+                <p className="text-xs text-[hsl(var(--muted-foreground))] text-center mt-2">
+                  Select a preset to adjust intensity
+                </p>
+              )}
+            </IndustrialCard>
+
+            {/* Creative Suite */}
+            <IndustrialCard className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-3 border-b border-[hsl(var(--border))] shrink-0">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Filter className="h-3 w-3 text-muted-foreground" />
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Filter Styles
-                    </label>
+                    <Zap className="w-4 h-4 text-[hsl(var(--gold))]" />
+                    <span className="font-display font-semibold text-sm">Creative Suite</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setShowShortcutsHelp(true)}
+                    className="text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors"
+                  >
+                    Shortcuts
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 space-y-4 overflow-y-auto flex-1">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]" />
+                  <input
+                    type="text"
+                    placeholder="Search presets..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--gold))] focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Categories */}
+                <ControlGroup label="Categories">
+                  <div className="flex flex-wrap gap-1">
                     {CATEGORIES.map((category) => (
                       <button
                         key={category.id}
                         onClick={() => setSelectedCategory(category.id)}
-                        className={`
-                                        px-2 py-1 text-xs font-medium rounded-sm transition-all duration-200
-                                        ${
-                                          selectedCategory === category.id
-                                            ? "bg-primary text-primary-foreground shadow-sm"
-                                            : "bg-secondary/50 text-secondary-foreground hover:bg-secondary/70"
-                                        }
-                                    `}
+                        className={cn(
+                          "px-2 py-1 text-[10px] font-medium rounded-sm transition-all",
+                          selectedCategory === category.id
+                            ? "bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))]"
+                            : "bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                        )}
                         title={category.description}
                       >
                         {category.label}
                       </button>
                     ))}
                   </div>
-                </div>
+                </ControlGroup>
 
-                {/* Presets */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      {selectedCategory === "all"
-                        ? "All Styles"
-                        : CATEGORIES.find((c) => c.id === selectedCategory)
-                            ?.label}
-                    </label>
-                    <span className="text-xs text-muted-foreground">
-                      {filteredPresets.length} styles
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    {filteredPresets.length > 0 ? (
-                      filteredPresets.map((preset: any) => {
-                        const isRecommended = preset.id === recommendedPresetId;
-                        const isSelected = selectedPreset?.id === preset.id;
+                {/* Presets Grid */}
+                <ControlGroup label={`${CATEGORIES.find(c => c.id === selectedCategory)?.label} (${filteredPresets.length})`}>
+                  <div className="grid grid-cols-1 gap-2">
+                    {filteredPresets.map((preset: Preset, index: number) => {
+                      const isSelected = selectedPreset?.id === preset.id;
 
-                        return (
-                          <button
-                            key={preset.id}
-                            onClick={() => handlePresetSelect(preset)}
-                            className={`
-                                                group relative cursor-pointer overflow-hidden rounded-md border-2 transition-all duration-200 text-left w-full
-                                                ${
-                                                  isSelected
-                                                    ? "border-primary ring-2 ring-primary/30 shadow-lg shadow-primary/10 bg-primary/5"
-                                                    : isRecommended
-                                                      ? "border-amber-500/50 hover:border-amber-500 hover:shadow-md"
-                                                      : "border-border hover:border-primary/50 hover:shadow-sm"
-                                                }
-                                            `}
-                            aria-label={`Select ${preset.name} preset${preset.description ? `: ${preset.description}` : ""}`}
-                            aria-pressed={isSelected}
-                          >
-                            {/* Selected checkmark */}
-                            {isSelected && (
-                              <div className="absolute top-2 left-2 z-10">
-                                <div className="bg-primary text-primary-foreground rounded-full p-1 shadow-sm">
-                                  <Check className="h-3 w-3" />
-                                </div>
-                              </div>
-                            )}
-                            {/* Favorite button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite(preset.id);
-                              }}
-                              className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-background/80 hover:bg-background transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                              aria-label={isFavorite(preset.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              <Heart
-                                className={cn(
-                                  "h-3.5 w-3.5 transition-colors",
-                                  isFavorite(preset.id)
-                                    ? "fill-red-500 text-red-500"
-                                    : "text-muted-foreground hover:text-red-500"
-                                )}
-                              />
-                            </button>
-                            <div className="flex items-center gap-3 p-3 bg-card">
-                              <div className={`
-                                relative h-12 w-12 rounded-sm overflow-hidden flex-shrink-0
-                                ${isSelected ? 'ring-2 ring-primary' : ''}
-                              `}>
-                                <Image
-                                  src={preset.exampleImageUrl}
-                                  alt={preset.name}
-                                  fill
-                                  sizes="48px"
-                                  className="object-cover"
-                                />
-                                {isSelected && <div className="absolute inset-0 bg-primary/10" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium text-sm text-foreground group-hover:text-primary transition-colors truncate">
-                                    {preset.name}
-                                  </p>
-                                  {isRecommended && !isSelected && (
-                                    <div className="flex-shrink-0">
-                                      <Sparkles className="h-3 w-3 text-amber-500" />
-                                    </div>
-                                  )}
-                                </div>
-                                {preset.description && (
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    {preset.description}
-                                  </p>
-                                )}
+                      return (
+                        <motion.button
+                          key={preset.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          onClick={() => handlePresetSelect(preset)}
+                          className={cn(
+                            "group relative flex items-center gap-3 p-2 rounded-sm border-2 transition-all text-left overflow-hidden",
+                            isSelected
+                              ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10"
+                              : "border-[hsl(var(--border))] hover:border-[hsl(var(--gold))]/50"
+                          )}
+                        >
+                          {/* Selected indicator */}
+                          {isSelected && (
+                            <div className="absolute top-2 left-2 z-10">
+                              <div className="bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] rounded-full p-0.5">
+                                <Check className="w-3 h-3" />
                               </div>
                             </div>
-                            {/* Category badge */}
+                          )}
+
+                          {/* Favorite button - using div to avoid nested buttons */}
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(preset.id);
+                            }}
+                            className="absolute top-2 right-2 z-10 p-1 rounded-full bg-[hsl(var(--card))]/80 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[hsl(var(--card))]"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation();
+                                toggleFavorite(preset.id);
+                              }
+                            }}
+                          >
+                            <Heart
+                              className={cn(
+                                "w-3 h-3 transition-colors",
+                                isFavorite(preset.id)
+                                  ? "fill-red-500 text-red-500"
+                                  : "text-[hsl(var(--muted-foreground))] hover:text-red-500"
+                              )}
+                            />
+                          </div>
+
+                          {/* Thumbnail */}
+                          <div className={cn(
+                            "relative w-14 h-14 rounded-sm overflow-hidden shrink-0",
+                            isSelected && "ring-2 ring-[hsl(var(--gold))]"
+                          )}>
+                            <Image
+                              src={preset.exampleImageUrl}
+                              alt={preset.name}
+                              fill
+                              sizes="56px"
+                              className="object-cover"
+                            />
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className={cn(
+                              "font-medium text-sm truncate",
+                              isSelected ? "text-[hsl(var(--gold))]" : "text-[hsl(var(--foreground))]"
+                            )}>
+                              {preset.name}
+                            </p>
                             {preset.category && (
-                              <div className="absolute top-1 right-1">
-                                <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 bg-background/90 rounded-sm border border-border/50 text-muted-foreground">
-                                  {preset.category}
-                                </span>
-                              </div>
+                              <span className="text-[9px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                                {preset.category}
+                              </span>
                             )}
-                            {/* Recommended badge (gold) */}
-                            {isRecommended && !isSelected && (
-                              <div className="absolute bottom-1 left-1">
-                                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-amber-500/90 text-white rounded-sm border border-amber-400/30 shadow-sm">
-                                  Recommended
-                                </span>
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">
-                          No presets found in this category
-                        </p>
-                      </div>
-                    )}
+                          </div>
+
+                          {/* Index shortcut */}
+                          <span className="absolute bottom-1 right-1 font-mono text-[9px] text-[hsl(var(--muted-foreground))]/50">
+                            {index + 1}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
                   </div>
-                </div>
-
-              </CardContent>
-
-              {/* Screen reader announcements */}
-              <div aria-live="polite" aria-atomic="true" className="sr-only">
-                {isProcessing ? "Processing started. This may take 2 to 3 minutes." : ""}
+                </ControlGroup>
               </div>
 
               {/* Action Footer */}
-              <div className="p-4 border-t border-border mt-auto bg-secondary/10 space-y-2">
-                <Button
+              <div className="p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--secondary))]/30 shrink-0 space-y-2">
+                <AmberButton
                   onClick={handleStartProcessing}
                   disabled={isProcessing || !selectedPreset}
-                  className="w-full h-10 text-sm font-semibold shadow-md transition-all hover:scale-[1.02] uppercase tracking-wide"
-                  size="default"
-                  aria-describedby={isProcessing ? "processing-status" : undefined}
+                  className="w-full"
+                  size="md"
+                  icon={isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
                 >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                      <span id="processing-status">Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
-                      Apply Style
-                    </>
-                  )}
-                </Button>
+                  {isProcessing ? "Processing..." : "Apply Style"}
+                </AmberButton>
 
-                {/* Batch Processing Button */}
                 <BatchProcessingDialog
-                  selectedPresetName={selectedPreset?.name || "No preset selected"}
+                  selectedPresetName={selectedPreset?.name || "No preset"}
                   intensity={intensity}
-                  onBatchProcess={async (projectIds) => {
-                    // Mock batch processing - in production this would call an API
+                  onBatchProcess={async () => {
                     await new Promise((resolve) => setTimeout(resolve, 2000));
-                    console.log("Batch processing projects:", projectIds);
                   }}
                   trigger={
-                    <Button
-                      variant="outline"
+                    <AmberButton
+                      variant="secondary"
                       disabled={!selectedPreset}
-                      className="w-full h-9 text-sm"
+                      className="w-full"
                       size="sm"
+                      icon={<Layers className="w-4 h-4" />}
                     >
-                      <Layers className="mr-2 h-4 w-4" />
                       Batch Process
-                    </Button>
+                    </AmberButton>
                   }
                 />
               </div>
-            </Card>
-
-            <div className="bg-muted/30 rounded-sm p-4 border border-border/50 text-xs text-muted-foreground space-y-1">
-              <div className="flex justify-between">
-                <span>Source</span>
-                <span className="font-mono text-foreground opacity-70">
-                  ORIGINAL
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Resolution</span>
-                <span className="font-mono text-foreground opacity-70">
-                  High-Res
-                </span>
-              </div>
-            </div>
+            </IndustrialCard>
           </div>
         </div>
       </main>
 
-      {/* Keyboard Shortcuts Help Dialog */}
-      <Dialog open={showShortcutsHelp} onOpenChange={setShowShortcutsHelp}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Keyboard className="h-5 w-5" />
-              Keyboard Shortcuts
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">1</kbd>
-                <span className="text-muted-foreground">-</span>
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">9</kbd>
-              </div>
-              <span>Select preset 1-9</span>
+      {/* Keyboard Shortcuts Modal */}
+      <AnimatePresence>
+        {showShortcutsHelp && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md"
+            >
+              <IndustrialCard className="p-6" accent>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-display font-bold text-lg">Keyboard Shortcuts</h2>
+                  <button
+                    onClick={() => setShowShortcutsHelp(false)}
+                    className="p-1.5 rounded-sm hover:bg-[hsl(var(--secondary))] transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑</kbd>
-                <span className="text-muted-foreground">/</span>
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">+</kbd>
-              </div>
-              <span>Increase intensity</span>
-
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↓</kbd>
-                <span className="text-muted-foreground">/</span>
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">-</kbd>
-              </div>
-              <span>Decrease intensity</span>
-
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Space</kbd>
-              </div>
-              <span>Hold to compare</span>
-
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
-              </div>
-              <span>Apply/Process</span>
-
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl</kbd>
-                <span className="text-muted-foreground">+</span>
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Z</kbd>
-              </div>
-              <span>Undo</span>
-
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
-              </div>
-              <span>Reset all settings</span>
-
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">?</kbd>
-              </div>
-              <span>Show this help</span>
-            </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {[
+                    { keys: "1-9", action: "Select preset" },
+                    { keys: "↑ / +", action: "Increase intensity" },
+                    { keys: "↓ / -", action: "Decrease intensity" },
+                    { keys: "Space", action: "Hold to compare" },
+                    { keys: "Enter", action: "Apply style" },
+                    { keys: "Ctrl+Z", action: "Undo" },
+                    { keys: "Esc", action: "Reset all" },
+                    { keys: "?", action: "Show help" },
+                  ].map((shortcut) => (
+                    <div key={shortcut.action} className="flex items-center justify-between p-2 bg-[hsl(var(--secondary))] rounded-sm">
+                      <kbd className="font-mono text-xs bg-[hsl(var(--card))] px-2 py-0.5 rounded border border-[hsl(var(--border))]">
+                        {shortcut.keys}
+                      </kbd>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))]">{shortcut.action}</span>
+                    </div>
+                  ))}
+                </div>
+              </IndustrialCard>
+            </motion.div>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

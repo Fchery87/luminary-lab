@@ -3,27 +3,27 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import Link from "next/link";
+import { motion } from "framer-motion";
 import {
   Download,
   ArrowLeft,
   CheckCircle,
   Settings,
   ImageIcon,
+  Loader2,
+  ChevronLeft,
 } from "lucide-react";
-import Link from "next/link";
 import { toast } from "sonner";
+
 import { Header } from "@/components/ui/header";
+import {
+  IndustrialCard,
+  AmberButton,
+  SectionHeader,
+  Frame,
+} from "@/components/ui/industrial-ui";
+import { cn } from "@/lib/utils";
 
 export default function ExportPage() {
   const params = useParams();
@@ -108,9 +108,7 @@ export default function ExportPage() {
       const response = await fetch("/api/export", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
           format,
@@ -143,204 +141,199 @@ export default function ExportPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[hsl(var(--charcoal))]">
+      <div className="film-grain" />
+      <div className="scanlines" />
+
       <Header variant="minimal" showUserMenu={true} />
 
       <main className="flex-1 container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Export Image</h1>
-            <p className="text-muted-foreground">
-              Choose your export settings and download the processed image
-            </p>
+        <div className="max-w-5xl mx-auto">
+          {/* Back Link */}
+          <div className="mb-6">
+            <AmberButton
+              variant="ghost"
+              size="sm"
+              href={`/compare/${projectId}`}
+              icon={<ChevronLeft className="w-4 h-4" />}
+            >
+              Back to Comparison
+            </AmberButton>
           </div>
+
+          <SectionHeader
+            label="Export"
+            title="Export Image"
+            description="Choose your export settings and download the processed image"
+            className="mb-8"
+          />
 
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Format Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ImageIcon className="h-5 w-5" />
-                  Format
-                </CardTitle>
-                <CardDescription>Choose file format</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={format} onValueChange={setFormat}>
+            <IndustrialCard>
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <ImageIcon className="w-4 h-4 text-[hsl(var(--gold))]" />
+                  <h2 className="font-display font-semibold">Format</h2>
+                </div>
+
+                <div className="space-y-2">
                   {formats.map((f) => (
-                    <div key={f.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={f.value} id={f.value} />
-                      <Label
-                        htmlFor={f.value}
-                        className="flex-1 cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{f.label}</span>
-                          {format === f.value && (
-                            <CheckCircle className="h-4 w-4 text-primary" />
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {f.description}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {f.colorSpace} • {f.bitDepth}
-                        </div>
-                      </Label>
-                    </div>
+                    <button
+                      key={f.value}
+                      onClick={() => setFormat(f.value)}
+                      className={cn(
+                        "w-full p-3 text-left rounded-sm border transition-all",
+                        format === f.value
+                          ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10"
+                          : "border-[hsl(var(--border))] hover:border-[hsl(var(--gold))]/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{f.label}</span>
+                        {format === f.value && <CheckCircle className="w-4 h-4 text-[hsl(var(--gold))]" />}
+                      </div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                        {f.description}
+                      </p>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                        {f.colorSpace} • {f.bitDepth}
+                      </span>
+                    </button>
                   ))}
-                </RadioGroup>
-              </CardContent>
-            </Card>
+                </div>
+              </div>
+            </IndustrialCard>
 
             {/* Quality Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Quality
-                </CardTitle>
-                <CardDescription>Export quality settings</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={quality} onValueChange={setQuality}>
+            <IndustrialCard>
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings className="w-4 h-4 text-[hsl(var(--gold))]" />
+                  <h2 className="font-display font-semibold">Quality</h2>
+                </div>
+
+                <div className="space-y-2">
                   {qualities.map((q) => (
-                    <div key={q.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={q.value} id={q.value} />
-                      <Label
-                        htmlFor={q.value}
-                        className="flex-1 cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{q.label}</span>
-                          {quality === q.value && (
-                            <CheckCircle className="h-4 w-4 text-primary" />
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {q.description}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          JPEG: {q.settings.jpeg}%, TIFF: {q.settings.tiff}-bit,
-                          PNG: {q.settings.png}-bit
-                        </div>
-                      </Label>
-                    </div>
+                    <button
+                      key={q.value}
+                      onClick={() => setQuality(q.value)}
+                      className={cn(
+                        "w-full p-3 text-left rounded-sm border transition-all",
+                        quality === q.value
+                          ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10"
+                          : "border-[hsl(var(--border))] hover:border-[hsl(var(--gold))]/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{q.label}</span>
+                        {quality === q.value && <CheckCircle className="w-4 h-4 text-[hsl(var(--gold))]" />}
+                      </div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                        {q.description}
+                      </p>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                        JPEG: {q.settings.jpeg}%, TIFF: {q.settings.tiff}-bit
+                      </span>
+                    </button>
                   ))}
-                </RadioGroup>
-              </CardContent>
-            </Card>
+                </div>
+              </div>
+            </IndustrialCard>
 
             {/* Size Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Resolution</CardTitle>
-                <CardDescription>Output image dimensions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup value={size} onValueChange={setSize}>
+            <IndustrialCard>
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <ImageIcon className="w-4 h-4 text-[hsl(var(--gold))]" />
+                  <h2 className="font-display font-semibold">Resolution</h2>
+                </div>
+
+                <div className="space-y-2">
                   {sizes.map((s) => (
-                    <div key={s.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={s.value} id={s.value} />
-                      <Label
-                        htmlFor={s.value}
-                        className="flex-1 cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{s.label}</span>
-                          {size === s.value && (
-                            <CheckCircle className="h-4 w-4 text-primary" />
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {s.description}
-                        </div>
-                      </Label>
-                    </div>
+                    <button
+                      key={s.value}
+                      onClick={() => setSize(s.value)}
+                      className={cn(
+                        "w-full p-3 text-left rounded-sm border transition-all",
+                        size === s.value
+                          ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10"
+                          : "border-[hsl(var(--border))] hover:border-[hsl(var(--gold))]/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{s.label}</span>
+                        {size === s.value && <CheckCircle className="w-4 h-4 text-[hsl(var(--gold))]" />}
+                      </div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                        {s.description}
+                      </p>
+                    </button>
                   ))}
-                </RadioGroup>
-              </CardContent>
-            </Card>
+                </div>
+              </div>
+            </IndustrialCard>
           </div>
 
           {/* Export Summary */}
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Export Summary</CardTitle>
-              <CardDescription>
-                Review your settings before export
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Format:</span>
-                    <span className="text-sm">
-                      {selectedFormat?.label} ({selectedFormat?.bitDepth})
-                    </span>
+          <IndustrialCard className="mt-6" accent>
+            <div className="p-6">
+              <SectionHeader title="Export Summary" className="mb-4" />
+
+              <div className="grid gap-4 md:grid-cols-2 mb-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[hsl(var(--muted-foreground))]">Format:</span>
+                    <span>{selectedFormat?.label} ({selectedFormat?.bitDepth})</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Color Space:</span>
-                    <span className="text-sm">
-                      {selectedFormat?.colorSpace}
-                    </span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[hsl(var(--muted-foreground))]">Color Space:</span>
+                    <span>{selectedFormat?.colorSpace}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Quality:</span>
-                    <span className="text-sm">{selectedQuality?.label}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[hsl(var(--muted-foreground))]">Quality:</span>
+                    <span>{selectedQuality?.label}</span>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Resolution:</span>
-                    <span className="text-sm">{selectedSize?.label}</span>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[hsl(var(--muted-foreground))]">Resolution:</span>
+                    <span>{selectedSize?.label}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">File Type:</span>
-                    <Badge variant="secondary">
-                      luminary_{projectId}.{format.toUpperCase()}
-                    </Badge>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[hsl(var(--muted-foreground))]">File Type:</span>
+                    <span className="font-mono text-[hsl(var(--gold))]">
+                      luminary_{projectId.substring(0, 8)}.{format.toUpperCase()}
+                    </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Expires:</span>
-                    <span className="text-sm">1 hour</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[hsl(var(--muted-foreground))]">Expires:</span>
+                    <span>1 hour</span>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t">
-                <div className="flex gap-4">
-                  <Button variant="outline" asChild>
-                    <Link href={`/compare/${projectId}`}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Link>
-                  </Button>
+              <div className="flex gap-3 pt-4 border-t border-[hsl(var(--border))]">
+                <AmberButton
+                  variant="secondary"
+                  href={`/compare/${projectId}`}
+                  icon={<ArrowLeft className="w-4 h-4" />}
+                >
+                  Back
+                </AmberButton>
 
-                  <Button
-                    onClick={handleExport}
-                    disabled={isExporting}
-                    className="flex-1"
-                  >
-                    {isExporting ? (
-                      <>
-                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                        Exporting...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export {selectedFormat?.label}
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <AmberButton
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="flex-1"
+                  icon={isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                >
+                  {isExporting ? "Exporting..." : `Export ${selectedFormat?.label}`}
+                </AmberButton>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </IndustrialCard>
         </div>
       </main>
     </div>

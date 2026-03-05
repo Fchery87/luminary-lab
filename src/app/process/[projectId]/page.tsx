@@ -3,26 +3,23 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import {
   Loader2,
   CheckCircle,
   XCircle,
   ArrowLeft,
   Download,
+  Clock,
+  AlertCircle,
+  ChevronLeft,
 } from "lucide-react";
-import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+
 import { Header } from "@/components/ui/header";
+import { IndustrialCard, AmberButton, SectionHeader, StatusBadge } from "@/components/ui/industrial-ui";
+import { cn } from "@/lib/utils";
 
 interface JobStatus {
   id: string;
@@ -38,29 +35,29 @@ interface JobStatus {
 const statusConfig = {
   queued: {
     label: "Queued",
-    color: "bg-yellow-100 text-yellow-800",
-    icon: Loader2,
+    status: "idle" as const,
+    icon: Clock,
     message: "Your job is in the queue and will start processing soon.",
   },
   processing: {
     label: "Processing",
-    color: "bg-blue-100 text-blue-800",
+    status: "processing" as const,
     icon: Loader2,
     message: "Your image is being processed by AI...",
   },
   completed: {
     label: "Completed",
-    color: "bg-green-100 text-green-800",
+    status: "complete" as const,
     icon: CheckCircle,
     message: "Processing completed successfully!",
   },
   failed: {
     label: "Failed",
-    color: "bg-red-100 text-red-800",
+    status: "error" as const,
     icon: XCircle,
     message: "Processing failed. Please try again.",
   },
-} as const;
+};
 
 export default function ProcessingPage() {
   const params = useParams();
@@ -69,13 +66,9 @@ export default function ProcessingPage() {
 
   const [progress, setProgress] = useState(0);
 
-  // Mock job status polling
   const { data: jobStatus, isLoading } = useQuery({
     queryKey: ["job-status", projectId],
     queryFn: async () => {
-      // This would be a real API call to check job status
-      // For now, mock the status
-
       const mockStatus: JobStatus = {
         id: projectId,
         status: "processing",
@@ -83,15 +76,11 @@ export default function ProcessingPage() {
         message: "Applying AI style...",
         estimatedTime: "1-2 minutes",
       };
-
       return mockStatus;
     },
     refetchInterval: (query) => {
       const data = query.state.data;
-      // Poll every 2 seconds for queued/processing, stop for completed/failed
-      return data?.status === "queued" || data?.status === "processing"
-        ? 2000
-        : false;
+      return data?.status === "queued" || data?.status === "processing" ? 2000 : false;
     },
   });
 
@@ -106,137 +95,155 @@ export default function ProcessingPage() {
       }, 100);
       return () => clearTimeout(timer);
     } else if (status === "completed" && progress !== 100) {
-      const timer = setTimeout(() => {
-        setProgress(100);
-      }, 0);
-      return () => clearTimeout(timer);
+      setProgress(100);
     }
   }, [progress, status]);
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--charcoal))]">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-10 h-10 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[hsl(var(--charcoal))]">
+      <div className="film-grain" />
+      <div className="scanlines" />
+
       <Header variant="minimal" showUserMenu={true} />
 
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Back button */}
-          <Button variant="outline" asChild>
-            <Link href="/edit/[projectId]" as={`/edit/${projectId}`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Editor
-            </Link>
-          </Button>
+          <AmberButton
+            variant="ghost"
+            size="sm"
+            href={`/edit/${projectId}`}
+            icon={<ChevronLeft className="w-4 h-4" />}
+          >
+            Back to Editor
+          </AmberButton>
 
           {/* Status Card */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Icon
-                    className={`h-6 w-6 ${
-                      status === "processing" ? "animate-spin" : ""
-                    }`}
-                  />
+          <IndustrialCard accent={status === "completed"}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-12 h-12 rounded-sm flex items-center justify-center",
+                    status === "completed" && "bg-emerald-500/10 text-emerald-400",
+                    status === "processing" && "bg-amber-500/10 text-amber-400",
+                    status === "failed" && "bg-red-500/10 text-red-400",
+                    status === "queued" && "bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]"
+                  )}
+                  >
+                    <Icon className={cn(
+                      "w-6 h-6",
+                      status === "processing" && "animate-spin"
+                    )} />
+                  </div>
                   <div>
-                    <CardTitle>Processing Status</CardTitle>
-                    <CardDescription>Project {projectId}</CardDescription>
+                    <h1 className="font-display text-xl font-bold">Processing Status</h1>
+                    <p className="font-mono text-xs text-[hsl(var(--muted-foreground))]">
+                      {projectId.substring(0, 8)}
+                    </p>
                   </div>
                 </div>
-                <Badge className={config.color}>{config.label}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{progress}%</span>
-                </div>
-                <Progress value={progress} className="w-full" />
+                <StatusBadge status={config.status}>{config.label}</StatusBadge>
               </div>
 
-              <div className="text-sm text-muted-foreground">
-                {config.message}
-              </div>
-
-              {jobStatus?.message && (
-                <div className="p-3 bg-muted rounded-sm text-sm">
-                  {jobStatus.message}
+              <div className="space-y-6">
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[hsl(var(--muted-foreground))]">Progress</span>
+                    <span className="font-mono text-[hsl(var(--gold))]">{progress}%</span>
+                  </div>
+                  <div className="h-2 bg-[hsl(var(--secondary))] rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      className={cn(
+                        "h-full",
+                        status === "completed" && "bg-emerald-500",
+                        status === "failed" && "bg-red-500",
+                        (status === "processing" || status === "queued") && "bg-[hsl(var(--gold))]"
+                      )}
+                    />
+                  </div>
                 </div>
-              )}
 
-              {jobStatus?.estimatedTime && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Estimated time: {jobStatus.estimatedTime}</span>
-                </div>
-              )}
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                  {config.message}
+                </p>
 
-              {jobStatus?.error && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-sm text-sm text-destructive">
-                  <strong>Error:</strong> {jobStatus.error}
-                </div>
-              )}
+                {jobStatus?.message && (
+                  <div className="p-3 bg-[hsl(var(--secondary))] rounded-sm text-sm border border-[hsl(var(--border))]">
+                    {jobStatus.message}
+                  </div>
+                )}
 
-              {/* Action buttons based on status */}
-              {status === "completed" && (
-                <div className="flex space-x-3">
-                  <Button asChild>
-                    <Link href={`/compare/${projectId}`}>
-                      <CheckCircle className="mr-2 h-4 w-4" />
+                {jobStatus?.estimatedTime && status !== "completed" && (
+                  <div className="flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]">
+                    <Clock className="w-4 h-4" />
+                    <span>Estimated time: {jobStatus.estimatedTime}</span>
+                  </div>
+                )}
+
+                {jobStatus?.error && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-sm text-sm text-red-400">
+                    <strong>Error:</strong> {jobStatus.error}
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                {status === "completed" && (
+                  <div className="flex gap-3">
+                    <AmberButton href={`/compare/${projectId}`} icon={<CheckCircle className="w-4 h-4" />}>
                       View Results
-                    </Link>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <Link href={`/export/${projectId}`}>
-                      <Download className="mr-2 h-4 w-4" />
+                    </AmberButton>
+                    <AmberButton variant="secondary" href={`/export/${projectId}`} icon={<Download className="w-4 h-4" />}>
                       Export
-                    </Link>
-                  </Button>
-                </div>
-              )}
+                    </AmberButton>
+                  </div>
+                )}
 
-              {status === "failed" && (
-                <div className="flex space-x-3">
-                  <Button asChild>
-                    <Link href={`/edit/${projectId}`}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
+                {status === "failed" && (
+                  <div className="flex gap-3">
+                    <AmberButton href={`/edit/${projectId}`} icon={<ArrowLeft className="w-4 h-4" />}>
                       Try Again
-                    </Link>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <Link href="/upload">Upload New File</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    </AmberButton>
+                    <AmberButton variant="secondary" href="/upload">
+                      Upload New File
+                    </AmberButton>
+                  </div>
+                )}
+              </div>
+            </div>
+          </IndustrialCard>
 
-          {/* Preview thumbnail when completed */}
+          {/* Preview */}
           {status === "completed" && jobStatus?.thumbnailUrl && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Preview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative w-full h-80">
+            <IndustrialCard>
+              <div className="p-6">
+                <SectionHeader title="Preview" className="mb-4" />
+                <div className="relative w-full aspect-video bg-black rounded-sm overflow-hidden">
                   <Image
                     src={jobStatus.thumbnailUrl}
                     alt="Processed image preview"
                     fill
                     sizes="(max-width: 768px) 100vw, 80vw"
-                    className="rounded-sm object-cover"
+                    className="object-contain"
                   />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </IndustrialCard>
           )}
         </div>
       </main>

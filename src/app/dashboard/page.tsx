@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Header } from "@/components/ui/header";
-import { ErrorBoundary } from "@/components/ui/error-boundary";
-import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
-import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Search,
   Plus,
@@ -17,113 +16,72 @@ import {
   Grid,
   List,
   AlertCircle,
-  Camera,
   Filter,
   X,
-  Sliders,
   Folder,
   CheckCircle2,
   Clock,
   Activity,
-  TrendingUp,
-  Hourglass,
+  Camera,
+  Zap,
 } from "lucide-react";
-import Link from "next/link";
-import { toast } from "sonner";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
 
+import { Header } from "@/components/ui/header";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { ActivityTimeline, type ActivityItem } from "@/components/ui/activity-timeline";
+import {
+  IndustrialCard,
+  AmberButton,
+  Frame,
+  SectionHeader,
+  StatusBadge,
+  MetricDisplay,
+} from "@/components/ui/industrial-ui";
 import { ProjectCard, type Project } from "./project-card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { ProjectTags } from "@/components/ui/tag-badge";
-import {
-  ActivityTimeline,
-  type ActivityItem,
-} from "@/components/ui/activity-timeline";
+import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"date" | "name" | "status">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [dateRange, setDateRange] = useState<
-    "all" | "today" | "week" | "month"
-  >("all");
+  const [dateRange, setDateRange] = useState<"all" | "today" | "week" | "month">("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  // Metadata filters
-  const [showMetadataFilters, setShowMetadataFilters] = useState(false);
-  const [cameraMake, setCameraMake] = useState<string>("");
-  const [cameraModel, setCameraModel] = useState<string>("");
-  const [lensModel, setLensModel] = useState<string>("");
-  const [isoRange, setIsoRange] = useState<[number, number]>([100, 6400]);
-  const [selectedTag, setSelectedTag] = useState<string>("");
-
-  const queryClient = useQueryClient();
+  const [showFilters, setShowFilters] = useState(false);
 
   // Fetch dashboard stats
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard/stats", {
-        credentials: "include",
-      });
+      const res = await fetch("/api/dashboard/stats", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    refetchInterval: 30000, // Refresh stats every 30 seconds
+    refetchInterval: 30000,
   });
 
   // Fetch recent activity
   const { data: activities = [], isLoading: isLoadingActivities } = useQuery({
     queryKey: ["dashboard-activity"],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard/activity?limit=8", {
-        credentials: "include",
-      });
+      const res = await fetch("/api/dashboard/activity?limit=8", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch activity");
       return res.json() as Promise<ActivityItem[]>;
     },
   });
 
-  const {
-    data: projectsResponse,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: [
-      "projects",
-      searchQuery,
-      filterStatus,
-      dateRange,
-      cameraMake,
-      cameraModel,
-      lensModel,
-      isoRange,
-      selectedTag,
-    ],
+  // Fetch projects
+  const { data: projectsResponse, isLoading, error } = useQuery({
+    queryKey: ["projects", searchQuery, filterStatus, dateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.set("search", searchQuery);
       if (filterStatus !== "all") params.set("status", filterStatus);
-      if (cameraMake) params.set("cameraMake", cameraMake);
-      if (cameraModel) params.set("cameraModel", cameraModel);
-      if (lensModel) params.set("lensModel", lensModel);
-      if (selectedTag) params.set("tag", selectedTag);
-      if (isoRange[0] > 100) params.set("isoMin", isoRange[0].toString());
-      if (isoRange[1] < 6400) params.set("isoMax", isoRange[1].toString());
 
-      const res = await fetch(`/api/projects?${params.toString()}`, {
-        credentials: "include",
-      });
+      const res = await fetch(`/api/projects?${params.toString()}`, { credentials: "include" });
       if (res.status === 401) {
         router.push("/login");
         throw new Error("Unauthorized");
@@ -174,10 +132,9 @@ export default function DashboardPage() {
     },
   });
 
-  // Note: Filtering is now done server-side via API query params
+  // Sort projects client-side
   const sortedProjects = [...projects].sort((a, b) => {
     let comparison = 0;
-
     switch (sortBy) {
       case "name":
         comparison = a.name.localeCompare(b.name);
@@ -187,38 +144,19 @@ export default function DashboardPage() {
         break;
       case "date":
       default:
-        comparison =
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         break;
     }
-
     return sortOrder === "asc" ? comparison : -comparison;
   });
 
-  // Clear all filters
   const clearFilters = () => {
     setSearchQuery("");
     setFilterStatus("all");
     setDateRange("all");
-    setCameraMake("");
-    setCameraModel("");
-    setLensModel("");
-    setIsoRange([100, 6400]);
-    setSelectedTag("");
-    setShowMetadataFilters(false);
   };
 
-  // Check if any filters are active
-  const hasActiveFilters =
-    searchQuery !== "" ||
-    filterStatus !== "all" ||
-    dateRange !== "all" ||
-    cameraMake !== "" ||
-    cameraModel !== "" ||
-    lensModel !== "" ||
-    selectedTag !== "" ||
-    isoRange[0] > 100 ||
-    isoRange[1] < 6400;
+  const hasActiveFilters = searchQuery !== "" || filterStatus !== "all" || dateRange !== "all";
 
   const handleDeleteProject = (projectId: string) => {
     if (window.confirm(`Are you sure you want to delete this project?`)) {
@@ -227,65 +165,21 @@ export default function DashboardPage() {
   };
 
   const handleCreateProject = () => {
-    // Redirect to upload page with onboarding flag for first-time users
     router.push("/upload?onboarding=true");
-  };
-
-  // Helper function to get adaptive empty state message
-  const getEmptyStateMessage = () => {
-    if (searchQuery) {
-      return {
-        title: "No projects match your search",
-        description: `No projects found matching "${searchQuery}". Try a different search term.`,
-      };
-    }
-    if (filterStatus === "completed") {
-      return {
-        title: "No completed projects yet",
-        description:
-          "Your completed projects will appear here once processing finishes.",
-      };
-    }
-    if (filterStatus === "processing") {
-      return {
-        title: "No projects processing",
-        description: "Projects currently being processed will appear here.",
-      };
-    }
-    if (dateRange !== "all") {
-      return {
-        title: "No projects in this period",
-        description: `No projects found for the selected date range.`,
-      };
-    }
-    if (
-      cameraMake ||
-      cameraModel ||
-      lensModel ||
-      selectedTag ||
-      isoRange[0] > 100 ||
-      isoRange[1] < 6400
-    ) {
-      return {
-        title: "No projects match these filters",
-        description: "Try adjusting your metadata filters to see more results.",
-      };
-    }
-    return {
-      title: "No projects yet",
-      description:
-        "Start by creating your first project. Upload RAW images and let our AI enhance them.",
-    };
   };
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))]">
+      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--charcoal))]">
         <div className="flex flex-col items-center gap-4">
-          <LoadingSkeleton className="h-10 w-10 rounded-sm" />
-          <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-            Loading your projects...
-          </p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-12 h-12 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+          />
+          <span className="font-mono text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+            Loading Projects
+          </span>
         </div>
       </div>
     );
@@ -293,596 +187,345 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))]">
-        <div className="flex flex-col items-center gap-4 text-center max-w-md">
-          <div className="w-16 h-16 rounded-sm bg-[hsl(var(--destructive))]/10 border border-[hsl(var(--destructive))]/20 flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 text-[hsl(var(--destructive))]" />
+      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--charcoal))]">
+        <IndustrialCard className="p-8 max-w-md text-center" accent>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-sm bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-red-400" />
           </div>
-          <h3 className="font-display text-xl font-semibold text-[hsl(var(--foreground))]">
-            Failed to load projects
-          </h3>
-          <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-            {error instanceof Error
-              ? error.message
-              : "An unexpected error occurred. Please try again."}
+          <h2 className="font-display text-xl font-bold mb-3">
+            Failed to Load Projects
+          </h2>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">
+            {error instanceof Error ? error.message : "An unexpected error occurred."}
           </p>
-          <Button
-            onClick={() =>
-              queryClient.invalidateQueries({ queryKey: ["projects"] })
-            }
-            className="bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] hover:bg-[hsl(var(--gold-light))] font-display font-semibold uppercase tracking-wider rounded-sm"
+          <AmberButton
+            variant="primary"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["projects"] })}
           >
             Retry
-          </Button>
-        </div>
+          </AmberButton>
+        </IndustrialCard>
       </div>
     );
   }
 
   return (
     <ErrorBoundary>
-      <div className="flex min-h-screen flex-col bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
-        {/* Texture overlays */}
-        <div className="fixed inset-0 pointer-events-none opacity-[0.02]">
-          <div className="absolute inset-0 grid-pattern" />
-        </div>
+      <div className="flex min-h-screen flex-col bg-[hsl(var(--charcoal))]">
+        <div className="film-grain" />
+        <div className="scanlines" />
 
         <Header
           variant="minimal"
           navigation={
             <Link
               href="/pricing"
-              className="font-body text-sm font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors relative group"
+              className="font-mono text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors"
             >
               Upgrade
-              <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[hsl(var(--gold))] group-hover:w-full transition-all duration-300" />
             </Link>
           }
+          showUserMenu={true}
         />
 
-        <main className="flex-1 relative z-10">
-          <section className="w-full py-8 lg:py-12">
-            <div className="container mx-auto px-4 md:px-6 max-w-7xl">
-              {/* Header */}
-              <motion.div
-                initial={{ opacity: 0, y: -15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12"
-              >
-                <div className="relative">
-                  <div className="absolute -top-3 -left-3 w-8 h-8 border-l-2 border-t-2 border-[hsl(var(--gold))]/30 rounded-tl-sm" />
-                  <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-2">
-                    My Projects
-                  </h1>
-                  <p className="font-body text-[hsl(var(--muted-foreground))] text-lg">
-                    Manage and view your AI-enhanced photos
-                  </p>
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleCreateProject}
-                  disabled={createProjectMutation.isPending}
-                  className="font-display uppercase tracking-wider rounded-sm transition-all duration-200 relative overflow-hidden bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] hover:bg-[hsl(var(--gold-light))] px-6 py-3 text-sm font-semibold border border-transparent hover:border-[hsl(var(--gold))]"
-                >
-                  {createProjectMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <LoadingSkeleton className="h-4 w-4" />
-                      Creating...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Plus className="h-5 w-5" />
-                      New Project
-                    </span>
-                  )}
-                  {/* Top amber accent line */}
-                  <div className="absolute top-0 left-0 right-0 h-[1px] bg-[hsl(var(--gold-light))]/50" />
-                </motion.button>
-              </motion.div>
-
-              {/* Search and Filter */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
-                className="space-y-4 mb-10"
-              >
-                {/* First Row: Search + View Toggle */}
-                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-                  <div className="relative flex-1 w-full lg:w-auto">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                    <Input
-                      placeholder="Search projects by name or style..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-11 rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--card))] focus:border-[hsl(var(--gold))] font-body"
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant={viewMode === "grid" ? "default" : "outline"}
-                      onClick={() => setViewMode("grid")}
-                      size="sm"
-                      className="rounded-sm font-display uppercase tracking-wider text-xs"
-                    >
-                      <Grid className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === "list" ? "default" : "outline"}
-                      onClick={() => setViewMode("list")}
-                      size="sm"
-                      className="rounded-sm font-display uppercase tracking-wider text-xs"
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Second Row: Status Filter + Date Range + Sort + Metadata Filters Toggle */}
-                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-                  {/* Status Filter */}
-                  <div className="flex gap-2 w-full lg:w-auto overflow-x-auto">
-                    <Button
-                      variant={filterStatus === "all" ? "default" : "outline"}
-                      onClick={() => setFilterStatus("all")}
-                      className="rounded-sm uppercase tracking-wider text-xs font-display"
-                    >
-                      All ({projects.length})
-                    </Button>
-                    <Button
-                      variant={
-                        filterStatus === "completed" ? "default" : "outline"
-                      }
-                      onClick={() => setFilterStatus("completed")}
-                      className="rounded-sm uppercase tracking-wider text-xs font-display"
-                    >
-                      Completed (
-                      {projects.filter((p) => p.status === "completed").length})
-                    </Button>
-                    <Button
-                      variant={
-                        filterStatus === "processing" ? "default" : "outline"
-                      }
-                      onClick={() => setFilterStatus("processing")}
-                      className="rounded-sm uppercase tracking-wider text-xs font-display"
-                    >
-                      Processing (
-                      {projects.filter((p) => p.status === "processing").length}
-                      )
-                    </Button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    {/* Date Range Filter */}
-                    <Select
-                      value={dateRange}
-                      onValueChange={(value: any) => setDateRange(value)}
-                    >
-                      <SelectTrigger className="w-full lg:w-40 rounded-sm border-[hsl(var(--border))] font-body text-xs">
-                        <Calendar className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Time</SelectItem>
-                        <SelectItem value="today">Today</SelectItem>
-                        <SelectItem value="week">This Week</SelectItem>
-                        <SelectItem value="month">This Month</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {/* Sort Options */}
-                    <div className="flex gap-2">
-                      <Select
-                        value={sortBy}
-                        onValueChange={(value: any) => setSortBy(value)}
-                      >
-                        <SelectTrigger className="w-full lg:w-32 rounded-sm border-[hsl(var(--border))] font-body text-xs">
-                          {sortOrder === "asc" ? (
-                            <SortAsc className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                          ) : (
-                            <SortDesc className="mr-2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                          )}
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="date">Date</SelectItem>
-                          <SelectItem value="name">Name</SelectItem>
-                          <SelectItem value="status">Status</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-                        }
-                        size="sm"
-                        className="rounded-sm"
-                      >
-                        {sortOrder === "asc" ? (
-                          <SortDesc className="h-4 w-4" />
-                        ) : (
-                          <SortAsc className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-
-                    {/* Metadata Filters Toggle */}
-                    <Button
-                      variant={showMetadataFilters ? "default" : "outline"}
-                      onClick={() =>
-                        setShowMetadataFilters(!showMetadataFilters)
-                      }
-                      size="sm"
-                      className="rounded-sm"
-                    >
-                      <Filter className="h-4 w-4 mr-2" />
-                      Filters
-                      {hasActiveFilters && (
-                        <div className="ml-1 w-2 h-2 rounded-full bg-[hsl(var(--gold))]" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Third Row: Metadata Filters (collapsible) */}
-                <AnimatePresence>
-                  {showMetadataFilters && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="border-t border-[hsl(var(--border))] pt-4 space-y-4"
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Camera Make Filter */}
-                        <div>
-                          <label className="font-body text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-2 block">
-                            Camera Make
-                          </label>
-                          <Input
-                            placeholder="Canon, Nikon, Sony..."
-                            value={cameraMake}
-                            onChange={(e) => setCameraMake(e.target.value)}
-                            className="h-9 rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--card))] text-xs"
-                          />
-                        </div>
-
-                        {/* Camera Model Filter */}
-                        <div>
-                          <label className="font-body text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-2 block">
-                            Camera Model
-                          </label>
-                          <Input
-                            placeholder="EOS R5, Z9, A7R V..."
-                            value={cameraModel}
-                            onChange={(e) => setCameraModel(e.target.value)}
-                            className="h-9 rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--card))] text-xs"
-                          />
-                        </div>
-
-                        {/* Lens Filter */}
-                        <div>
-                          <label className="font-body text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-2 block">
-                            Lens Model
-                          </label>
-                          <Input
-                            placeholder="24-70mm, 85mm f/1.4..."
-                            value={lensModel}
-                            onChange={(e) => setLensModel(e.target.value)}
-                            className="h-9 rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--card))] text-xs"
-                          />
-                        </div>
-
-                        {/* Tag Filter */}
-                        <div>
-                          <label className="font-body text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-2 block">
-                            Tag
-                          </label>
-                          <Input
-                            placeholder="Search by tag..."
-                            value={selectedTag}
-                            onChange={(e) => setSelectedTag(e.target.value)}
-                            className="h-9 rounded-sm border-[hsl(var(--border))] bg-[hsl(var(--card))] text-xs"
-                          />
-                        </div>
-                      </div>
-
-                      {/* ISO Range Slider */}
-                      <div>
-                        <label className="font-body text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-2 flex justify-between">
-                          <span>ISO Range</span>
-                          <span className="text-[hsl(var(--gold))]">
-                            {isoRange[0]} - {isoRange[1]}
-                          </span>
-                        </label>
-                        <Slider
-                          value={isoRange}
-                          onValueChange={(value: [number, number]) =>
-                            setIsoRange(value)
-                          }
-                          min={100}
-                          max={6400}
-                          step={100}
-                          className="w-full"
-                        />
-                        <div className="flex justify-between text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                          <span>100</span>
-                          <span>6400</span>
-                        </div>
-                      </div>
-
-                      {/* Clear Filters Button */}
-                      <div className="flex justify-end">
-                        <Button
-                          variant="ghost"
-                          onClick={clearFilters}
-                          size="sm"
-                          className="text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] rounded-sm"
-                        >
-                          <X className="h-3 w-3 mr-1.5" />
-                          Clear All Filters
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-
-              {/* Status Overview Cards */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.15 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
-              >
-                {/* Total Projects Card */}
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  className="relative overflow-hidden bg-gradient-to-br from-[hsl(var(--card))] to-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-sm p-5 group"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-[hsl(var(--gold))]/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-[hsl(var(--gold))]/10 transition-colors" />
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 rounded-sm bg-[hsl(var(--gold))]/10 flex items-center justify-center border border-[hsl(var(--gold))]/20">
-                        <Folder className="w-5 h-5 text-[hsl(var(--gold))]" />
-                      </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-                        Total
-                      </span>
-                    </div>
-                    <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
-                      {stats?.totalProjects ?? 0}
-                    </p>
-                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                      Projects
-                    </p>
-                  </div>
-                  <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-[hsl(var(--gold))]/50 group-hover:w-full transition-all duration-300" />
-                </motion.div>
-
-                {/* Completed Projects Card */}
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  className="relative overflow-hidden bg-gradient-to-br from-[hsl(var(--card))] to-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-sm p-5 group"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/10 transition-colors" />
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 rounded-sm bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                      </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-                        Ready
-                      </span>
-                    </div>
-                    <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
-                      {stats?.completedProjects ?? 0}
-                    </p>
-                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                      Completed
-                    </p>
-                  </div>
-                  <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-emerald-500/50 group-hover:w-full transition-all duration-300" />
-                </motion.div>
-
-                {/* Processing Projects Card with ETA */}
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  className="relative overflow-hidden bg-gradient-to-br from-[hsl(var(--card))] to-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-sm p-5 group"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-amber-500/10 transition-colors" />
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 rounded-sm bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                        <Clock className="w-5 h-5 text-amber-400 animate-pulse" />
-                      </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-                        Processing
-                      </span>
-                    </div>
-                    <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
-                      {stats?.processingProjects ?? 0}
-                    </p>
-                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                      {stats?.processingEta?.remainingMinutes === 0
-                        ? "Almost done"
-                        : `${stats?.processingEta?.remainingMinutes ?? 0}m remaining`}
-                    </p>
-                    {stats?.processingProjects > 0 &&
-                      stats?.processingEta?.progressPercentage > 0 && (
-                        <div className="mt-3 w-full h-1.5 bg-[hsl(var(--border))] rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{
-                              width: `${stats.processingEta.progressPercentage}%`,
-                            }}
-                            transition={{ duration: 0.5 }}
-                            className="h-full bg-gradient-to-r from-amber-400 to-[hsl(var(--gold))]"
-                          />
-                        </div>
-                      )}
-                  </div>
-                  <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-amber-500/50 group-hover:w-full transition-all duration-300" />
-                </motion.div>
-
-                {/* Recent Activity Card */}
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  className="relative overflow-hidden bg-gradient-to-br from-[hsl(var(--card))] to-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-sm p-5 group"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-500/10 transition-colors" />
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 rounded-sm bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                        <Activity className="w-5 h-5 text-blue-400" />
-                      </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-                        Last 24h
-                      </span>
-                    </div>
-                    <p className="font-display text-3xl font-bold text-[hsl(var(--foreground))] mb-1">
-                      {stats?.recentActivity ?? 0}
-                    </p>
-                    <p className="font-body text-sm text-[hsl(var(--muted-foreground))]">
-                      Actions
-                    </p>
-                  </div>
-                  <div className="absolute bottom-0 left-0 w-12 h-[2px] bg-blue-500/50 group-hover:w-full transition-all duration-300" />
-                </motion.div>
-              </motion.div>
-
-              {/* Projects Count */}
-              {hasActiveFilters && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-sm text-[hsl(var(--muted-foreground))] mb-4"
-                >
-                  Showing {sortedProjects.length} of {projects.length} projects
-                </motion.div>
-              )}
-
-              {/* Projects Grid/List with Activity Sidebar */}
-              <div className="flex flex-col lg:flex-row gap-8">
-                {/* Main Projects Area */}
-                <div className="flex-1">
-                  <AnimatePresence mode="wait">
-                    {sortedProjects.length === 0 ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.5, ease: "easeOut" }}
-                        className="flex flex-col items-center justify-center py-24 text-center relative"
-                      >
-                        <div className="w-24 h-24 rounded-sm bg-[hsl(var(--card))] border border-[hsl(var(--border))] flex items-center justify-center mb-6 relative">
-                          <div className="absolute top-0 left-0 w-12 h-[1px] bg-gradient-to-r from-[hsl(var(--gold))] to-transparent" />
-                          <ImageIcon className="w-10 h-10 text-[hsl(var(--muted-foreground))]/40" />
-                        </div>
-                        <h3 className="font-display text-xl font-semibold text-[hsl(var(--foreground))] mb-2">
-                          {getEmptyStateMessage().title}
-                        </h3>
-                        <p className="font-body text-[hsl(var(--muted-foreground))] mb-6 max-w-sm mx-auto">
-                          {getEmptyStateMessage().description}
-                        </p>
-                        {!hasActiveFilters && (
-                          <Button
-                            onClick={handleCreateProject}
-                            className="bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))] hover:bg-[hsl(var(--gold-light))] font-display font-semibold uppercase tracking-wider rounded-sm"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Upload Your First Photo
-                          </Button>
-                        )}
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        initial="hidden"
-                        animate="visible"
-                        exit="hidden"
-                        variants={{
-                          hidden: { opacity: 0 },
-                          visible: {
-                            opacity: 1,
-                            transition: {
-                              staggerChildren: 0.08,
-                              delayChildren: 0.15,
-                            },
-                          },
-                        }}
-                        className={
-                          viewMode === "grid"
-                            ? "grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
-                            : "flex flex-col gap-4"
-                        }
-                      >
-                        <AnimatePresence>
-                          {sortedProjects.map((project) => (
-                            <motion.div
-                              key={project.id}
-                              variants={{
-                                hidden: { opacity: 0, y: 10 },
-                                visible: { opacity: 1, y: 0 },
-                              }}
-                              transition={{ duration: 0.3, ease: "easeOut" }}
-                              className={
-                                viewMode === "list" ? "w-full" : undefined
-                              }
-                            >
-                              <ProjectCard
-                                project={project}
-                                onDelete={handleDeleteProject}
-                                isDeleting={deleteProjectMutation.isPending}
-                                viewMode={viewMode}
-                              />
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Activity Timeline Sidebar */}
-                <div className="lg:w-80 xl:w-96 flex-shrink-0">
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
-                    className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-sm p-5 sticky top-8"
-                  >
-                    <div className="flex items-center justify-between mb-5">
-                      <h3 className="font-display text-lg font-semibold text-[hsl(var(--foreground))]">
-                        Recent Activity
-                      </h3>
-                      <div className="w-8 h-8 rounded-sm bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                        <Activity className="w-4 h-4 text-blue-400" />
-                      </div>
-                    </div>
-
-                    <div className="border-t border-[hsl(var(--border))] pt-4">
-                      {isLoadingActivities ? (
-                        <div className="flex items-center justify-center py-8">
-                          <LoadingSkeleton className="h-5 w-5 rounded-sm" />
-                        </div>
-                      ) : (
-                        <ActivityTimeline
-                          activities={activities}
-                          maxItems={8}
-                        />
-                      )}
-                    </div>
-                  </motion.div>
-                </div>
+        <main className="flex-1 container mx-auto px-4 py-6">
+          {/* Header Section */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8"
+          >
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-[1px] bg-[hsl(var(--gold))]" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-[hsl(var(--muted-foreground))]">
+                  Workspace
+                </span>
               </div>
+              <h1 className="font-display text-3xl md:text-4xl font-bold">
+                My Projects
+              </h1>
             </div>
-          </section>
+
+            <AmberButton
+              onClick={handleCreateProject}
+              disabled={createProjectMutation.isPending}
+              icon={<Plus className="w-4 h-4" />}
+            >
+              {createProjectMutation.isPending ? "Creating..." : "New Project"}
+            </AmberButton>
+          </motion.div>
+
+          {/* Stats Cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8"
+          >
+            {[
+              {
+                icon: Folder,
+                label: "Total",
+                value: stats?.totalProjects ?? 0,
+                color: "gold",
+              },
+              {
+                icon: CheckCircle2,
+                label: "Completed",
+                value: stats?.completedProjects ?? 0,
+                color: "emerald",
+              },
+              {
+                icon: Clock,
+                label: "Processing",
+                value: stats?.processingProjects ?? 0,
+                color: "amber",
+                subtext: stats?.processingEta?.remainingMinutes > 0
+                  ? `${stats.processingEta.remainingMinutes}m remaining`
+                  : undefined,
+              },
+              {
+                icon: Activity,
+                label: "Last 24h",
+                value: stats?.recentActivity ?? 0,
+                color: "blue",
+              },
+            ].map((stat, index) => (
+              <IndustrialCard
+                key={stat.label}
+                className="p-4"
+                hover
+              >
+                <div className="flex items-start justify-between">
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-sm flex items-center justify-center",
+                      stat.color === "gold" && "bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold))]",
+                      stat.color === "emerald" && "bg-emerald-500/10 text-emerald-400",
+                      stat.color === "amber" && "bg-amber-500/10 text-amber-400",
+                      stat.color === "blue" && "bg-blue-500/10 text-blue-400",
+                    )}
+                  >
+                    <stat.icon className="w-5 h-5" />
+                  </div>
+                  <span className="font-mono text-[9px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                    {stat.label}
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="font-display text-2xl font-bold">
+                    {stat.value}
+                  </div>
+                  {stat.subtext && (
+                    <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                      {stat.subtext}
+                    </div>
+                  )}
+                </div>
+              </IndustrialCard>
+            ))}
+          </motion.div>
+
+          {/* Controls Section */}
+          <IndustrialCard className="p-4 mb-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]" />
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--gold))] focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Status Filters */}
+              <div className="flex gap-1 p-1 bg-[hsl(var(--secondary))] rounded-sm">
+                {[
+                  { id: "all", label: "All", count: projects.length },
+                  { id: "completed", label: "Done", count: projects.filter((p) => p.status === "completed").length },
+                  { id: "processing", label: "Active", count: projects.filter((p) => p.status === "processing").length },
+                ].map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setFilterStatus(filter.id)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-sm transition-all flex items-center gap-1.5",
+                      filterStatus === filter.id
+                        ? "bg-[hsl(var(--gold))] text-[hsl(var(--charcoal))]"
+                        : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                    )}
+                  >
+                    {filter.label}
+                    <span className="font-mono text-[10px] opacity-70">{filter.count}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* View Toggle */}
+              <div className="flex gap-1 p-1 bg-[hsl(var(--secondary))] rounded-sm">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={cn(
+                    "px-2 py-1.5 rounded-sm transition-colors",
+                    viewMode === "grid"
+                      ? "bg-[hsl(var(--card))] text-[hsl(var(--gold))]"
+                      : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                  )}
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={cn(
+                    "px-2 py-1.5 rounded-sm transition-colors",
+                    viewMode === "list"
+                      ? "bg-[hsl(var(--card))] text-[hsl(var(--gold))]"
+                      : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                  )}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Sort */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="px-3 py-2 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-xs focus:border-[hsl(var(--gold))] focus:outline-none"
+                >
+                  <option value="date">Date</option>
+                  <option value="name">Name</option>
+                  <option value="status">Status</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                  className="p-2 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] transition-colors"
+                >
+                  {sortOrder === "asc" ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {/* Clear Filters */}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--gold))] transition-colors flex items-center gap-1.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Clear
+                </button>
+              )}
+            </div>
+          </IndustrialCard>
+
+          {/* Projects Count */}
+          <div className="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
+            {hasActiveFilters
+              ? `Showing ${sortedProjects.length} of ${projects.length} projects`
+              : `${projects.length} projects`}
+          </div>
+
+          {/* Main Content */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Projects Grid/List */}
+            <div className="flex-1">
+              <AnimatePresence mode="wait">
+                {sortedProjects.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex flex-col items-center justify-center py-24 text-center"
+                  >
+                    <div className="w-20 h-20 mb-6 rounded-sm bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] flex items-center justify-center"
+                    >
+                      <ImageIcon className="w-10 h-10 text-[hsl(var(--muted-foreground))]" />
+                    </div>
+                    <h3 className="font-display text-lg font-semibold mb-2">
+                      {searchQuery ? "No matching projects" : "No projects yet"}
+                    </h3>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6 max-w-sm"
+                    >
+                      {searchQuery
+                        ? `No projects found matching "${searchQuery}"`
+                        : "Start by creating your first project. Upload RAW images and let our AI enhance them."}
+                    </p>
+                    {!searchQuery && (
+                      <AmberButton onClick={handleCreateProject} icon={<Plus className="w-4 h-4" />}>
+                        Upload Your First Photo
+                      </AmberButton>
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      hidden: { opacity: 0 },
+                      visible: {
+                        opacity: 1,
+                        transition: { staggerChildren: 0.05 },
+                      },
+                    }}
+                    className={cn(
+                      viewMode === "grid"
+                        ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
+                        : "flex flex-col gap-3"
+                    )}
+                  >
+                    {sortedProjects.map((project) => (
+                      <motion.div
+                        key={project.id}
+                        variants={{
+                          hidden: { opacity: 0, y: 10 },
+                          visible: { opacity: 1, y: 0 },
+                        }}
+                      >
+                        <ProjectCard
+                          project={project}
+                          onDelete={handleDeleteProject}
+                          isDeleting={deleteProjectMutation.isPending}
+                          viewMode={viewMode}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Activity Sidebar */}
+            <div className="lg:w-80 flex-shrink-0">
+              <IndustrialCard className="sticky top-6">
+                <div className="p-4 border-b border-[hsl(var(--border))]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-[hsl(var(--gold))]" />
+                      <span className="font-display font-semibold text-sm">Recent Activity</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4">
+                  {isLoadingActivities ? (
+                    <div className="flex items-center justify-center py-8">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-6 h-6 border-2 border-[hsl(var(--gold))] border-t-transparent rounded-full"
+                      />
+                    </div>
+                  ) : (
+                    <ActivityTimeline activities={activities} maxItems={8} />
+                  )}
+                </div>
+              </IndustrialCard>
+            </div>
+          </div>
         </main>
       </div>
     </ErrorBoundary>
