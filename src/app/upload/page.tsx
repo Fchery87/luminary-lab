@@ -358,7 +358,7 @@ function UploadPageContent() {
 
       <Header variant="minimal" showUserMenu={true} />
 
-      <main className="flex-1 container mx-auto px-4 py-6 flex items-center justify-center">
+      <main className="flex-1 w-full px-4 lg:px-8 py-6 flex items-center justify-center">
         {isOnboarding ? (
           <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-[280px_1fr] gap-6 items-start">
             <div className="hidden lg:block">
@@ -441,8 +441,9 @@ function UploadCard({
       transition={{ duration: 0.5 }}
       className="w-full max-w-2xl"
     >
-      <IndustrialCard className="overflow-hidden" accent>
-        <div className="p-6">
+      <div className="overflow-hidden rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[hsl(var(--gold))] via-[hsl(var(--gold-light))] to-transparent opacity-50" />
+        <div className="p-6 md:p-8">
           <SectionHeader
             label="Import"
             title="Upload RAW File"
@@ -462,7 +463,7 @@ function UploadCard({
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 disabled={isUploading}
-                className="w-full px-4 py-3 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--gold))] focus:outline-none transition-colors disabled:opacity-50"
+                className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))]/30 focus:outline-none transition-all disabled:opacity-50 text-white"
               />
             </div>
 
@@ -470,12 +471,12 @@ function UploadCard({
             <div
               {...getRootProps()}
               className={cn(
-                "relative border-2 border-dashed rounded-sm p-12 text-center cursor-pointer transition-all duration-300",
+                "relative border border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300",
                 isDragActive
-                  ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
+                  ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10"
                   : isDragReject
-                    ? "border-red-500 bg-red-500/5"
-                    : "border-[hsl(var(--border))] bg-[hsl(var(--secondary))] hover:border-[hsl(var(--gold))]/50",
+                    ? "border-red-500 bg-red-500/10"
+                    : "border-white/20 bg-black/40 hover:border-[hsl(var(--gold))]/50 hover:bg-black/60",
                 isUploading && "pointer-events-none opacity-50"
               )}
             >
@@ -543,7 +544,7 @@ function UploadCard({
                 {SUPPORTED_FORMATS.map((format) => (
                   <div
                     key={format.ext}
-                    className="px-2 py-1 text-[10px] uppercase tracking-wider bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-[hsl(var(--muted-foreground))]"
+                    className="px-2.5 py-1 text-[10px] uppercase tracking-wider bg-black/50 border border-white/10 rounded-full text-white/70"
                     title={format.name}
                   >
                     {format.ext}
@@ -553,7 +554,7 @@ function UploadCard({
             )}
           </div>
         </div>
-      </IndustrialCard>
+      </div>
 
       <div className="mt-4 flex items-center justify-between">
         <AmberButton variant="ghost" size="sm" href="/dashboard" icon={<ChevronLeft className="w-4 h-4" />}>

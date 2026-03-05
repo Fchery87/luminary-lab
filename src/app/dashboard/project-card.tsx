@@ -88,8 +88,8 @@ export function ProjectCard({
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.3 }}
       className={cn(
-        "group relative bg-[hsl(var(--card))] border border-[hsl(var(--border))] overflow-hidden transition-all duration-300 hover:border-[hsl(var(--gold))]/50",
-        viewMode === "list" ? "flex flex-row" : "flex flex-col"
+        "group relative bg-black/40 backdrop-blur-md border border-white/5 overflow-hidden transition-all duration-300 hover:border-white/20 hover:bg-black/60 shadow-xl",
+        viewMode === "list" ? "flex flex-row rounded-r-xl" : "flex flex-col rounded-xl"
       )}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
@@ -129,7 +129,7 @@ export function ProjectCard({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-10 h-10 rounded-sm bg-[hsl(var(--card))] flex items-center justify-center border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] transition-colors"
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/30 hover:bg-white/10 transition-all text-white"
             >
               <Edit2 className="w-4 h-4" />
             </motion.button>
@@ -139,9 +139,9 @@ export function ProjectCard({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-10 h-10 rounded-sm bg-[hsl(var(--gold))] flex items-center justify-center text-[hsl(var(--charcoal))]"
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/30 hover:bg-white/10 transition-all text-white"
             >
-              <Play className="w-4 h-4" />
+              <Play className="w-4 h-4 ml-0.5" />
             </motion.button>
           </Link>
         </div>

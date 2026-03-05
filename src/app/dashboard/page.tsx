@@ -232,7 +232,7 @@ export default function DashboardPage() {
           showUserMenu={true}
         />
 
-        <main className="flex-1 container mx-auto px-4 py-6">
+        <main className="flex-1 w-full px-4 lg:px-8 py-4 lg:py-6">
           {/* Header Section */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}

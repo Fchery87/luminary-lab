@@ -382,19 +382,90 @@ export default function ComparePage() {
         </motion.div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="grid gap-4 h-[calc(100vh-120px)] lg:grid-cols-12">
           {/* Left Column - Comparison Viewer */}
-          <div className="lg:col-span-8 xl:col-span-9 space-y-4">
+          <div className="flex flex-col h-full min-h-[400px] min-w-0 relative rounded-xl overflow-hidden bg-black/40 border border-[hsl(var(--border))]/30 shadow-2xl lg:col-span-8 xl:col-span-9">
+            
+            {/* Floating Toolbar */}
+            {hasProcessedImage && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center justify-between gap-4 p-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 p-1 bg-black/50 rounded-full border border-white/5">
+                    {[
+                      { id: "slider", label: "Slider", icon: LayoutTemplate },
+                      { id: "split", label: "Split", icon: Columns },
+                      { id: "original", label: "Original", icon: ImageIcon },
+                    ].map((mode) => {
+                      const isActive = 
+                        (mode.id === "original" && showOriginal) ||
+                        (mode.id === "slider" && !showOriginal && viewMode === "slider") ||
+                        (mode.id === "split" && !showOriginal && viewMode === "side-by-side");
+                      
+                      return (
+                        <button
+                          key={mode.id}
+                          onClick={() => {
+                            if (mode.id === "original") {
+                              setShowOriginal(true);
+                              setViewMode("slider");
+                            } else if (mode.id === "slider") {
+                              setShowOriginal(false);
+                              setViewMode("slider");
+                            } else {
+                              setShowOriginal(false);
+                              setViewMode("side-by-side");
+                            }
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 text-xs font-medium rounded-full transition-all flex items-center gap-1.5",
+                            isActive
+                              ? "bg-white/20 text-white shadow-sm"
+                              : "text-white/50 hover:text-white hover:bg-white/10"
+                          )}
+                        >
+                          <mode.icon className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">{mode.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 pl-4 border-l border-white/10">
+                  <button
+                    onClick={() => handleZoom("out")}
+                    disabled={zoomLevel <= 50 || showOriginal}
+                    className="p-1.5 rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors text-white/70 hover:text-white"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <span className="font-mono text-xs text-[hsl(var(--gold))] w-10 text-center">
+                    {zoomLevel}%
+                  </span>
+                  <button
+                    onClick={() => handleZoom("in")}
+                    disabled={zoomLevel >= 200 || showOriginal}
+                    className="p-1.5 rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors text-white/70 hover:text-white"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setZoomLevel(100)}
+                    disabled={zoomLevel === 100}
+                    className="p-1.5 rounded-full hover:bg-white/10 disabled:opacity-50 transition-colors text-white/70 hover:text-white ml-1"
+                    title="Reset Zoom"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Viewer Container */}
-            <IndustrialCard id="comparison-wrapper" className="overflow-hidden" accent={hasProcessedImage}>
+            <div id="comparison-wrapper" className="flex-1 w-full h-full relative overflow-hidden bg-black/40 backdrop-blur-3xl rounded-2xl border border-white/5 group">
               <div
                 id="comparison-container"
-                className="relative w-full bg-black flex items-center justify-center"
-                style={{
-                  aspectRatio: imageAspectRatio === "auto" ? "16/9" : String(imageAspectRatio),
-                  maxHeight: "60vh",
-                  minHeight: "300px",
-                }}
+                className="absolute inset-0 bg-black flex items-center justify-center overflow-hidden"
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
@@ -544,15 +615,8 @@ export default function ComparePage() {
                     </div>
                   </>
                 )}
-
-                {/* Zoom Controls Overlay */}
-                {hasProcessedImage && zoomLevel !== 100 && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/70 backdrop-blur-sm rounded-sm">
-                    <span className="font-mono text-xs text-white">{zoomLevel}%</span>
-                  </div>
-                )}
               </div>
-            </IndustrialCard>
+            </div>
 
             {/* "Aha" Moment Celebration */}
             <AnimatePresence>
@@ -603,7 +667,7 @@ export default function ComparePage() {
           </div>
 
           {/* Right Column - Controls */}
-          <div className="lg:col-span-4 xl:col-span-3 space-y-4">
+          <div className="flex flex-col gap-3 h-full min-h-0 min-w-0 lg:col-span-4 xl:col-span-3">
             {/* Tabs */}
             <div className="flex gap-1 p-1 bg-[hsl(var(--secondary))] rounded-sm">
               {[
@@ -627,103 +691,20 @@ export default function ComparePage() {
             </div>
 
             {activeTab === "view" ? (
-              <>
-                {/* View Controls */}
-                <IndustrialCard className="p-4">
-                  <SectionHeader title="View Controls" className="mb-4" />
-                  
-                  <div className="space-y-4">
-                    <ControlGroup label="Display Mode">
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { id: "slider", label: "Slider", icon: LayoutTemplate },
-                          { id: "split", label: "Split", icon: Columns },
-                          { id: "original", label: "Original", icon: ImageIcon },
-                        ].map((mode) => (
-                          <button
-                            key={mode.id}
-                            onClick={() => {
-                              if (mode.id === "original") {
-                                setShowOriginal(true);
-                                setViewMode("slider");
-                              } else if (mode.id === "slider") {
-                                setShowOriginal(false);
-                                setViewMode("slider");
-                              } else {
-                                setShowOriginal(false);
-                                setViewMode("side-by-side");
-                              }
-                            }}
-                            disabled={!hasProcessedImage}
-                            className={cn(
-                              "flex flex-col items-center gap-1.5 p-3 rounded-sm border transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-                              (mode.id === "original" && showOriginal) ||
-                              (mode.id === "slider" && !showOriginal && viewMode === "slider") ||
-                              (mode.id === "split" && !showOriginal && viewMode === "side-by-side")
-                                ? "border-[hsl(var(--gold))] bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold))]"
-                                : "border-[hsl(var(--border))] hover:border-[hsl(var(--gold))]/50 text-[hsl(var(--muted-foreground))]"
-                            )}
-                          >
-                            <mode.icon className="w-4 h-4" />
-                            <span className="text-[10px] uppercase tracking-wider">{mode.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </ControlGroup>
-
-                    <ControlGroup label="Zoom Level">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleZoom("out")}
-                          disabled={zoomLevel <= 50 || showOriginal}
-                          className="p-2 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <ZoomOut className="w-4 h-4" />
-                        </button>
-                        <Frame className="flex-1 px-3 py-2" accent>
-                          <span className="font-mono text-sm text-center block">{zoomLevel}%</span>
-                        </Frame>
-                        <button
-                          onClick={() => handleZoom("in")}
-                          disabled={zoomLevel >= 200 || showOriginal}
-                          className="p-2 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <ZoomIn className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setZoomLevel(100)}
-                          disabled={zoomLevel === 100}
-                          className="p-2 rounded-sm border border-[hsl(var(--border))] hover:border-[hsl(var(--gold))] disabled:opacity-50 transition-colors"
-                        >
-                          <Maximize2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </ControlGroup>
-
-                    <AmberButton
-                      variant="secondary"
-                      size="sm"
-                      onClick={toggleFullscreen}
-                      icon={<Maximize2 className="w-3.5 h-3.5" />}
-                      className="w-full"
-                    >
-                      {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                    </AmberButton>
-                  </div>
-                </IndustrialCard>
-
-                {/* Project Info */}
-                <IndustrialCard className="p-4">
-                  <SectionHeader title="Project Details" className="mb-4" />
-                  <div className="space-y-2">
-                    <DataLabel label="Status" value={project.status} />
-                    <DataLabel label="Created" value={new Date(project.createdAt).toLocaleDateString()} />
-                    {project.styleName && (
-                      <DataLabel label="Style" value={project.styleName} />
-                    )}
-                  </div>
-                </IndustrialCard>
-              </>
+              <IndustrialCard className="p-4 flex-1 overflow-y-auto">
+                <SectionHeader title="Project Details" className="mb-4" />
+                <div className="space-y-4 text-sm text-[hsl(var(--muted-foreground))]">
+                  <DataLabel label="ID" value={project.id} />
+                  <DataLabel label="Status" value={project.status} />
+                  <DataLabel label="Created" value={new Date(project.createdAt).toLocaleDateString()} />
+                  {project.styleName && (
+                    <DataLabel label="Style" value={project.styleName} />
+                  )}
+                  {project.intensity !== undefined && (
+                    <DataLabel label="Intensity" value={`${project.intensity * 100}%`} />
+                  )}
+                </div>
+              </IndustrialCard>
             ) : (
               <>
                 {/* Export Controls */}

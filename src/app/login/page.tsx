@@ -120,8 +120,9 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        <IndustrialCard accent>
-          <div className="p-6">
+        <div className="overflow-hidden rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl relative">
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[hsl(var(--gold))] via-[hsl(var(--gold-light))] to-transparent opacity-50" />
+          <div className="p-6 md:p-8">
             <SectionHeader
               label="Authentication"
               title="Welcome Back"
@@ -145,10 +146,10 @@ export default function LoginPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className={cn(
-                    "w-full px-4 py-3 bg-[hsl(var(--secondary))] border rounded-sm text-sm focus:outline-none transition-colors",
+                    "w-full px-4 py-3 bg-black/50 border rounded-xl text-sm focus:outline-none transition-all text-white",
                     errors.email
                       ? "border-red-500 focus:border-red-500"
-                      : "border-[hsl(var(--border))] focus:border-[hsl(var(--gold))]"
+                      : "border-white/10 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))]/30"
                   )}
                   placeholder="you@example.com"
                 />
@@ -166,10 +167,10 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className={cn(
-                    "w-full px-4 py-3 bg-[hsl(var(--secondary))] border rounded-sm text-sm focus:outline-none transition-colors",
+                    "w-full px-4 py-3 bg-black/50 border rounded-xl text-sm focus:outline-none transition-all text-white",
                     errors.password
                       ? "border-red-500 focus:border-red-500"
-                      : "border-[hsl(var(--border))] focus:border-[hsl(var(--gold))]"
+                      : "border-white/10 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))]/30"
                   )}
                   placeholder="••••••••"
                 />
@@ -194,7 +195,7 @@ export default function LoginPage() {
                   <div className="w-full border-t border-[hsl(var(--border))]" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))]">
+                  <span className="px-2 bg-transparent backdrop-blur-md text-[hsl(var(--muted-foreground))]">
                     Or continue with
                   </span>
                 </div>
@@ -205,7 +206,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => handleSocialLogin("google")}
                   disabled={!!isLoadingSocial}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[hsl(var(--border))] rounded-sm hover:border-[hsl(var(--gold))] transition-colors disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl hover:border-white/30 hover:bg-white/5 transition-all disabled:opacity-50 text-white"
                 >
                   {isLoadingSocial === "google" ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -238,7 +239,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => handleSocialLogin("github")}
                   disabled={!!isLoadingSocial}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[hsl(var(--border))] rounded-sm hover:border-[hsl(var(--gold))] transition-colors disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl hover:border-white/30 hover:bg-white/5 transition-all disabled:opacity-50 text-white"
                 >
                   {isLoadingSocial === "github" ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -261,7 +262,7 @@ export default function LoginPage() {
               </p>
             </div>
           </div>
-        </IndustrialCard>
+        </div>
       </motion.div>
     </div>
   );

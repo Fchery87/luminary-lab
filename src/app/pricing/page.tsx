@@ -126,7 +126,7 @@ export default function PricingPage() {
         </nav>
       </header>
 
-      <main className="flex-1 container mx-auto px-4 py-12">
+      <main className="flex-1 w-full px-4 lg:px-8 py-12">
         {/* Back Link */}
         <div className="mb-8">
           <AmberButton variant="ghost" size="sm" href="/" icon={<ArrowLeft className="w-4 h-4" />}>
@@ -168,13 +168,15 @@ export default function PricingPage() {
                 </div>
               )}
 
-              <IndustrialCard
+              <div
                 className={cn(
-                  "h-full flex flex-col",
-                  plan.popular && "border-[hsl(var(--gold))]/50"
+                  "h-full flex flex-col overflow-hidden rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-xl relative transition-all duration-300 hover:border-white/20 hover:bg-black/60",
+                  plan.popular && "border-[hsl(var(--gold))]/40 hover:border-[hsl(var(--gold))]/60 shadow-[0_0_30px_-15px_hsl(var(--gold))]"
                 )}
-                accent={plan.popular}
               >
+                {plan.popular && (
+                  <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[hsl(var(--gold))] via-[hsl(var(--gold-light))] to-transparent opacity-50" />
+                )}
                 <div className="p-6 flex-1">
                   <div className="text-center mb-6">
                     <h2 className="font-display text-xl font-bold mb-2">{plan.name}</h2>
@@ -217,7 +219,7 @@ export default function PricingPage() {
                     {loadingPlan === plan.name ? "Processing..." : `Subscribe to ${plan.name}`}
                   </AmberButton>
                 </div>
-              </IndustrialCard>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -238,9 +240,8 @@ export default function PricingPage() {
         </motion.div>
       </main>
 
-      {/* Footer */}
       <footer className="py-6 border-t border-[hsl(var(--border))]">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="w-full px-4 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="font-mono text-[10px] uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
             © 2024 LUMINARY LAB SYSTEM
           </p>
