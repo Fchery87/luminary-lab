@@ -74,17 +74,17 @@ export async function POST(
           })
           .where(eq(processingJobs.id, job.id));
 
-        // Re-enqueue to queue
+        // Re-enqueue to queue (BullMQ format: name, data, opts)
         await queue.add(
+          "process-image",
           {
             id: job.id,
             projectId: job.projectId,
             userId: job.userId,
-            batchId: job.batchId,
             styleId: job.styleId,
             intensity: parseFloat(job.intensity as any),
             originalImageKey: job.originalImageKey!,
-          } as ImageProcessingJob,
+          },
           {
             jobId: `retry-${batchId}-${job.id}`,
             attempts: 3,

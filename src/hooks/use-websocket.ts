@@ -14,6 +14,8 @@ interface UseWebSocketOptions {
   reconnection?: boolean;
   reconnectionAttempts?: number;
   reconnectionDelay?: number;
+  reconnectionDelayMax?: number;
+  persistConnection?: boolean;
 }
 
 interface UseWebSocketReturn {
@@ -35,8 +37,10 @@ export function useWebSocket(
   const {
     autoConnect = true,
     reconnection = true,
-    reconnectionAttempts = 5,
+    reconnectionAttempts = 10,
     reconnectionDelay = 1000,
+    reconnectionDelayMax = 30000,
+    persistConnection = false,
   } = options;
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -136,6 +140,8 @@ export function useWebSocket(
         reconnection,
         reconnectionAttempts,
         reconnectionDelay,
+        reconnectionDelayMax,
+        transports: ["websocket", "polling"],
       });
 
       socketRef.current = socketInstance;

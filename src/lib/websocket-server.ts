@@ -1,12 +1,15 @@
 import { Server as SocketIOServer } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 import { createServer } from "http";
-import { NextApiRequest, NextApiResponse } from "next";
 import { auth } from "@/lib/auth";
 import { processingJobs, projects } from "@/db";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import IORedis from "ioredis";
 
 let io: SocketIOServer | null = null;
+let redisPubClient: IORedis | null = null;
+let redisSubClient: IORedis | null = null;
 
 export function getWebSocketServer() {
   if (!io) {
@@ -15,6 +18,27 @@ export function getWebSocketServer() {
     );
   }
   return io;
+}
+
+function getRedisClients() {
+  if (redisPubClient && redisSubClient) {
+    return { pubClient: redisPubClient, subClient: redisSubClient };
+  }
+
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    console.warn("REDIS_URL not set, WebSocket scaling will not work across instances");
+    return null;
+  }
+
+  redisPubClient = new IORedis(redisUrl, {
+    maxRetriesPerRequest: 3,
+    connectTimeout: 5000,
+  });
+
+  redisSubClient = redisPubClient.duplicate();
+
+  return { pubClient: redisPubClient, subClient: redisSubClient };
 }
 
 export function initializeWebSocketServer() {
@@ -35,6 +59,13 @@ export function initializeWebSocketServer() {
       credentials: true,
     },
   });
+
+  // Add Redis adapter for horizontal scaling
+  const redisClients = getRedisClients();
+  if (redisClients) {
+    io.adapter(createAdapter(redisClients.pubClient, redisClients.subClient));
+    console.log("[WebSocket] Redis adapter enabled for scaling");
+  }
 
   // Authentication middleware
   io.use(async (socket, next) => {
@@ -106,6 +137,13 @@ export function initializeWebSocketServer() {
     : 3002;
   httpServer.listen(wsPort, () => {
     console.log(`WebSocket server running on port ${wsPort}`);
+  });
+
+  // Graceful shutdown
+  httpServer.on("close", async () => {
+    console.log("[WebSocket] Shutting down...");
+    await redisPubClient?.quit();
+    await redisSubClient?.quit();
   });
 
   return io;

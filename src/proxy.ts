@@ -1,22 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Development bypass - allows testing without authentication
-const DEV_BYPASS_ENABLED = process.env.DEV_BYPASS_AUTH === "true";
-const DEV_USER_COOKIE = "dev_bypass_user";
-
 export function proxy(request: NextRequest) {
   const response = NextResponse.next();
-
-  // Set development bypass cookie if enabled
-  if (DEV_BYPASS_ENABLED && !request.cookies.get(DEV_USER_COOKIE)) {
-    response.cookies.set(DEV_USER_COOKIE, "dev-user-123", {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24, // 24 hours
-    });
-  }
 
   // DNS prefetch control
   response.headers.set("X-DNS-Prefetch-Control", "on");

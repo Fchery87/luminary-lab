@@ -191,68 +191,130 @@ export function generateHistogramData(): HistogramData {
   return { red, green, blue, luminance };
 }
 
+interface HistogramSelectorProps {
+  selectedChannel: "red" | "green" | "blue" | "luminance" | null;
+  onChannelChange: (channel: "red" | "green" | "blue" | "luminance" | null) => void;
+  className?: string;
+}
+
+export function HistogramSelector({
+  selectedChannel,
+  onChannelChange,
+  className,
+}: HistogramSelectorProps) {
+  const channels: { key: "red" | "green" | "blue" | "luminance" | null; label: string; color: string }[] = [
+    { key: null, label: "RGB", color: "bg-gradient-to-r from-red-500 via-green-500 to-blue-500" },
+    { key: "red", label: "R", color: "bg-red-500" },
+    { key: "green", label: "G", color: "bg-green-500" },
+    { key: "blue", label: "B", color: "bg-blue-500" },
+    { key: "luminance", label: "Luma", color: "bg-gray-400" },
+  ];
+
+  return (
+    <div className={cn("flex gap-1", className)}>
+      {channels.map((ch) => (
+        <button
+          key={ch.key ?? "rgb"}
+          onClick={() => onChannelChange(ch.key)}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-sm transition-all",
+            selectedChannel === ch.key
+              ? "bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))]"
+              : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+          )}
+        >
+          <span className={cn("w-2 h-2 rounded-full", ch.color)} />
+          {ch.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Hook to compute histogram from canvas
 export function useImageHistogram(imageUrl: string | null) {
   const [histogram, setHistogram] = React.useState<HistogramData | null>(null);
   const [isComputing, setIsComputing] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!imageUrl) {
-      setHistogram(null);
+      setHistogram(generateHistogramData()); // Generate sample data if no image
+      setIsComputing(false);
+      setError(null);
       return;
     }
 
     setIsComputing(true);
+    setError(null);
 
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+    
+    const computeHistogram = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setError("Canvas not supported");
+          setHistogram(generateHistogramData());
+          setIsComputing(false);
+          return;
+        }
 
-      // Downsample for performance
-      const maxSize = 400;
-      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+        // Downsample for performance
+        const maxSize = 400;
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        canvas.width = Math.max(1, img.width * scale);
+        canvas.height = Math.max(1, img.height * scale);
 
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
 
-      const bins = 256;
-      const red = new Array(bins).fill(0);
-      const green = new Array(bins).fill(0);
-      const blue = new Array(bins).fill(0);
-      const luminance = new Array(bins).fill(0);
+        const bins = 256;
+        const red = new Array(bins).fill(0);
+        const green = new Array(bins).fill(0);
+        const blue = new Array(bins).fill(0);
+        const luminance = new Array(bins).fill(0);
 
-      // Sample every 4th pixel for performance
-      for (let i = 0; i < data.length; i += 16) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const l = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+        // Sample every 4th pixel for performance
+        for (let i = 0; i < data.length; i += 16) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const l = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
-        red[r]++;
-        green[g]++;
-        blue[b]++;
-        luminance[l]++;
+          red[r]++;
+          green[g]++;
+          blue[b]++;
+          luminance[l]++;
+        }
+
+        setHistogram({ red, green, blue, luminance });
+      } catch (err) {
+        console.warn("[Histogram] Failed to compute, using sample data:", err);
+        setHistogram(generateHistogramData());
+        setError("Using sample data");
       }
-
-      setHistogram({ red, green, blue, luminance });
       setIsComputing(false);
     };
+
+    img.onload = computeHistogram;
 
     img.onerror = () => {
+      console.warn("[Histogram] Image failed to load, using sample data");
+      setHistogram(generateHistogramData());
+      setError("Image unavailable - showing sample");
       setIsComputing(false);
     };
 
+    // Set src after setting up handlers
     img.src = imageUrl;
   }, [imageUrl]);
 
-  return { histogram, isComputing };
+  return { histogram, isComputing, error };
 }
 
 export default Histogram;

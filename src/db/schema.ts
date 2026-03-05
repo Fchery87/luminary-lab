@@ -7,6 +7,8 @@ import {
   integer,
   decimal,
   jsonb,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { v7 as uuidv7 } from "uuid";
 
@@ -22,7 +24,10 @@ export const users = pgTable("users", {
   role: text("role").default("user").notNull(), // 'admin' | 'user'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  emailIdx: index("idx_users_email").on(table.email),
+  roleIdx: index("idx_users_role").on(table.role),
+}));
 
 // Sessions table for Better Auth
 export const sessions = pgTable("sessions", {
@@ -38,7 +43,10 @@ export const sessions = pgTable("sessions", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-});
+}, (table) => ({
+  userIdIdx: index("idx_sessions_user_id").on(table.userId),
+  expiresAtIdx: index("idx_sessions_expires_at").on(table.expiresAt),
+}));
 
 // Accounts table for OAuth providers
 export const accounts = pgTable("accounts", {
@@ -119,7 +127,11 @@ export const projects = pgTable("projects", {
   status: text("status").notNull().default("pending"), // pending, processing, completed, failed
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  userIdIdx: index("idx_projects_user_id").on(table.userId),
+  statusIdx: index("idx_projects_status").on(table.status),
+  createdAtIdx: index("idx_projects_created_at").on(table.createdAt),
+}));
 
 // Images table
 export const images = pgTable("images", {
@@ -141,7 +153,10 @@ export const images = pgTable("images", {
   isPreview: boolean("is_preview").default(false).notNull(), // true for preview images
   previewImageType: text("preview_image_type"), // 'embedded' | 'generated' | null
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  projectIdIdx: index("idx_images_project_id").on(table.projectId),
+  typeIdx: index("idx_images_type").on(table.type),
+}));
 
 // System styles/presets table
 export const systemStyles = pgTable("system_styles", {
@@ -204,7 +219,11 @@ export const processingJobs = pgTable("processing_jobs", {
   originalImageKey: text("original_image_key"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  projectIdIdx: index("idx_processing_jobs_project_id").on(table.projectId),
+  userIdIdx: index("idx_processing_jobs_user_id").on(table.userId),
+  statusIdx: index("idx_processing_jobs_status").on(table.status),
+}));
 
 // Usage tracking table
 export const usageTracking = pgTable("usage_tracking", {
@@ -328,6 +347,62 @@ export const userPreferences = pgTable("user_preferences", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Image edits table for non-destructive editing
+export const imageEdits = pgTable("image_edits", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  imageId: uuid("image_id")
+    .notNull()
+    .references(() => images.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  styleId: uuid("style_id").references(() => systemStyles.id),
+  intensity: decimal("intensity", { precision: 5, scale: 2 }).default("0.70"),
+  adjustments: jsonb("adjustments").$type<{
+    exposure?: number; // -5 to +5 stops
+    contrast?: number; // -100 to +100
+    highlights?: number; // -100 to +100
+    shadows?: number; // -100 to +100
+    whites?: number; // -100 to +100
+    blacks?: number; // -100 to +100
+    clarity?: number; // -100 to +100
+    texture?: number; // -100 to +100
+    dehaze?: number; // -100 to +100
+    saturation?: number; // -100 to +100
+    vibrance?: number; // -100 to +100
+    temperature?: number; // -100 to +100 (warm to cool)
+    tint?: number; // -100 to +100 (green to magenta)
+  }>(),
+  isCurrent: boolean("is_current").default(false).notNull(),
+  processedImageId: uuid("processed_image_id").references(() => images.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: uuid("created_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+}, (table) => ({
+  imageIdIdx: index("idx_image_edits_image_id").on(table.imageId),
+  isCurrentIdx: index("idx_image_edits_is_current").on(table.isCurrent),
+  createdByIdx: index("idx_image_edits_created_by").on(table.createdBy),
+}));
+
+// Edit history/undo stack
+export const editHistory = pgTable("edit_history", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  imageId: uuid("image_id")
+    .notNull()
+    .references(() => images.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // 'apply_style', 'adjust', 'reset', 'undo', 'redo'
+  previousEditId: uuid("previous_edit_id").references(() => imageEdits.id),
+  newEditId: uuid("new_edit_id").references(() => imageEdits.id),
+  undone: boolean("undone").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  imageIdIdx: index("idx_edit_history_image_id").on(table.imageId),
+  undoneIdx: index("idx_edit_history_undone").on(table.undone),
+}));
+
 // Export all tables
 export const schema = {
   users,
@@ -348,4 +423,6 @@ export const schema = {
   tags,
   projectTags,
   userPreferences,
+  imageEdits,
+  editHistory,
 };

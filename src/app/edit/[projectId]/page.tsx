@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -29,17 +29,28 @@ import {
   ZoomIn,
   ZoomOut,
   X,
+  SlidersHorizontal,
+  BarChart3,
+  History,
 } from "lucide-react";
 
 import { useZoomPan } from "@/hooks/use-zoom-pan";
 import { usePresetFavorites, useRecentPresets } from "@/hooks/use-preset-favorites";
 import { useImagePreview } from "@/hooks/use-image-preview";
+import { useEdits } from "@/hooks/use-edits";
 import { type Preset } from "@/components/ui/preset-gallery";
 import { CompareSlider } from "@/components/ui/compare-slider";
 import { ExportMenu, type ExportOptions } from "@/components/ui/export-menu";
 import { Header } from "@/components/ui/header";
 import { BlurHashImage } from "@/components/ui/blur-hash-image";
 import { BatchProcessingDialog } from "@/components/ui/batch-processing";
+import {
+  AdjustmentPanel,
+  DEFAULT_ADJUSTMENTS,
+  type AdjustmentsState,
+} from "@/components/ui/adjustment-panel";
+import { Histogram, HistogramSelector, useImageHistogram } from "@/components/ui/histogram";
+import { HistoryPanel, type HistoryEntry } from "@/components/ui/history-panel";
 import {
   IndustrialCard,
   AmberButton,
@@ -51,6 +62,7 @@ import {
   MetricDisplay,
 } from "@/components/ui/industrial-ui";
 import { cn } from "@/lib/utils";
+import { type ImageAdjustments } from "@/lib/edit-manager";
 
 // Categories with icons
 const CATEGORIES = [
@@ -164,6 +176,171 @@ export default function EditPage() {
       setImageAspectRatio(Math.max(0.3, Math.min(3.33, ratio)));
     }
   }, [project]);
+
+  // ========== PHASE 3: NON-DESTRUCTIVE EDITING ==========
+  
+  // Right sidebar tab state
+  const [activeSidebarTab, setActiveSidebarTab] = useState<"presets" | "adjustments" | "histogram" | "history">("presets");
+  
+  // Adjustments state
+  const [adjustments, setAdjustments] = useState<AdjustmentsState>(DEFAULT_ADJUSTMENTS);
+  const [hasAdjustments, setHasAdjustments] = useState(false);
+  
+  // Histogram state
+  const [histogramChannel, setHistogramChannel] = useState<"rgb" | "red" | "green" | "blue" | "luminance">("rgb");
+  
+  // Get original image ID for edits
+  const originalImageId = project?.images?.find((img: any) => img.type === "original")?.id;
+  
+  // Edit management hook
+  const {
+    edits,
+    currentEdit,
+    history: editHistory,
+    isLoading: editsLoading,
+    createEdit,
+    applyStyle: applyStyleEdit,
+    undo: undoEdit,
+    redo: redoEdit,
+    reset: resetEdit,
+    jumpToVersion,
+    canUndo: canUndoEdit,
+    canRedo: canRedoEdit,
+    isCreating,
+    isApplyingStyle,
+  } = useEdits({
+    imageId: originalImageId || "",
+    enabled: !!originalImageId,
+  });
+  
+  // Convert adjustments to API format
+  const getAdjustmentsForApi = useCallback((): ImageAdjustments => {
+    return {
+      exposure: adjustments.exposure.value,
+      contrast: adjustments.contrast.value,
+      highlights: adjustments.highlights.value,
+      shadows: adjustments.shadows.value,
+      whites: adjustments.whites.value,
+      blacks: adjustments.blacks.value,
+      clarity: adjustments.clarity.value,
+      texture: adjustments.texture.value,
+      dehaze: adjustments.dehaze.value,
+      saturation: adjustments.saturation.value,
+      vibrance: adjustments.vibrance.value,
+      temperature: adjustments.temperature.value,
+      tint: adjustments.tint.value,
+    };
+  }, [adjustments]);
+  
+  // Check if adjustments have been modified
+  useEffect(() => {
+    const hasChanges = Object.values(adjustments).some(
+      (adj) => adj.value !== adj.defaultValue
+    );
+    setHasAdjustments(hasChanges);
+  }, [adjustments]);
+  
+  // Get image URL for histogram
+  const histogramImageUrl = useMemo(() => {
+    if (!project?.images) return null;
+    const originalImgObj = project.images.find((img: any) => img.type === "original");
+    const thumbnailImgObj = project.images.find((img: any) => img.type === "thumbnail");
+    return originalImgObj?.url || thumbnailImgObj?.url;
+  }, [project]);
+  
+  // Load histogram data
+  const { histogram: histogramData, isComputing: isComputingHistogram, error: histogramError } = useImageHistogram(
+    activeSidebarTab === "histogram" ? histogramImageUrl : null
+  );
+  
+  // Handle adjustment changes
+  const handleAdjustmentsChange = useCallback((newAdjustments: AdjustmentsState) => {
+    setAdjustments(newAdjustments);
+    
+    // Map all adjustments to preview filters
+    const a = newAdjustments;
+    updateMultipleFilters({
+      // Exposure affects brightness (10% per EV stop)
+      brightness: 100 + (a.exposure.value * 10),
+      // Contrast directly maps
+      contrast: 100 + a.contrast.value,
+      // Highlights/shadows affect clarity/exposure balance
+      exposure: a.highlights.value * 0.5 - a.shadows.value * 0.3,
+      // Saturation directly maps
+      saturation: 100 + a.saturation.value,
+      // Vibrance affects saturation more subtly
+      // Temperature affects warmth/sepia
+      warmth: a.temperature.value * 0.5,
+      // Tint affects hue rotate slightly
+      hueRotate: a.tint.value * 0.3,
+      // Clarity affects... clarity (could be simulated with contrast + sharpening)
+      clarity: a.clarity.value,
+      // Texture and dehaze could affect blur inversely
+      blur: Math.max(0, -(a.texture.value + a.dehaze.value) * 0.05),
+    });
+  }, [updateMultipleFilters]);
+  
+  // Apply adjustments to create edit
+  const handleApplyAdjustments = useCallback(() => {
+    if (!hasAdjustments) {
+      toast.error("No adjustments to apply");
+      return;
+    }
+    
+    const apiAdjustments = getAdjustmentsForApi();
+    createEdit(apiAdjustments);
+  }, [hasAdjustments, getAdjustmentsForApi, createEdit]);
+  
+  // Handle preset selection with edit system
+  const handlePresetSelectWithEdit = useCallback((preset: Preset) => {
+    setSelectedPreset(preset);
+    addRecentPreset(preset.id);
+    
+    // Apply style via edit system
+    if (originalImageId) {
+      applyStyleEdit(preset.id, intensity / 100);
+    }
+    
+    localStorage.setItem(STORAGE_KEYS.LAST_USED_PRESET, preset.id);
+  }, [originalImageId, intensity, addRecentPreset, applyStyleEdit]);
+  
+  // Convert edit history to HistoryEntry format
+  const formattedHistory: HistoryEntry[] = editHistory.map((entry: any) => ({
+    id: entry.id,
+    imageId: entry.imageId,
+    action: entry.action,
+    version: entry.version,
+    timestamp: new Date(entry.createdAt),
+    isCurrent: entry.newEditId === currentEdit?.id,
+  }));
+  
+  // Handle history actions
+  const handleUndo = useCallback(() => {
+    if (canUndoEdit) {
+      undoEdit();
+    } else {
+      undo(); // Fallback to filter undo
+    }
+  }, [canUndoEdit, undoEdit, undo]);
+  
+  const handleRedo = useCallback(() => {
+    if (canRedoEdit) {
+      redoEdit();
+    }
+  }, [canRedoEdit, redoEdit]);
+  
+  const handleReset = useCallback(() => {
+    resetEdit();
+    resetFilters();
+    setAdjustments(DEFAULT_ADJUSTMENTS);
+    setSelectedPreset(null);
+    setIntensity(70);
+  }, [resetEdit, resetFilters]);
+  
+  const handleClearHistory = useCallback(() => {
+    // In a real implementation, this would call an API to clear history
+    toast.success("History cleared");
+  }, []);
 
   // Handle preset selection
   const handlePresetSelect = (preset: Preset) => {
@@ -671,17 +848,17 @@ export default function EditPage() {
               )}
             </IndustrialCard>
 
-            {/* Creative Suite */}
+            {/* Creative Suite with Tabs */}
             <IndustrialCard className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="p-3 border-b border-[hsl(var(--border))] shrink-0">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-[hsl(var(--gold))]" />
                     <span className="font-display font-semibold text-sm">Creative Suite</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Pending Changes Indicator */}
-                    {selectedPreset && processingStatus !== "completed" && (
+                    {(selectedPreset || hasAdjustments) && processingStatus !== "completed" && (
                       <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
                         <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
                         <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wider">Pending</span>
@@ -702,23 +879,50 @@ export default function EditPage() {
                     </button>
                   </div>
                 </div>
+                
+                {/* Tab Navigation */}
+                <div className="flex gap-1 bg-[hsl(var(--secondary))]/50 p-1 rounded-lg">
+                  {[
+                    { id: "presets", label: "Presets", icon: Zap },
+                    { id: "adjustments", label: "Adjust", icon: SlidersHorizontal },
+                    { id: "histogram", label: "Histogram", icon: BarChart3 },
+                    { id: "history", label: "History", icon: History },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveSidebarTab(tab.id as any)}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-md transition-all",
+                        activeSidebarTab === tab.id
+                          ? "bg-[hsl(var(--card))] text-[hsl(var(--foreground))] shadow-sm"
+                          : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                      )}
+                    >
+                      <tab.icon className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="p-3 space-y-4 overflow-y-auto flex-1">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                  <input
-                    type="text"
-                    placeholder="Search presets..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--gold))] focus:outline-none transition-colors"
-                  />
-                </div>
+                {/* ========== PRESETS TAB ========== */}
+                {activeSidebarTab === "presets" && (
+                  <>
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]" />
+                      <input
+                        type="text"
+                        placeholder="Search presets..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-sm text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--gold))] focus:outline-none transition-colors"
+                      />
+                    </div>
 
-                {/* Categories */}
-                <ControlGroup label="Categories">
+                    {/* Categories */}
+                    <ControlGroup label="Categories">
                   <div className="flex flex-wrap gap-1">
                     {CATEGORIES.map((category) => (
                       <button
@@ -831,57 +1035,141 @@ export default function EditPage() {
                     })}
                   </div>
                 </ControlGroup>
+                  </>
+                )}
+                
+                {/* ========== ADJUSTMENTS TAB ========== */}
+                {activeSidebarTab === "adjustments" && (
+                  <AdjustmentPanel
+                    adjustments={adjustments}
+                    onAdjustmentsChange={handleAdjustmentsChange}
+                    onApply={handleApplyAdjustments}
+                    disabled={!originalImageId || isCreating}
+                  />
+                )}
+                
+                {/* ========== HISTOGRAM TAB ========== */}
+                {activeSidebarTab === "histogram" && (
+                  <div className="space-y-4">
+                    <HistogramSelector
+                      selectedChannel={histogramChannel === "rgb" ? null : histogramChannel}
+                      onChannelChange={(ch) => setHistogramChannel(ch || "rgb")}
+                    />
+                    {isComputingHistogram ? (
+                      <div className="flex items-center justify-center h-24">
+                        <Loader2 className="w-6 h-6 animate-spin text-[hsl(var(--gold))]" />
+                      </div>
+                    ) : histogramData ? (
+                      <>
+                        <Histogram
+                          data={histogramData}
+                          height={120}
+                          showChannels={{
+                            red: histogramChannel === "rgb" || histogramChannel === "red",
+                            green: histogramChannel === "rgb" || histogramChannel === "green",
+                            blue: histogramChannel === "rgb" || histogramChannel === "blue",
+                            luminance: histogramChannel === "luminance",
+                          }}
+                        />
+                        {histogramError && (
+                          <p className="text-[10px] text-amber-500/80 text-center">
+                            {histogramError}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] text-center py-8">
+                        No image data available
+                      </p>
+                    )}
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] text-center">
+                      Histogram updates in real-time as you adjust
+                    </p>
+                  </div>
+                )}
+                
+                {/* ========== HISTORY TAB ========== */}
+                {activeSidebarTab === "history" && (
+                  <HistoryPanel
+                    entries={formattedHistory}
+                    currentVersion={currentEdit?.version}
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
+                    onReset={handleReset}
+                    onJumpToVersion={jumpToVersion}
+                    onClearHistory={handleClearHistory}
+                    canUndo={canUndoEdit || canUndo}
+                    canRedo={canRedoEdit}
+                    disabled={isCreating || isApplyingStyle}
+                  />
+                )}
               </div>
 
               {/* Action Footer */}
               <div className="p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--secondary))]/30 shrink-0 space-y-2">
-                <AmberButton
-                  onClick={handleStartProcessing}
-                  disabled={isProcessing || !selectedPreset}
-                  className={cn(
-                    "w-full transition-all duration-300",
-                    processingStatus === "completed" && "bg-emerald-500 hover:bg-emerald-600"
-                  )}
-                  size="md"
-                  icon={
-                    processingStatus === "processing" ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : processingStatus === "completed" ? (
-                      <Check className="w-4 h-4" />
-                    ) : processingStatus === "error" ? (
-                      <RotateCcw className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )
-                  }
-                >
-                  {processingStatus === "processing"
-                    ? "Applying..."
-                    : processingStatus === "completed"
-                    ? "Applied!"
-                    : processingStatus === "error"
-                    ? "Try Again"
-                    : "Apply Style"}
-                </AmberButton>
-
-                <BatchProcessingDialog
-                  selectedPresetName={selectedPreset?.name || "No preset"}
-                  intensity={intensity}
-                  onBatchProcess={async () => {
-                    await new Promise((resolve) => setTimeout(resolve, 2000));
-                  }}
-                  trigger={
+                {activeSidebarTab === "presets" && (
+                  <>
                     <AmberButton
-                      variant="secondary"
-                      disabled={!selectedPreset}
-                      className="w-full"
-                      size="sm"
-                      icon={<Layers className="w-4 h-4" />}
+                      onClick={handleStartProcessing}
+                      disabled={isProcessing || !selectedPreset}
+                      className={cn(
+                        "w-full transition-all duration-300",
+                        processingStatus === "completed" && "bg-emerald-500 hover:bg-emerald-600"
+                      )}
+                      size="md"
+                      icon={
+                        processingStatus === "processing" ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : processingStatus === "completed" ? (
+                          <Check className="w-4 h-4" />
+                        ) : processingStatus === "error" ? (
+                          <RotateCcw className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )
+                      }
                     >
-                      Batch Process
+                      {processingStatus === "processing"
+                        ? "Applying..."
+                        : processingStatus === "completed"
+                        ? "Applied!"
+                        : processingStatus === "error"
+                        ? "Try Again"
+                        : "Apply Style"}
                     </AmberButton>
-                  }
-                />
+
+                    <BatchProcessingDialog
+                      selectedPresetName={selectedPreset?.name || "No preset"}
+                      intensity={intensity}
+                      onBatchProcess={async () => {
+                        await new Promise((resolve) => setTimeout(resolve, 2000));
+                      }}
+                      trigger={
+                        <AmberButton
+                          variant="secondary"
+                          disabled={!selectedPreset}
+                          className="w-full"
+                          size="sm"
+                          icon={<Layers className="w-4 h-4" />}
+                        >
+                          Batch Process
+                        </AmberButton>
+                      }
+                    />
+                  </>
+                )}
+                
+                {activeSidebarTab === "adjustments" && (
+                  <AmberButton
+                    onClick={handleApplyAdjustments}
+                    disabled={!hasAdjustments || isCreating}
+                    className="w-full"
+                    size="md"
+                    icon={isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  >
+                    {isCreating ? "Applying..." : "Apply Adjustments"}
+                  </AmberButton>
+                )}
               </div>
             </IndustrialCard>
           </div>
@@ -917,8 +1205,13 @@ export default function EditPage() {
                     { keys: "Space", action: "Hold to compare" },
                     { keys: "Enter", action: "Apply style" },
                     { keys: "Ctrl+Z", action: "Undo" },
+                    { keys: "Ctrl+Y", action: "Redo" },
+                    { keys: "Tab", action: "Next tab" },
+                    { keys: "Shift+Tab", action: "Previous tab" },
                     { keys: "Esc", action: "Reset all" },
                     { keys: "?", action: "Show help" },
+                    { keys: "H", action: "Toggle histogram" },
+                    { keys: "A", action: "Toggle adjustments" },
                   ].map((shortcut) => (
                     <div key={shortcut.action} className="flex items-center justify-between p-2 bg-[hsl(var(--secondary))] rounded-sm">
                       <kbd className="font-mono text-xs bg-[hsl(var(--card))] px-2 py-0.5 rounded border border-[hsl(var(--border))]">

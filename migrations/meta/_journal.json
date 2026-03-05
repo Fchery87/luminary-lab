@@ -50,6 +50,13 @@
       "when": 1772499385673,
       "tag": "0006_silent_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772688822605,
+      "tag": "0007_spotty_speed_demon",
+      "breakpoints": true
     }
   ]
 }

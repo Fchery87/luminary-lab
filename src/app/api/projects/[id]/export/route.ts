@@ -4,7 +4,16 @@ import { projects, images } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
-import { exportProcessedImage, type ExportMode } from "@/lib/hybrid-export";
+import {
+  exportProcessedImage,
+  type ExportMode,
+  type ExportOptions,
+  type ExportFormat,
+  type ColorSpace,
+  type ResizeOptions,
+  type WatermarkOptions,
+  applyExportPreset,
+} from "@/lib/hybrid-export";
 import { uploadFile, generateDownloadUrl } from "@/lib/s3";
 
 export async function POST(
@@ -29,7 +38,15 @@ export async function POST(
       quality = 92,
       presetId,
       intensity = 70,
-      mode = "full-quality" 
+      mode = "full-quality",
+      // Advanced export options
+      preset,
+      watermark,
+      resize,
+      colorSpace,
+      preserveMetadata,
+      sharpen,
+      filenameTemplate
     } = body;
 
     const db = getDb();
@@ -45,57 +62,61 @@ export async function POST(
       return new NextResponse("Project not found", { status: 404 });
     }
 
-    // If presetId provided, use hybrid export with style processing
-    if (presetId) {
-      const exportMode = mode as ExportMode;
-      
-      const result = await exportProcessedImage(id, {
-        mode: exportMode,
-        styleId: presetId,
+    // Build export options
+    let exportOptions: ExportOptions;
+    
+    // If export preset specified, use preset with overrides
+    if (preset) {
+      exportOptions = applyExportPreset(preset, {
+        mode: mode as ExportMode,
+        styleId: presetId || undefined,
         intensity: intensity / 100,
-        format: format as "jpeg" | "png" | "webp",
+        format: format as ExportFormat,
         quality,
+        colorSpace: colorSpace as ColorSpace,
+        resize: resize as ResizeOptions,
+        watermark: watermark as WatermarkOptions,
+        preserveMetadata: preserveMetadata as boolean,
+        sharpen: sharpen as { amount: number; radius: number; threshold: number },
       });
-
-      // Upload the exported file
-      const exportKey = `users/${session.user.id}/projects/${id}/exports/${Date.now()}-${result.filename}`;
-      await uploadFile(exportKey, result.buffer, result.contentType);
-
-      // Generate signed download URL
-      const downloadUrl = await generateDownloadUrl(exportKey, 3600);
-
-      return NextResponse.json({
-        success: true,
-        downloadUrl,
-        filename: result.filename,
-        mode: result.mode,
-        contentType: result.contentType,
-        message: exportMode === "preview" 
-          ? "Quick preview export ready" 
-          : "Full quality export ready",
-      });
+    } else {
+      // Use individual options
+      exportOptions = {
+        mode: mode as ExportMode,
+        styleId: presetId || undefined,
+        intensity: intensity / 100,
+        format: format as ExportFormat,
+        quality,
+        colorSpace: colorSpace as ColorSpace,
+        resize: resize as ResizeOptions,
+        watermark: watermark as WatermarkOptions,
+        preserveMetadata: preserveMetadata as boolean,
+        sharpen: sharpen as { amount: number; radius: number; threshold: number },
+      };
     }
 
-    // Legacy: If no presetId, return existing processed image
-    const [processedImage] = await db
-      .select()
-      .from(images)
-      .where(and(eq(images.projectId, id), eq(images.type, "processed")))
-      .limit(1);
+    // Perform export
+    const result = await exportProcessedImage(id, exportOptions);
 
-    if (!processedImage) {
-      return NextResponse.json(
-        { error: "No processed image found. Please process the image first." },
-        { status: 404 }
-      );
-    }
+    // Upload the exported file
+    const exportKey = `users/${session.user.id}/projects/${id}/exports/${Date.now()}-${result.filename}`;
+    await uploadFile(exportKey, result.buffer, result.contentType);
 
-    const downloadUrl = await generateDownloadUrl(processedImage.storageKey, 3600);
+    // Generate signed download URL
+    const downloadUrl = await generateDownloadUrl(exportKey, 3600);
 
     return NextResponse.json({
       success: true,
       downloadUrl,
-      message: "Export ready",
+      filename: result.filename,
+      mode: result.mode,
+      contentType: result.contentType,
+      dimensions: result.dimensions,
+      fileSize: result.fileSize,
+      format: result.format,
+      message: result.mode === "preview" 
+        ? "Quick preview export ready" 
+        : "Full quality export ready",
     });
   } catch (error) {
     console.error("[PROJECT_EXPORT]", error);

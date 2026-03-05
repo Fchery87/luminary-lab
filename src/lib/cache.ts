@@ -2,13 +2,14 @@
  * Caching layer with Redis support and memory fallback
  */
 
+import IORedis from "ioredis";
 import { db, images } from "@/db";
 import { eq, and } from "drizzle-orm";
 import { generateDownloadUrl } from "./s3";
 
 export interface CacheOptions {
-  ttl?: number; // Time to live in seconds
-  tags?: string[]; // For cache invalidation groups
+  ttl?: number;
+  tags?: string[];
 }
 
 export interface CacheEntry<T> {
@@ -17,29 +18,73 @@ export interface CacheEntry<T> {
   tags: string[];
 }
 
-// In-memory cache for local development / fallback
 const memoryCache = new Map<string, CacheEntry<any>>();
+let redis: IORedis | null = null;
+let useRedis = false;
 
-/**
- * Get value from cache
- */
-export async function getCached<T>(key: string): Promise<T | null> {
-  const entry = memoryCache.get(key);
+if (process.env.REDIS_URL) {
+  try {
+    redis = new IORedis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: 3,
+      connectTimeout: 5000,
+    });
+    useRedis = true;
+    console.log("[Cache] Redis backend enabled");
+  } catch (error) {
+    console.warn("[Cache] Redis initialization failed, using memory only");
+  }
+}
 
-  if (!entry) {
+const REDIS_PREFIX = "luminary:cache:";
+
+async function getFromRedis<T>(key: string): Promise<T | null> {
+  if (!useRedis || !redis) return null;
+  try {
+    const result = await redis.get(`${REDIS_PREFIX}${key}`);
+    return result ? JSON.parse(result) : null;
+  } catch {
     return null;
   }
+}
 
-  if (entry.expiresAt < Date.now()) {
-    memoryCache.delete(key);
-    return null;
+async function setToRedis<T>(key: string, value: T, ttl: number): Promise<void> {
+  if (!useRedis || !redis) return;
+  try {
+    await redis.setex(`${REDIS_PREFIX}${key}`, ttl, JSON.stringify(value));
+  } catch (error) {
+    console.error("[Cache] Redis set error:", error);
   }
+}
 
-  return entry.value as T;
+async function deleteFromRedis(key: string): Promise<void> {
+  if (!useRedis || !redis) return;
+  try {
+    await redis.del(`${REDIS_PREFIX}${key}`);
+  } catch (error) {
+    console.error("[Cache] Redis delete error:", error);
+  }
 }
 
 /**
- * Set value in cache
+ * Get value from cache (multi-tier: memory -> redis)
+ */
+export async function getCached<T>(key: string): Promise<T | null> {
+  const memEntry = memoryCache.get(key);
+  if (memEntry && memEntry.expiresAt > Date.now()) {
+    return memEntry.value as T;
+  }
+
+  const redisValue = await getFromRedis<T>(key);
+  if (redisValue !== null) {
+    memoryCache.set(key, { value: redisValue, expiresAt: Date.now() + 3600000, tags: [] });
+    return redisValue;
+  }
+
+  return null;
+}
+
+/**
+ * Set value in cache (multi-tier: memory + redis)
  */
 export async function setCached<T>(
   key: string,
@@ -53,6 +98,8 @@ export async function setCached<T>(
     expiresAt: Date.now() + ttl * 1000,
     tags,
   });
+
+  await setToRedis(key, value, ttl);
 }
 
 /**
@@ -60,6 +107,7 @@ export async function setCached<T>(
  */
 export async function delCached(key: string): Promise<void> {
   memoryCache.delete(key);
+  await deleteFromRedis(key);
 }
 
 /**

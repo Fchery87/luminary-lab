@@ -235,17 +235,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const createdJobId = insertedJob.id;
 
-      // Create queue job
+      // Create queue job (BullMQ format: name, data, opts)
       await queue.add(
+        "process-image",
         {
           id: createdJobId,
           projectId,
           userId,
-          batchId,
           styleId: defaultStyleId,
           intensity: 1.0,
           originalImageKey: fileKey,
-        } as ImageProcessingJob,
+        },
         {
           jobId: `batch-${batchId}-${createdJobId}`,
           attempts: 3,

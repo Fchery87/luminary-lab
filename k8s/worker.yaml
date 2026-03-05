@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: luminary-lab-worker
+  namespace: luminary-lab
+  labels:
+    app: luminary-lab
+    component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: luminary-lab
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: luminary-lab
+        component: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - name: worker
+          image: luminary-lab/worker:latest
+          imagePullPolicy: Always
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: luminary-lab-secrets
+                  key: redis-url
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: luminary-lab-secrets
+                  key: database-url
+            - name: WORKER_CONCURRENCY
+              value: "4"
+            - name: AWS_REGION
+              value: "us-east-1"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      nodeSelector:
+        worker-type: processing
+      tolerations:
+        - key: "processing"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: luminary-lab-worker-hpa
+  namespace: luminary-lab
+  labels:
+    app: luminary-lab
+    component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: luminary-lab-worker
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: redis_queue_length
+          selector:
+            matchLabels:
+              queue: image-processing
+        target:
+          type: AverageValue
+          averageValue: "10"
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 85
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: luminary-lab-worker
+  namespace: luminary-lab
+  labels:
+    app: luminary-lab
+    component: worker
+spec:
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: metrics
+  selector:
+    app: luminary-lab
+    component: worker
