@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 export interface FilterSettings {
   brightness: number;
@@ -46,9 +46,9 @@ export function useImagePreview({
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // History tracking for undo functionality
-  const historyRef = useRef<FilterSettings[]>([{ ...DEFAULT_SETTINGS, ...initialSettings }]);
-  const historyIndexRef = useRef(0);
+  // History tracking for undo functionality - using state instead of refs to avoid accessing during render
+  const [history, setHistory] = useState<FilterSettings[]>([{ ...DEFAULT_SETTINGS, ...initialSettings }]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   const MAX_HISTORY = 20;
 
   const previewStyle = useMemo(() => {
@@ -107,18 +107,22 @@ export function useImagePreview({
   }, [filterSettings]);
 
   const addToHistory = useCallback((settings: FilterSettings) => {
-    // Remove any future history if we're not at the end
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
-    }
-    // Add new state
-    historyRef.current.push({ ...settings });
-    // Keep only last MAX_HISTORY states
-    if (historyRef.current.length > MAX_HISTORY) {
-      historyRef.current.shift();
-    } else {
-      historyIndexRef.current++;
-    }
+    setHistoryIndex((prevIndex) => {
+      setHistory((prevHistory) => {
+        // Remove any future history if we're not at the end
+        const trimmedHistory = prevIndex < prevHistory.length - 1
+          ? prevHistory.slice(0, prevIndex + 1)
+          : prevHistory;
+        // Add new state
+        const newHistory = [...trimmedHistory, { ...settings }];
+        // Keep only last MAX_HISTORY states
+        if (newHistory.length > MAX_HISTORY) {
+          return newHistory.slice(1);
+        }
+        return newHistory;
+      });
+      return Math.min(prevIndex + 1, MAX_HISTORY - 1);
+    });
   }, []);
 
   const updateFilter = useCallback((key: keyof FilterSettings, value: number) => {
@@ -146,17 +150,18 @@ export function useImagePreview({
   }, [onFilterChange, addToHistory]);
 
   const undo = useCallback(() => {
-    if (historyIndexRef.current > 0) {
-      historyIndexRef.current--;
-      const previousSettings = historyRef.current[historyIndexRef.current];
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      const previousSettings = history[newIndex];
       setFilterSettings(previousSettings);
       onFilterChange?.(previousSettings);
       return true;
     }
     return false;
-  }, [onFilterChange]);
+  }, [historyIndex, history, onFilterChange]);
 
-  const canUndo = historyIndexRef.current > 0;
+  const canUndo = historyIndex > 0;
 
   const applyPreset = useCallback((preset: FilterSettings) => {
     setFilterSettings(preset);

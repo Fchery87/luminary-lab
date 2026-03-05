@@ -251,14 +251,14 @@ export default function EditPage() {
     },
   });
 
-  const handleStartProcessing = () => {
+  const handleStartProcessing = useCallback(() => {
     if (!selectedPreset) {
       toast.error("Please select a preset");
       return;
     }
     setIsProcessing(true);
     startProcessingMutation.mutate();
-  };
+  }, [selectedPreset, startProcessingMutation]);
 
   // Handle reset
   const handleResetAll = useCallback(() => {
@@ -340,7 +340,7 @@ export default function EditPage() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [selectedPreset, isProcessing, intensity, undo, handleResetAll, handleIntensityChange]);
+  }, [selectedPreset, isProcessing, intensity, undo, handleResetAll, handleIntensityChange, handleStartProcessing]);
 
   // Filter presets
   const filteredPresets = presets.filter((preset: Preset) => {

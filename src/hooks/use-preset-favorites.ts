@@ -4,23 +4,28 @@ import { useState, useEffect, useCallback } from "react";
 
 const STORAGE_KEY = "luminary_preset_favorites";
 
+function getInitialFavorites(): string[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error("Failed to parse favorites:", e);
+      return [];
+    }
+  }
+  return [];
+}
+
 export function usePresetFavorites() {
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(getInitialFavorites);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load favorites from localStorage on mount
+  // Mark as loaded after hydration (deferred to avoid sync setState)
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setFavorites(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to parse favorites:", e);
-      }
-    }
-    setIsLoaded(true);
+    const timer = setTimeout(() => setIsLoaded(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const toggleFavorite = useCallback((presetId: string) => {
@@ -89,22 +94,28 @@ export function usePresetFavorites() {
 const RECENT_STORAGE_KEY = "luminary_recent_presets";
 const MAX_RECENT = 10;
 
+function getInitialRecentPresets(): string[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem(RECENT_STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error("Failed to parse recent presets:", e);
+      return [];
+    }
+  }
+  return [];
+}
+
 export function useRecentPresets() {
-  const [recentPresets, setRecentPresets] = useState<string[]>([]);
+  const [recentPresets, setRecentPresets] = useState<string[]>(getInitialRecentPresets);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Mark as loaded after hydration (deferred to avoid sync setState)
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    
-    const stored = localStorage.getItem(RECENT_STORAGE_KEY);
-    if (stored) {
-      try {
-        setRecentPresets(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to parse recent presets:", e);
-      }
-    }
-    setIsLoaded(true);
+    const timer = setTimeout(() => setIsLoaded(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const addRecentPreset = useCallback((presetId: string) => {

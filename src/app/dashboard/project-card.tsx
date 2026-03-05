@@ -48,6 +48,7 @@ export function ProjectCard({
 }: ProjectCardProps) {
   const [imageAspectRatio, setImageAspectRatio] = useState<number | string>("auto");
   const [showActions, setShowActions] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   const statusConfig = {
     completed: {
@@ -146,15 +147,50 @@ export function ProjectCard({
           </Link>
         </div>
 
-        {/* Status Badge */}
+        {/* Modern Status Indicator */}
         <div className="absolute top-3 right-3">
-          <div className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium border rounded-sm",
-            status.className
-          )}
+          <div
+            className={cn(
+              "group/status relative flex items-center gap-2 px-2 py-1 rounded-full backdrop-blur-md transition-all",
+              project.status === "completed" && "bg-emerald-500/10",
+              project.status === "processing" && "bg-amber-500/10",
+              project.status === "failed" && "bg-red-500/10",
+              (project.status === "pending" || project.status === "queued") && "bg-white/5"
+            )}
           >
-            <StatusIcon className={cn("w-3 h-3", project.status === "processing" && "animate-pulse")} />
-            <span className="uppercase tracking-wider">{status.label}</span>
+            {/* Status Dot with Glow */}
+            <span
+              className={cn(
+                "relative flex h-2 w-2 rounded-full",
+                project.status === "completed" && "bg-emerald-400",
+                project.status === "processing" && "bg-amber-400 animate-pulse",
+                project.status === "failed" && "bg-red-400",
+                (project.status === "pending" || project.status === "queued") && "bg-[hsl(var(--muted-foreground))]"
+              )}
+            >
+              {/* Glow Effect for Completed */}
+              {project.status === "completed" && (
+                <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-20" />
+              )}
+              {/* Pulse Ring for Processing */}
+              {project.status === "processing" && (
+                <span className="absolute -inset-1 rounded-full bg-amber-400/30 animate-pulse" />
+              )}
+            </span>
+
+            {/* Label - Hidden by default, shows on group hover */}
+            <span
+              className={cn(
+                "text-[9px] font-medium uppercase tracking-wider overflow-hidden transition-all duration-200",
+                "max-w-0 group-hover/status:max-w-16 group-hover/status:mr-0.5",
+                project.status === "completed" && "text-emerald-400",
+                project.status === "processing" && "text-amber-400",
+                project.status === "failed" && "text-red-400",
+                (project.status === "pending" || project.status === "queued") && "text-[hsl(var(--muted-foreground))]"
+              )}
+            >
+              {status.label}
+            </span>
           </div>
         </div>
       </div>
@@ -181,40 +217,42 @@ export function ProjectCard({
           </div>
 
           {/* Quick Actions Menu */}
-          <div className="relative">
+          <div className="relative" onMouseLeave={() => setShowMenu(false)}>
             <button
-              onClick={() => setShowActions(!showActions)}
+              onClick={() => setShowMenu(!showMenu)}
               className="p-1.5 rounded-sm hover:bg-[hsl(var(--secondary))] transition-colors"
             >
               <MoreHorizontal className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
             </button>
 
-            {showActions && (
+            {showMenu && (
               <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="absolute right-0 top-full mt-1 w-40 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-sm shadow-lg z-20"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="absolute right-0 bottom-full mb-1 w-40 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-sm shadow-lg z-50"
               >
                 <Link
                   href={`/edit/${project.id}`}
+                  onClick={() => setShowMenu(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-[hsl(var(--secondary))] transition-colors"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   Edit Project
                 </Link>
-                
+
                 <Link
                   href={`/compare/${project.id}`}
+                  onClick={() => setShowMenu(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-[hsl(var(--secondary))] transition-colors"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   View Results
                 </Link>
-                
+
                 <button
                   onClick={() => {
                     onDelete(project.id);
-                    setShowActions(false);
+                    setShowMenu(false);
                   }}
                   disabled={isDeleting}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"

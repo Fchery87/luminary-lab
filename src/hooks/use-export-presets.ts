@@ -73,28 +73,29 @@ export const DEFAULT_EXPORT_PRESETS: ExportPreset[] = [
   },
 ];
 
+function getInitialPresets(): ExportPreset[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error("Failed to parse export presets:", e);
+      return DEFAULT_EXPORT_PRESETS;
+    }
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_EXPORT_PRESETS));
+  return DEFAULT_EXPORT_PRESETS;
+}
+
 export function useExportPresets() {
-  const [presets, setPresets] = useState<ExportPreset[]>([]);
+  const [presets, setPresets] = useState<ExportPreset[]>(getInitialPresets);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load presets from localStorage on mount
+  // Mark as loaded after hydration (deferred to avoid sync setState)
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setPresets(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to parse export presets:", e);
-        setPresets(DEFAULT_EXPORT_PRESETS);
-      }
-    } else {
-      // Initialize with defaults
-      setPresets(DEFAULT_EXPORT_PRESETS);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_EXPORT_PRESETS));
-    }
-    setIsLoaded(true);
+    const timer = setTimeout(() => setIsLoaded(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const savePreset = useCallback((preset: ExportPreset) => {

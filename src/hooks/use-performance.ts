@@ -88,12 +88,19 @@ export function useInView(
 
 // Hook for image preload
 export function useImagePreload(src: string): boolean {
-  const [isLoaded, setIsLoaded] = useState(false);
+  // Initialize based on src presence
+  const [isLoaded, setIsLoaded] = useState(() => {
+    if (!src) return false;
+    // Check if image is already cached
+    const img = new Image();
+    img.src = src;
+    return img.complete && img.naturalWidth > 0;
+  });
 
   useEffect(() => {
     if (!src) {
-      setIsLoaded(false);
-      return;
+      const timer = setTimeout(() => setIsLoaded(false), 0);
+      return () => clearTimeout(timer);
     }
 
     const img = new Image();

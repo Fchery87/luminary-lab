@@ -57,9 +57,9 @@ export async function GET(req: Request) {
       // Search in project name
       const nameCondition = like(projects.name, `%${searchQuery}%`);
 
-      // Search in tags
-      const tagCondition = sql`${tags.id} IN (
-        SELECT pt.tag_id FROM ${projectTags} pt
+      // Search in tags - check if project has any matching tag
+      const tagCondition = sql`${projects.id} IN (
+        SELECT pt.project_id FROM ${projectTags} pt
         INNER JOIN ${tags} t ON t.id = pt.tag_id
         WHERE t.name ILIKE ${`%${searchQuery}%`}
       )`;

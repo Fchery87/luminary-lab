@@ -94,10 +94,16 @@ export default function ProcessingPage() {
         setProgress((prev) => Math.min(prev + 1, 99));
       }, 100);
       return () => clearTimeout(timer);
-    } else if (status === "completed" && progress !== 100) {
-      setProgress(100);
     }
   }, [progress, status]);
+
+  // Sync progress to 100 when status is completed (deferred to avoid sync setState)
+  useEffect(() => {
+    if (status === "completed" && progress !== 100) {
+      const timer = setTimeout(() => setProgress(100), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [status, progress]);
 
   if (isLoading) {
     return (

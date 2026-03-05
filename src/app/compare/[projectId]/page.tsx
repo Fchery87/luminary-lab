@@ -213,18 +213,26 @@ export default function ComparePage() {
     (img: any) => img.type === "processed",
   )?.url;
 
-  // Pre-initialize aspect ratio from DB-stored image dimensions
-  useEffect(() => {
-    if (!project?.images) return;
+  // Calculate aspect ratio from DB-stored image dimensions during render
+  const calculatedAspectRatio = (() => {
+    if (!project?.images) return null;
     const imgWithDims = (project.images as any[]).find(
       (img) => (img.type === 'original' || img.type === 'thumbnail') && img.width && img.height,
     );
     if (imgWithDims?.width && imgWithDims?.height) {
       const ratio = imgWithDims.width / imgWithDims.height;
-      const clamped = Math.max(0.3, Math.min(3.33, ratio));
-      setImageAspectRatio(clamped);
+      return Math.max(0.3, Math.min(3.33, ratio));
     }
-  }, [project]);
+    return null;
+  })();
+
+  // Sync calculated aspect ratio to state when project changes (deferred to avoid sync setState)
+  useEffect(() => {
+    if (calculatedAspectRatio !== null) {
+      const timer = setTimeout(() => setImageAspectRatio(calculatedAspectRatio), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [calculatedAspectRatio]);
 
   // Mouse handlers for slider
   const handleMouseMove = (e: React.MouseEvent) => {
