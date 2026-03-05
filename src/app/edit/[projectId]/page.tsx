@@ -87,6 +87,7 @@ export default function EditPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [isComparePressed, setIsComparePressed] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<"idle" | "processing" | "completed" | "error">("idle");
 
   // View mode for split-screen layout
   const [viewMode, setViewMode] = useState<"standard" | "split">(() => {
@@ -224,29 +225,57 @@ export default function EditPage() {
     }
   }, [selectedPreset, updateMultipleFilters]);
 
-  // Start processing mutation
+  // Start processing mutation with timeout
   const startProcessingMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/process", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          presetId: selectedPreset?.id,
-          intensity: intensity / 100,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to start processing");
-      return res.json();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+      try {
+        const res = await fetch("/api/process", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            presetId: selectedPreset?.id,
+            intensity: intensity / 100,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || errorData.message || `Server error: ${res.status}`);
+        }
+        return res.json();
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new Error("Request timed out. Please try again.");
+        }
+        throw error;
+      }
     },
-    onSuccess: () => {
-      toast.success("Processing started!");
+    onMutate: () => {
+      setProcessingStatus("processing");
+      setIsProcessing(true);
+    },
+    onSuccess: (data) => {
+      setProcessingStatus("completed");
+      toast.success(data.message || "Style applied successfully!");
       queryClient.invalidateQueries({ queryKey: ["project", projectId] });
-      setIsProcessing(false);
+
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        setProcessingStatus("idle");
+        setIsProcessing(false);
+      }, 3000);
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      setProcessingStatus("error");
+      toast.error(error.message || "Failed to apply style");
       setIsProcessing(false);
     },
   });
@@ -256,7 +285,6 @@ export default function EditPage() {
       toast.error("Please select a preset");
       return;
     }
-    setIsProcessing(true);
     startProcessingMutation.mutate();
   }, [selectedPreset, startProcessingMutation]);
 
@@ -651,13 +679,28 @@ export default function EditPage() {
                     <Zap className="w-4 h-4 text-[hsl(var(--gold))]" />
                     <span className="font-display font-semibold text-sm">Creative Suite</span>
                   </div>
-                  <button
-                    onClick={() => setShowShortcutsHelp(true)}
-                    className="p-1.5 rounded-sm hover:bg-[hsl(var(--secondary))] transition-colors text-[hsl(var(--muted-foreground))]"
-                    title="Shortcuts"
-                  >
-                    <Keyboard className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Pending Changes Indicator */}
+                    {selectedPreset && processingStatus !== "completed" && (
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
+                        <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                        <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wider">Pending</span>
+                      </div>
+                    )}
+                    {processingStatus === "completed" && (
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span className="text-[10px] font-medium text-emerald-400 uppercase tracking-wider">Applied</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setShowShortcutsHelp(true)}
+                      className="p-1.5 rounded-sm hover:bg-[hsl(var(--secondary))] transition-colors text-[hsl(var(--muted-foreground))]"
+                      title="Shortcuts"
+                    >
+                      <Keyboard className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -795,11 +838,30 @@ export default function EditPage() {
                 <AmberButton
                   onClick={handleStartProcessing}
                   disabled={isProcessing || !selectedPreset}
-                  className="w-full"
+                  className={cn(
+                    "w-full transition-all duration-300",
+                    processingStatus === "completed" && "bg-emerald-500 hover:bg-emerald-600"
+                  )}
                   size="md"
-                  icon={isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                  icon={
+                    processingStatus === "processing" ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : processingStatus === "completed" ? (
+                      <Check className="w-4 h-4" />
+                    ) : processingStatus === "error" ? (
+                      <RotateCcw className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )
+                  }
                 >
-                  {isProcessing ? "Processing..." : "Apply Style"}
+                  {processingStatus === "processing"
+                    ? "Applying..."
+                    : processingStatus === "completed"
+                    ? "Applied!"
+                    : processingStatus === "error"
+                    ? "Try Again"
+                    : "Apply Style"}
                 </AmberButton>
 
                 <BatchProcessingDialog
