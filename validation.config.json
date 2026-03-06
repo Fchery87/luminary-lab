@@ -1,0 +1,53 @@
+{
+  "$schema": "./schemas/validation_config.schema.json",
+  "profiles": {
+    "quick": {
+      "commands": [
+        { "type": "type", "command": "bunx tsc --noEmit" },
+        { "type": "lint", "command": "bun lint --cache" },
+        { "type": "test", "command": "bun test --run --reporter=dot" }
+      ]
+    },
+    "full": {
+      "commands": [
+        { "type": "type", "command": "bunx tsc --noEmit" },
+        { "type": "lint", "command": "bun lint" },
+        { "type": "test", "command": "bun test" },
+        { "type": "build", "command": "bun run build" }
+      ]
+    },
+    "perfectionist": {
+      "commands": [
+        { "type": "type", "command": "bunx tsc --noEmit" },
+        { "type": "lint", "command": "bun lint" },
+        { "type": "test", "command": "bun test" },
+        { "type": "coverage", "command": "bun test --coverage" },
+        { "type": "build", "command": "bun run build" },
+        { "type": "security", "command": "bun audit" }
+      ]
+    }
+  },
+  "perfectionistProfile": "perfectionist",
+  "coverage": {
+    "thresholds": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    }
+  },
+  "exclude": [
+    "node_modules/**",
+    ".next/**",
+    "dist/**",
+    "coverage/**"
+  ],
+  "ci": {
+    "enabled": true,
+    "failOn": ["critical", "high"],
+    "outputPath": "./validation-report.json",
+    "githubActions": true
+  }
+}
