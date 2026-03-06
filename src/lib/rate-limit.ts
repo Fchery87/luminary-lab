@@ -117,7 +117,7 @@ function getMemoryBytesRateLimit(
 /**
  * Check if Redis is available for rate limiting
  */
-function useRedis(): boolean {
+function shouldUseRedis(): boolean {
   return !!process.env.REDIS_URL && process.env.NODE_ENV === "production";
 }
 
@@ -127,7 +127,7 @@ function useRedis(): boolean {
 export async function checkUploadRateLimit(
   userId: string,
 ): Promise<RateLimitResponse> {
-  if (useRedis()) {
+  if (shouldUseRedis()) {
     try {
       return await checkUploadRateLimitRedis(userId);
     } catch (error) {
@@ -144,7 +144,7 @@ export async function checkUploadBytesRateLimit(
   userId: string,
   bytes: number,
 ): Promise<RateLimitResponse> {
-  if (useRedis()) {
+  if (shouldUseRedis()) {
     try {
       return await checkUploadBytesRateLimitRedis(userId, bytes);
     } catch (error) {
@@ -167,7 +167,7 @@ export async function checkUploadBytesRateLimit(
 export async function checkApiRateLimit(
   userId: string,
 ): Promise<RateLimitResponse> {
-  if (useRedis()) {
+  if (shouldUseRedis()) {
     try {
       return await checkApiRateLimitRedis(userId);
     } catch (error) {
@@ -183,7 +183,7 @@ export async function checkApiRateLimit(
 export async function checkAuthRateLimit(
   ipAddress: string,
 ): Promise<RateLimitResponse> {
-  if (useRedis()) {
+  if (shouldUseRedis()) {
     try {
       return await checkAuthRateLimitRedis(ipAddress);
     } catch (error) {
@@ -201,7 +201,7 @@ export async function checkRateLimit(
   limit: number,
   windowSeconds: number,
 ): Promise<RateLimitResponse> {
-  if (useRedis()) {
+  if (shouldUseRedis()) {
     try {
       return await checkRedisRateLimit(identifier, limit, windowSeconds);
     } catch (error) {
