@@ -22,12 +22,20 @@ const memoryCache = new Map<string, CacheEntry<any>>();
 let redis: IORedis | null = null;
 let useRedis = false;
 
-if (process.env.REDIS_URL) {
+// Only initialize Redis if not in test environment
+if (process.env.REDIS_URL && process.env.NODE_ENV !== "test") {
   try {
     redis = new IORedis(process.env.REDIS_URL, {
       maxRetriesPerRequest: 3,
       connectTimeout: 5000,
     });
+    
+    // Add error handler to prevent unhandled errors
+    redis.on("error", (err) => {
+      console.warn("[Cache] Redis error:", err.message);
+      useRedis = false;
+    });
+    
     useRedis = true;
     console.log("[Cache] Redis backend enabled");
   } catch (error) {
